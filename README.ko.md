@@ -52,7 +52,7 @@ MCP 서버, Computer Use 훅, 보조 스킬이 함께 제공됩니다. MCP 서�
 
 ### 3. 훅 검토와 재시작
 
-Codex가 훅 검토를 요청하면 Codex CLI의 `/hooks`에서 CCUH 훅을 검토하고 신뢰 승인합니다.
+Codex가 훅 검토를 요청하면 사용 중인 클라이언트에서 CCUH 훅을 검토하고 신뢰 승인합니다. Codex CLI에서는 `/hooks`를 사용합니다.
 
 사용 중인 Codex App 또는 Codex CLI 세션을 재시작합니다. 이후 Computer Use 작업에서 CCUH를 함께 사용합니다.
 
@@ -69,7 +69,7 @@ npx --yes github:Package-KR/CCUH setup
 
 이 명령은 기본 경로인 `~/.codex/ccuh/runtime`에 로컬 실행 환경을 설치하고 MCP 서버와 Computer Use 훅을 등록합니다. 기존 설정은 유지하며 변경 전에 백업합니다.
 
-Codex CLI의 `/hooks`에서 CCUH 훅을 검토한 뒤 사용 중인 Codex App 또는 Codex CLI 세션을 재시작합니다.
+Codex가 요청하면 CCUH 훅을 검토합니다. Codex CLI에서는 `/hooks`를 사용하며, 검토 후 사용 중인 Codex App 또는 Codex CLI 세션을 재시작합니다.
 
 </details>
 
@@ -85,6 +85,29 @@ Codex CLI의 `/hooks`에서 CCUH 훅을 검토한 뒤 사용 중인 Codex App �
 | `ccuh_recent_calls` | 최근 호출의 전후 기록과 연결 결과 조회 |
 
 MCP 연결과 자동 기록은 별도로 동작합니다. `paired`는 전후 기록이 연결된 상태이며, `pre_only`와 `post_only`는 한쪽 기록만 존재하는 상태를 의미합니다.
+
+## Updates
+
+`main`에 변경 사항이 반영되면 GitHub Actions가 빌드를 검증하고, `github-actions[bot]`이 다음 패치 버전과 버전 커밋, 태그, GitHub Release를 발행합니다. 사용자가 개발 소스를 받거나 다시 빌드할 필요는 없습니다.
+
+마켓플레이스와 설치된 플러그인의 갱신은 Codex가 담당합니다. CCUH는 별도의 상주 업데이트 프로그램을 추가하거나 설치 캐시를 직접 수정하지 않습니다. 새 버전이 보이지 않을 때는 마켓플레이스를 갱신합니다.
+
+```bash
+codex plugin marketplace upgrade ccuh
+```
+
+훅이 변경되면 Codex가 신뢰 검토를 요청할 수 있습니다. 갱신 후에도 이전 버전을 사용하는 경우 새 대화를 시작하거나 앱을 재시작합니다.
+
+<details>
+<summary>배포 관리</summary>
+
+**Release** 워크플로는 패키지, 잠금 파일, 플러그인 매니페스트와 런타임의 버전을 함께 관리합니다. 빌드 검증 후 저장소의 `GITHUB_TOKEN`으로 배포하므로 GitHub Actions가 `main`과 릴리스 태그에 쓸 수 있어야 합니다.
+
+마이너 또는 메이저 버전은 **Actions → Release → Run workflow**에서 `bump`를 선택합니다. 버전 커밋과 태그 생성 후 GitHub Release 발행만 실패했다면 실패한 publish 작업을 다시 실행하거나, `repair_tag`에 기존 태그를 입력합니다. 이때는 버전을 추가로 올리지 않습니다.
+
+동시에 들어온 푸시는 최신 `main`을 기준으로 처리하며 한 릴리스에 묶일 수 있습니다. 브랜치에 다른 변경이 들어와 충돌하면 강제 푸시 없이 배포를 중단합니다.
+
+</details>
 
 ## Data
 

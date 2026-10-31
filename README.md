@@ -52,7 +52,7 @@ The plugin provides the MCP server, Computer Use hooks, and companion skill toge
 
 ### 3. Review and restart
 
-If Codex prompts for hook review, open `/hooks` in Codex CLI and review and trust the CCUH hooks.
+If Codex prompts for hook review, review and trust the CCUH hooks in your client. In Codex CLI, open `/hooks`.
 
 Restart Codex App or start a new Codex CLI session, depending on which client you use. Then use CCUH during your Computer Use task.
 
@@ -69,7 +69,7 @@ npx --yes github:Package-KR/CCUH setup
 
 This installs a persistent local runtime in `~/.codex/ccuh/runtime`, registers the MCP server and Computer Use hooks, and backs up configuration before changing it. Existing MCP servers and hooks are preserved.
 
-Review the CCUH hooks with `/hooks` in Codex CLI, then restart the Codex client or session you use.
+Review the CCUH hooks when Codex prompts you. In Codex CLI, open `/hooks`. Then restart the Codex client or session you use.
 
 </details>
 
@@ -85,6 +85,29 @@ Ask Codex:
 | `ccuh_recent_calls` | Inspect recent calls, paired events, and missing or conflicting records |
 
 An MCP response confirms connectivity. Real hook records show whether automatic observation is running.
+
+## Updates
+
+After changes reach `main`, GitHub Actions validates the build and `github-actions[bot]` publishes the next patch version, version commit, tag, and GitHub Release. Users do not need a development checkout or a rebuild.
+
+Codex handles marketplace refresh and installed plugin updates. CCUH does not add a background updater or modify its installed cache. If an update has not appeared, refresh the marketplace:
+
+```bash
+codex plugin marketplace upgrade ccuh
+```
+
+Codex may request review of changed hooks. If your client still uses the previous version after refreshing, start a new chat or restart the app.
+
+<details>
+<summary>Release maintenance</summary>
+
+The **Release** workflow keeps the package, lock file, plugin manifest, and runtime version in sync. It builds before publishing and uses the repository's `GITHUB_TOKEN`; allow GitHub Actions to write to `main` and release tags.
+
+For a minor or major increment, run **Actions → Release → Run workflow** with the desired `bump`. If the version commit and tag succeeded but GitHub Release publication failed, rerun the failed publish job or set `repair_tag` to the existing tag. This publishes the same version without another increment.
+
+Concurrent pushes are processed from the latest `main` and can be included in one release. A conflicting branch update stops publication without a force push.
+
+</details>
 
 ## Data
 
