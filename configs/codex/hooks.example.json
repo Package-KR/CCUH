@@ -1,0 +1,30 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/absolute/path/to/node' '/absolute/path/to/CCUH/hooks/codex/pretooluse.mjs'",
+            "timeout": 3,
+            "statusMessage": "CCUH: observing tool metadata"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/absolute/path/to/node' '/absolute/path/to/CCUH/hooks/codex/posttooluse.mjs'",
+            "timeout": 3,
+            "statusMessage": "CCUH: observing tool metadata"
+          }
+        ]
+      }
+    ]
+  }
+}

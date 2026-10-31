@@ -1,0 +1,3 @@
+[mcp_servers.ccuh]
+command = "/absolute/path/to/node"
+args = ["/absolute/path/to/CCUH/src/server.ts"]

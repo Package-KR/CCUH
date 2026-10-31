@@ -1,0 +1,4 @@
+interface:
+  display_name: "CCUH"
+  short_description: "Diagnose macOS app and window acquisition in Codex"
+  default_prompt: "Use $ccuh to diagnose app and window acquisition for this macOS Computer Use task without changing global settings."
