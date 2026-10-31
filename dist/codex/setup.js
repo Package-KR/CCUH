@@ -5,6 +5,7 @@ import { access, lstat, mkdir, mkdtemp, open, readFile, rename, unlink, writeFil
 import { homedir } from "node:os";
 import { delimiter, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { OBSERVATION_HOOKS, createCommandHook, exactToolMatcher, isToolName, } from "./hooks.js";
 export class SetupError extends Error {
 }
 class SetupCommandError extends Error {
@@ -19,9 +20,6 @@ class SetupCommandError extends Error {
 function object(value) {
     return value !== null && typeof value === "object" && !Array.isArray(value);
 }
-function quote(value) {
-    return "'" + value.replace(/'/g, "'\\''") + "'";
-}
 function ownedHook(value) {
     if (!object(value))
         return false;
@@ -35,18 +33,15 @@ function ownedHook(value) {
 export function mergeSetupHooks(existing, paths) {
     if (!object(existing))
         throw new SetupError("hooks.json must contain a JSON object; no settings were changed.");
-    if (!/^[A-Za-z0-9_.:-]{1,200}$/.test(paths.toolName))
+    if (!isToolName(paths.toolName))
         throw new SetupError("Use an exact Computer Use tool name for --tool-name.");
     const result = structuredClone(existing);
     if (result.hooks !== undefined && !object(result.hooks))
         throw new SetupError("The hooks field must be an object; no settings were changed.");
     const hooks = object(result.hooks) ? result.hooks : {};
     result.hooks = hooks;
-    const matcher = "^" + paths.toolName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$";
-    for (const [phase, file] of [
-        ["PreToolUse", "pretooluse.js"],
-        ["PostToolUse", "posttooluse.js"],
-    ]) {
+    const matcher = exactToolMatcher(paths.toolName);
+    for (const [phase, stem] of Object.entries(OBSERVATION_HOOKS)) {
         const current = hooks[phase] ?? [];
         if (!Array.isArray(current))
             throw new SetupError(`${phase} must be an array; no settings were changed.`);
@@ -62,17 +57,12 @@ export function mergeSetupHooks(existing, paths) {
         }
         if (matches.length > 1)
             throw new SetupError("Multiple CCUH hook groups exist. Keep one CCUH group per event before running setup.");
-        const handler = {
-            type: "command",
-            command: "CCUH_STATE_DIR=" +
-                quote(paths.stateDir) +
-                " " +
-                quote(paths.nodePath) +
-                " " +
-                quote(join(paths.runtimePackage, "dist", "hooks", file)),
-            timeout: 3,
+        const handler = createCommandHook({
+            nodePath: paths.nodePath,
+            scriptPath: join(paths.runtimePackage, "dist", "hooks", stem + ".js"),
+            stateDir: paths.stateDir,
             statusMessage: "CCUH: observing Computer Use metadata",
-        };
+        });
         const index = matches[0];
         if (index === undefined)
             current.push({ matcher, hooks: [handler] });
@@ -210,7 +200,7 @@ function parseArgs(args) {
         else
             throw new SetupError("Use setup [--dry-run] [--codex-home PATH] [--tool-name NAME].");
     }
-    if (!/^[A-Za-z0-9_.:-]{1,200}$/.test(parsed.toolName))
+    if (!isToolName(parsed.toolName))
         throw new SetupError("Use an exact Computer Use tool name for --tool-name.");
     return parsed;
 }

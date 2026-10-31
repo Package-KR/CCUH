@@ -1,6 +1,6 @@
 try {
   const { configurePluginState } =
-    await import("../scripts/plugin-runtime.mjs");
+    await import("../scripts/plugin-state.mjs");
   configurePluginState();
   await import("../dist/hooks/pretooluse.js");
 } catch {

@@ -21,6 +21,7 @@
     "hooks/pretooluse.mjs",
     "hooks/posttooluse.mjs",
     "scripts/plugin-runtime.mjs",
+    "scripts/plugin-state.mjs",
     "skills/",
     "start.mjs",
     "LICENSE",

@@ -1,30 +1,27 @@
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
+import { OBSERVATION_HOOKS, createCommandHook, exactToolMatcher, } from "./hooks.js";
 export const PROJECT_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const compiled = import.meta.url.endsWith("/config.js");
-function shellQuote(value) {
-    return "'" + value.replace(/'/g, "'\\''") + "'";
-}
-function commandHook(file) {
-    return {
-        type: "command",
-        command: shellQuote(process.execPath) +
-            " " +
-            shellQuote(compiled
-                ? join(PROJECT_ROOT, "dist/hooks", file.replace(/\.mjs$/, ".js"))
-                : join(PROJECT_ROOT, "hooks/codex", file)),
-        timeout: 3,
+function commandHook(stem) {
+    return createCommandHook({
+        nodePath: process.execPath,
+        scriptPath: compiled
+            ? join(PROJECT_ROOT, "dist/hooks", stem + ".js")
+            : join(PROJECT_ROOT, "hooks/codex", stem + ".mjs"),
         statusMessage: "CCUH: observing tool metadata",
-    };
+    });
 }
 export function commandHooks(toolName) {
-    if (toolName !== undefined && !/^[A-Za-z0-9_.:-]{1,200}$/.test(toolName))
-        throw new Error("Invalid tool name");
-    const matcher = toolName ?? "*";
+    const matcher = toolName === undefined ? "*" : exactToolMatcher(toolName);
     return {
         hooks: {
-            PreToolUse: [{ matcher, hooks: [commandHook("pretooluse.mjs")] }],
-            PostToolUse: [{ matcher, hooks: [commandHook("posttooluse.mjs")] }],
+            PreToolUse: [
+                { matcher, hooks: [commandHook(OBSERVATION_HOOKS.PreToolUse)] },
+            ],
+            PostToolUse: [
+                { matcher, hooks: [commandHook(OBSERVATION_HOOKS.PostToolUse)] },
+            ],
         },
     };
 }

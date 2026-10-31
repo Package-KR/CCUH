@@ -115,9 +115,12 @@ export interface CallObservation {
 }
 
 export function groupCalls(events: SanitizedEvent[]): CallObservation[] {
+  return groupValidCalls(events.filter(isSanitizedEvent));
+}
+
+function groupValidCalls(events: SanitizedEvent[]): CallObservation[] {
   const groups = new Map<string, SanitizedEvent[]>();
   for (const event of events) {
-    if (!isSanitizedEvent(event)) continue;
     const key = `${event.source}:${event.session_hash}:${event.tool_use_hash}`;
     const group = groups.get(key) ?? [];
     group.push(event);
@@ -185,9 +188,9 @@ export function groupCalls(events: SanitizedEvent[]): CallObservation[] {
     .sort((a, b) => b.latest_time_ms - a.latest_time_ms);
 }
 
-export function summarizeEvents(events: SanitizedEvent[]) {
+export function analyzeEvents(events: SanitizedEvent[]) {
   const valid = events.filter(isSanitizedEvent);
-  const calls = groupCalls(valid);
+  const calls = groupValidCalls(valid);
   const countBy = (values: string[]) =>
     Object.fromEntries(
       [...new Set(values)]
@@ -200,7 +203,10 @@ export function summarizeEvents(events: SanitizedEvent[]) {
   const realCandidates = calls.filter(
     (call) => call.source !== "synthetic" && call.computer_use_candidate,
   );
-  return {
+  const candidateEvents = valid.filter(
+    (event) => event.source !== "synthetic" && event.computer_use_candidate,
+  );
+  const summary = {
     event_count: valid.length,
     call_count: calls.length,
     events_by_phase: countBy(valid.map((event) => event.phase)),
@@ -229,6 +235,17 @@ export function summarizeEvents(events: SanitizedEvent[]) {
     measurement:
       "observed_span_ms includes hook/process/storage overhead; it is not app acquisition time",
   };
+  return {
+    summary,
+    candidate_event_count: candidateEvents.length,
+    candidate_tool_names: [
+      ...new Set(candidateEvents.map((event) => event.tool_name)),
+    ].sort(),
+  };
+}
+
+export function summarizeEvents(events: SanitizedEvent[]) {
+  return analyzeEvents(events).summary;
 }
 
 /** Hooks are observational and fail open. No stdout, no raw payload in diagnostics. */

@@ -1,4 +1,4 @@
-import { readEvents, summarizeEvents, groupCalls } from "./codex/store.ts";
+import { readEvents, analyzeEvents, groupCalls } from "./codex/store.ts";
 import type { StoreOptions } from "./codex/store.ts";
 import type { SanitizedEvent } from "./codex/event.ts";
 
@@ -9,13 +9,8 @@ export function buildStatus(
   entrypoint: "mcp" | "cli",
   platform = process.platform,
 ) {
-  const real = events.filter((e) => e.source !== "synthetic");
-  const hookEvents = events.filter((e) => e.source === "hook");
-  const candidates = real.filter((e) => e.computer_use_candidate);
-  const paired = groupCalls(real).filter(
-    (c) => c.computer_use_candidate && c.status === "paired",
-  );
-  const toolNames = [...new Set(candidates.map((e) => e.tool_name))].sort();
+  const analysis = analyzeEvents(events);
+  const { summary } = analysis;
   return {
     name: "CCUH",
     version: VERSION,
@@ -27,18 +22,20 @@ export function buildStatus(
     },
     evidence: {
       mcp_connection: entrypoint === "mcp" ? "responding" : "not_tested_by_cli",
-      hook_records: hookEvents.length ? "local_records_observed" : "no_records",
-      mcp_event_records: events.filter((e) => e.source === "mcp").length,
-      computer_use_calls: candidates.length
+      hook_records: summary.events_by_source.hook
+        ? "local_records_observed"
+        : "no_records",
+      mcp_event_records: summary.events_by_source.mcp ?? 0,
+      computer_use_calls: analysis.candidate_event_count
         ? "candidate_names_observed"
         : "not_observed",
-      paired_candidate_calls: paired.length,
-      observed_candidate_tool_names: toolNames,
+      paired_candidate_calls: summary.paired_computer_use_candidate_calls,
+      observed_candidate_tool_names: analysis.candidate_tool_names,
       native_app_selection: "not_implemented",
       computer_use_binding: "not_verified",
       live_hook_test_required: true,
     },
-    summary: summarizeEvents(events),
+    summary,
     limits: {
       event_window: "up to 10000 complete records from the last 5 MiB",
       candidate_detection:
