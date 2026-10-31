@@ -1,4 +1,8 @@
 node_modules/
 .ccuh/
 .DS_Store
-coverage/
+.ccuh-bootstrap.lock
+.ccuh-bootstrap.incomplete
+.ccuh-bootstrap-*.pending
+/AGENTS.md
+/Agent/

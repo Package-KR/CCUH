@@ -86,6 +86,10 @@ export function createServer(options: StoreOptions = {}) {
   return server;
 }
 
+export function startServer(options: StoreOptions = {}) {
+  return serveStdio(() => createServer(options));
+}
+
 if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(process.argv[1]).href
@@ -97,6 +101,6 @@ if (
     process.exitCode = 1;
   } else {
     // stdout belongs exclusively to MCP. Do not log application messages here.
-    serveStdio(() => createServer());
+    startServer();
   }
 }

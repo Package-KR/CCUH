@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 
 export const PROJECT_ROOT = fileURLToPath(new URL("../../", import.meta.url));
+const compiled = import.meta.url.endsWith("/config.js");
 
 function shellQuote(value: string): string {
   return "'" + value.replace(/'/g, "'\\''") + "'";
@@ -13,7 +14,11 @@ function commandHook(file: string) {
     command:
       shellQuote(process.execPath) +
       " " +
-      shellQuote(join(PROJECT_ROOT, "hooks/codex", file)),
+      shellQuote(
+        compiled
+          ? join(PROJECT_ROOT, "dist/hooks", file.replace(/\.mjs$/, ".js"))
+          : join(PROJECT_ROOT, "hooks/codex", file),
+      ),
     timeout: 3,
     statusMessage: "CCUH: observing tool metadata",
   };
@@ -37,7 +42,9 @@ export function mcpConfig(): string {
     "[mcp_servers.ccuh]\ncommand = " +
     JSON.stringify(process.execPath) +
     "\nargs = [" +
-    JSON.stringify(join(PROJECT_ROOT, "src/server.ts")) +
+    JSON.stringify(
+      join(PROJECT_ROOT, compiled ? "dist/server.js" : "src/server.ts"),
+    ) +
     "]\n"
   );
 }

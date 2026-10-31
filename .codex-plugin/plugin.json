@@ -1,0 +1,21 @@
+{
+  "name": "ccuh",
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "A macOS companion for reliable app and window targeting in Codex Computer Use.",
+  "homepage": "https://github.com/Package-KR/CCUH",
+  "repository": "https://github.com/Package-KR/CCUH",
+  "mcpServers": "./.codex-plugin/mcp.json",
+  "hooks": "./.codex-plugin/hooks.json",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "CCUH",
+    "shortDescription": "Reliable app and window targeting for Codex Computer Use",
+    "developerName": "Package-KR",
+    "category": "Productivity",
+    "websiteURL": "https://github.com/Package-KR/CCUH",
+    "defaultPrompt": [
+      "Use CCUH to inspect Computer Use targeting and recent hook records."
+    ]
+  }
+}
