@@ -1,11 +1,8 @@
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 
-import {
-  OBSERVATION_HOOKS,
-  createCommandHook,
-  exactToolMatcher,
-} from "./hooks.ts";
+import { OBSERVATION_HOOKS, createCommandHook } from "./hooks.ts";
+import { computerUseToolMatcher } from "./computer-use.ts";
 
 export const PROJECT_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const compiled = import.meta.url.endsWith("/config.js");
@@ -16,12 +13,12 @@ function commandHook(stem: string) {
     scriptPath: compiled
       ? join(PROJECT_ROOT, "dist/hooks", stem + ".js")
       : join(PROJECT_ROOT, "hooks/codex", stem + ".mjs"),
-    statusMessage: "CCUH: observing tool metadata",
+    statusMessage: "CCUH: observing Computer Use metadata",
   });
 }
 
 export function commandHooks(toolName?: string) {
-  const matcher = toolName === undefined ? "*" : exactToolMatcher(toolName);
+  const matcher = computerUseToolMatcher(toolName);
   return {
     hooks: {
       PreToolUse: [
@@ -35,7 +32,7 @@ export function commandHooks(toolName?: string) {
 }
 
 export function mcpConfig(): string {
-  // JSON strings are also valid TOML basic strings for these path values.
+  // 경로의 따옴표와 역슬래시를 보존하는 JSON/TOML 공통 문자열 인코딩
   return (
     "[mcp_servers.ccuh]\ncommand = " +
     JSON.stringify(process.execPath) +

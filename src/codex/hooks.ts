@@ -3,15 +3,6 @@ export const OBSERVATION_HOOKS = {
   PostToolUse: "posttooluse",
 } as const;
 
-export function isToolName(value: string): boolean {
-  return /^[A-Za-z0-9_.:-]{1,200}$/.test(value);
-}
-
-export function exactToolMatcher(toolName: string): string {
-  if (!isToolName(toolName)) throw new Error("Invalid tool name");
-  return "^" + toolName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "$";
-}
-
 function shellQuote(value: string): string {
   return "'" + value.replace(/'/g, "'\\''") + "'";
 }

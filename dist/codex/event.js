@@ -1,4 +1,7 @@
 import { createHash } from "node:crypto";
+import { isComputerUseTool } from "./computer-use.js";
+// 이전 이벤트 판별 함수명과의 호환 유지
+export { isComputerUseTool as isComputerUseCandidate } from "./computer-use.js";
 const TARGET_KEYS = new Set([
     "app",
     "app_name",
@@ -18,7 +21,6 @@ const TARGET_KEYS = new Set([
     "target",
 ]);
 const INPUT_KEYS = new Set([...TARGET_KEYS, "code", "url", "title"]);
-const TOOL_NAME = /^[A-Za-z0-9_.:-]{1,200}$/;
 const HASH = /^[a-f0-9]{64}$/;
 const SOURCES = ["hook", "mcp", "synthetic"];
 const INPUT_TYPES = [
@@ -45,11 +47,7 @@ function inputType(value) {
         return "array";
     return typeof value;
 }
-export function isComputerUseCandidate(toolName) {
-    return (/(?:^|[_.:-])(?:cua_repl|computer_use)(?:[_.:-]|$)/i.test(toolName) &&
-        !/(?:^|[_.:-])ccuh(?:[_.:-]|$)/i.test(toolName));
-}
-/** Extract metadata only. It never returns tool input values or response content. */
+/** 입력 값과 응답 본문을 제외하고 메타데이터만 추출합니다. */
 export function normalizeEvent(payload, options = {}) {
     if (!object(payload))
         return null;
@@ -67,10 +65,7 @@ export function normalizeEvent(payload, options = {}) {
         return null;
     if (!identity(payload.session_id) || !identity(payload.tool_use_id))
         return null;
-    if (typeof payload.tool_name !== "string" ||
-        !TOOL_NAME.test(payload.tool_name))
-        return null;
-    if (/(?:^|[_.:-])ccuh(?:[_.:-]|$)/i.test(payload.tool_name))
+    if (!isComputerUseTool(payload.tool_name))
         return null;
     const source = options.source ?? "hook";
     if (!SOURCES.includes(source))
@@ -112,7 +107,7 @@ export function normalizeEvent(payload, options = {}) {
         tool_use_hash: hash(payload.tool_use_id),
         tool_name: payload.tool_name,
         source,
-        computer_use_candidate: isComputerUseCandidate(payload.tool_name),
+        computer_use_candidate: isComputerUseTool(payload.tool_name),
         input_shape: shape,
         other_input_key_count: otherKeys,
         target_info: hasTarget
@@ -128,7 +123,7 @@ export function normalizeEvent(payload, options = {}) {
         event.code_length = input.code.length;
     return event;
 }
-/** Reject unexpected fields so a caller cannot accidentally persist an entire payload. */
+/** 원본 페이로드가 저장되지 않도록 허용되지 않은 필드를 거절합니다. */
 export function isSanitizedEvent(value) {
     if (!object(value))
         return false;
@@ -169,12 +164,12 @@ export function isSanitizedEvent(value) {
     if (value.turn_hash !== undefined &&
         (typeof value.turn_hash !== "string" || !HASH.test(value.turn_hash)))
         return false;
-    if (typeof value.tool_name !== "string" || !TOOL_NAME.test(value.tool_name))
+    if (!isComputerUseTool(value.tool_name))
         return false;
     if (!SOURCES.includes(value.source) ||
         typeof value.computer_use_candidate !== "boolean")
         return false;
-    if (value.computer_use_candidate !== isComputerUseCandidate(value.tool_name))
+    if (value.computer_use_candidate !== isComputerUseTool(value.tool_name))
         return false;
     if (!object(value.input_shape) ||
         Object.keys(value.input_shape).some((key) => !INPUT_KEYS.has(key)))

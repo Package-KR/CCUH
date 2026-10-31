@@ -1,4 +1,4 @@
 interface:
   display_name: "CCUH"
   short_description: "Keep macOS Computer Use focused on the intended target"
-  default_prompt: "Use $ccuh:ccuh to verify the intended app and window, diagnose targeting failures, and recover without silent repeated attempts while I keep using my Mac."
+  default_prompt: "While using bundled Computer Use for my requested app task, use $ccuh:ccuh to verify the intended window and report targeting failures while I keep using my Mac."

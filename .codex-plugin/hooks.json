@@ -2,7 +2,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "(?:^|[_.:-])(?:cua_repl|computer_use)(?:[_.:-]|$)",
+        "matcher": "^(?:mcp__cua_repl__js|mcp__cua_repl__js_reset)$",
         "hooks": [
           {
             "type": "command",
@@ -15,7 +15,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "(?:^|[_.:-])(?:cua_repl|computer_use)(?:[_.:-]|$)",
+        "matcher": "^(?:mcp__cua_repl__js|mcp__cua_repl__js_reset)$",
         "hooks": [
           {
             "type": "command",

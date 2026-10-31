@@ -32,6 +32,8 @@ CCUH 플러그인은 로컬 MCP 서버, Codex 훅, 보조 스킬을 함께 제�
 
 진단 도구는 MCP가 제공하며, 호출 시점의 자동 실행은 훅이 담당합니다. Codex App과 CLI는 같은 사용자 설정을 공유하고, CCUH는 Mac에서 Node 프로세스로 실행됩니다.
 
+CCUH 훅과 보조 스킬은 기본 Computer Use를 사용하는 작업에만 적용됩니다. 일반 코딩, 터미널 명령, 웹 검색과 다른 MCP 도구 호출은 관측하지 않습니다. Codex가 MCP 연결을 미리 유지하더라도 창 제어나 배경 감시가 시작되지는 않습니다.
+
 ## Get Started
 
 **macOS, Node.js 24 이상, Computer Use를 사용할 수 있는 Codex App 또는 Codex CLI**가 필요합니다. Codex 프로세스에서 Node.js를 실행할 수 있어야 합니다. CCUH는 Node.js를 포함하지 않으며 Mac에 설치된 Node.js를 사용합니다.
@@ -52,7 +54,7 @@ MCP 서버, Computer Use 훅, 보조 스킬이 함께 제공됩니다. MCP 서�
 
 Codex가 훅 검토를 요청하면 Codex CLI의 `/hooks`에서 CCUH 훅을 검토하고 신뢰 승인합니다.
 
-사용 중인 Codex App 또는 Codex CLI 세션을 재시작합니다. 이후 Codex에 CCUH 연결 상태를 확인해 달라고 요청합니다.
+사용 중인 Codex App 또는 Codex CLI 세션을 재시작합니다. 이후 Computer Use 작업에서 CCUH를 함께 사용합니다.
 
 <details>
 <summary>수동 등록 대안</summary>
@@ -75,7 +77,7 @@ Codex CLI의 `/hooks`에서 CCUH 훅을 검토한 뒤 사용 중인 Codex App �
 
 사용 중인 Codex App 또는 Codex CLI에서 다음과 같이 요청할 수 있습니다.
 
-> CCUH 연결 상태와 가장 최근 Computer Use 호출의 전후 기록을 확인해 주세요.
+> Computer Use로 요청한 앱 작업을 진행하면서 CCUH로 대상 창을 확인하고, 잘못 연결되면 알려 주세요.
 
 | 도구 | 용도 |
 | --- | --- |
@@ -87,6 +89,8 @@ MCP 연결과 자동 기록은 별도로 동작합니다. `paired`는 전후 기
 ## Data
 
 기록은 기본적으로 `~/.codex/ccuh/state/events.jsonl`에 저장됩니다. 시각, 도구명, 해시 처리한 식별자 등 메타데이터만 남기며, 코드 원문과 대화 내용, 스크린샷, 인증값은 저장하지 않습니다.
+
+수집 대상은 `mcp__cua_repl__js`와 `mcp__cua_repl__js_reset`으로 제한합니다. 알 수 없는 도구명은 제외하며, 기존 기록 파일은 삭제하지 않고 이 범위 밖의 항목만 조회에서 제외합니다.
 
 전후 기록의 시간 차이에는 훅 실행과 파일 저장 시간이 포함됩니다. 앱과 창 선택 속도를 비교하는 벤치마크로 사용하기에는 적합하지 않습니다.
 

@@ -1,11 +1,20 @@
 ---
 name: ccuh
-description: Help Codex Computer Use stay on the intended macOS app and window while the user continues using the computer. Use when window switching, incorrect targets, uncertain binding, or repeated acquisition failures interrupt a task, or when validating CCUH hook observations.
+description: Assist with macOS app and window targeting only during tasks using bundled Codex Computer Use. Do not activate for coding, terminal commands, or other tools.
 ---
 
 # CCUH
 
 Help Codex work reliably in the intended macOS app and window while the user continues using the computer. Verify the target, surface failures promptly, and recover only from a confirmed state.
+
+## Activation boundary
+
+Apply this skill only within a user-authorized task using the bundled Computer Use tools, currently `mcp__cua_repl__js` and `mcp__cua_repl__js_reset`. Target preparation and recovery must belong to that same task.
+
+- A mention of CCUH, an app, macOS, or a targeting problem does not activate this workflow by itself. Do not invoke Computer Use merely to activate CCUH.
+- Outside a Computer Use task, do not poll CCUH diagnostics, enumerate apps, launch native helpers, or monitor focus. Stop task-owned monitoring when the Computer Use task ends.
+- Coding, shell commands, file edits, web search, and other MCP tools do not activate CCUH. The hook matcher and event validation both restrict observation to the supported tool names.
+- Codex may start the MCP connection when loading the plugin. An idle connection does not authorize UI work or background monitoring.
 
 ## Scope
 
@@ -18,7 +27,7 @@ CCUH records tool calls and provides diagnostics. Its observations do not select
 
 ## Diagnose the connection
 
-At task startup or when targeting fails, use `ccuh_status` if CCUH tools are available. Use `ccuh_recent_calls` when individual before/after observations are needed. Routine UI steps do not need repeated diagnostic polling.
+Within the active Computer Use task, use `ccuh_status` when connection or targeting evidence is needed. Use `ccuh_recent_calls` when individual before/after observations are needed. Routine UI steps do not need repeated diagnostic polling.
 
 Keep these conclusions separate:
 
@@ -28,7 +37,7 @@ Keep these conclusions separate:
 4. The intended macOS app and window were selected.
 5. Computer Use observed that same target.
 
-CCUH observations can support the first three only. A tool-name match is a candidate classification, not proof that every Computer Use path is covered. Missing events can indicate unsupported hook paths or configuration issues.
+CCUH observations can support the first three only. Exact tool-name matching limits collection but does not attest the caller or prove that every Computer Use path is covered. Unknown names are excluded rather than broadening observation. Missing events can indicate unsupported hook paths or configuration issues.
 
 Use `ccuh_observe_event` only for authorized event forwarding or an explicitly identified diagnostic replay. Do not invent events to make diagnostics appear healthy or present synthetic observations as live Codex evidence.
 

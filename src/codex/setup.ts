@@ -16,12 +16,13 @@ import { homedir } from "node:os";
 import { delimiter, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { OBSERVATION_HOOKS, createCommandHook } from "./hooks.ts";
 import {
-  OBSERVATION_HOOKS,
-  createCommandHook,
-  exactToolMatcher,
-  isToolName,
-} from "./hooks.ts";
+  DEFAULT_COMPUTER_USE_TOOL,
+  COMPUTER_USE_TOOL_NAME_HINT,
+  computerUseToolMatcher,
+  isComputerUseTool,
+} from "./computer-use.ts";
 
 export class SetupError extends Error {}
 
@@ -50,7 +51,7 @@ export type CommandRunner = (
   options: CommandOptions,
 ) => Promise<void>;
 
-/** Optional dependencies are for isolated tests; the CLI uses the real local environment. */
+/** 격리 검증용 선택 의존성입니다. CLI는 실제 로컬 환경을 사용합니다. */
 export interface SetupOptions {
   env?: NodeJS.ProcessEnv;
   homeDir?: string;
@@ -81,6 +82,11 @@ function object(value: unknown): value is JsonObject {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+function validateSetupToolName(value: string): void {
+  if (!isComputerUseTool(value))
+    throw new SetupError(COMPUTER_USE_TOOL_NAME_HINT);
+}
+
 function ownedHook(value: unknown): boolean {
   if (!object(value)) return false;
   if (
@@ -96,7 +102,7 @@ function ownedHook(value: unknown): boolean {
   );
 }
 
-/** Preserve unrelated events and array positions so their existing trust records remain valid. */
+/** 다른 이벤트와 배열 위치를 보존해 기존 훅의 신뢰 기록을 유지합니다. */
 export function mergeSetupHooks(
   existing: unknown,
   paths: {
@@ -110,10 +116,7 @@ export function mergeSetupHooks(
     throw new SetupError(
       "hooks.json must contain a JSON object; no settings were changed.",
     );
-  if (!isToolName(paths.toolName))
-    throw new SetupError(
-      "Use an exact Computer Use tool name for --tool-name.",
-    );
+  validateSetupToolName(paths.toolName);
   const result = structuredClone(existing);
   if (result.hooks !== undefined && !object(result.hooks))
     throw new SetupError(
@@ -121,7 +124,7 @@ export function mergeSetupHooks(
     );
   const hooks = object(result.hooks) ? result.hooks : {};
   result.hooks = hooks;
-  const matcher = exactToolMatcher(paths.toolName);
+  const matcher = computerUseToolMatcher(paths.toolName);
   for (const [phase, stem] of Object.entries(OBSERVATION_HOOKS)) {
     const current = hooks[phase] ?? [];
     if (!Array.isArray(current))
@@ -223,7 +226,7 @@ async function executable(
       await access(path, constants.X_OK);
       return path;
     } catch {
-      /* Try the next explicit executable. */
+      // 다음 명시 경로 후보 확인
     }
   }
   return null;
@@ -291,7 +294,7 @@ function parseArgs(args: string[]): {
 } {
   const parsed: { dryRun: boolean; codexHome?: string; toolName: string } = {
     dryRun: false,
-    toolName: "mcp__cua_repl__js",
+    toolName: DEFAULT_COMPUTER_USE_TOOL,
   };
   for (let index = 0; index < args.length; index++) {
     const arg = args[index];
@@ -307,10 +310,7 @@ function parseArgs(args: string[]): {
         "Use setup [--dry-run] [--codex-home PATH] [--tool-name NAME].",
       );
   }
-  if (!isToolName(parsed.toolName))
-    throw new SetupError(
-      "Use an exact Computer Use tool name for --tool-name.",
-    );
+  validateSetupToolName(parsed.toolName);
   return parsed;
 }
 
@@ -533,9 +533,8 @@ export async function runSetup(
       }
     }
     if (registrationStarted) {
-      // Even a successful command's snapshot can include concurrent user edits.
-      // Never restore the entire config after registration without proving that
-      // only CCUH's entry changed. Preserve it and offer the private backup.
+      // 등록 성공 후에도 동시 수정된 사용자 설정이 포함될 수 있습니다.
+      // CCUH 항목만 바뀌었다는 증거가 없으면 전체 복원 대신 백업을 안내합니다.
       try {
         uncertainRegistration = !same(
           await snapshot(configPath),

@@ -15,7 +15,7 @@
     "category": "Productivity",
     "websiteURL": "https://github.com/Package-KR/CCUH",
     "defaultPrompt": [
-      "Use CCUH to inspect Computer Use targeting and recent hook records."
+      "Use CCUH only while performing my requested task with bundled Computer Use."
     ]
   }
 }

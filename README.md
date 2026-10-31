@@ -32,6 +32,8 @@ The CCUH plugin bundles a local MCP server, Codex hooks, and a companion skill t
 
 The MCP server runs as a local Node process on your Mac. No external server deployment or OpenAI API key is required.
 
+CCUH's hooks and companion skill apply only to bundled Computer Use tasks. Coding, terminal commands, web search, and other MCP tools do not trigger observation. Codex may keep the MCP connection available while idle; this does not start window control or background monitoring.
+
 ## Get Started
 
 You need **macOS**, **Node.js 24 or later**, and **Codex App or Codex CLI** with Computer Use configured. Node.js must be available to the Codex process; CCUH uses your installed Node.js and does not bundle it.
@@ -52,7 +54,7 @@ The plugin provides the MCP server, Computer Use hooks, and companion skill toge
 
 If Codex prompts for hook review, open `/hooks` in Codex CLI and review and trust the CCUH hooks.
 
-Restart Codex App or start a new Codex CLI session, depending on which client you use. Then ask Codex to check the CCUH connection.
+Restart Codex App or start a new Codex CLI session, depending on which client you use. Then use CCUH during your Computer Use task.
 
 <details>
 <summary>Manual fallback</summary>
@@ -75,7 +77,7 @@ Review the CCUH hooks with `/hooks` in Codex CLI, then restart the Codex client 
 
 Ask Codex:
 
-> Use CCUH to check its connection and show the latest Computer Use call records. Tell me whether both before-call and after-call events are present.
+> While carrying out my app task with Computer Use, use CCUH to verify the intended window and report targeting failures.
 
 | Tool                | Purpose                                                                 |
 | ------------------- | ----------------------------------------------------------------------- |
@@ -89,6 +91,8 @@ An MCP response confirms connectivity. Real hook records show whether automatic 
 Records are stored in `~/.codex/ccuh/state/events.jsonl` by default. They contain metadata such as timestamps, tool names, input-field types, and hashed identifiers.
 
 Raw code, chat content, screenshots, and credentials are not stored.
+
+Collection accepts only `mcp__cua_repl__js` and `mcp__cua_repl__js_reset`. Unknown tool names are excluded. Existing files are preserved; entries outside this scope are ignored when reading records.
 
 The observed pre/post time difference includes hook, process, and storage overhead. It is not an app or window acquisition benchmark.
 

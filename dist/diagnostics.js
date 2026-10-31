@@ -30,7 +30,7 @@ export function buildStatus(events, entrypoint, platform = process.platform) {
         summary,
         limits: {
             event_window: "up to 10000 complete records from the last 5 MiB",
-            candidate_detection: "tool-name heuristic, not proof of bundled Computer Use coverage",
+            candidate_detection: "exact supported Computer Use tool names, not proof of caller identity or hook execution",
             timing: "pre-to-post observation span, not app acquisition or end-to-end task time",
             origins: "hook or MCP records can also be submitted manually; the server does not attest the caller",
             persistence: "metadata-only local JSONL; no automatic deletion or rotation",
