@@ -8,6 +8,9 @@
 
 </div>
 
+> [!WARNING]
+> **Under active development.**
+
 ## The Problem
 
 Computer Use depends on the intended app and window matching what Codex actually observes and where its input goes. CCUH was motivated by sessions where that connection was unreliable:
