@@ -34,6 +34,8 @@ Use `ccuh_observe_event` only for authorized event forwarding or an explicitly i
 
 ## Acquire the target with existing tools
 
+Keep the user's foreground activity separate from the AI's task target. A user clicking another app or window does not retarget the task. Foreground information can indicate interference, but cannot identify the AI's target. A matching app name or window title is an observation, not an independent window binding.
+
 1. Resolve the intended app and the window context needed for this request. Use identifiers and session handles already observed in the permitted environment. If ambiguous, request only the missing distinction.
 2. Prefer an app-scoped observation over repeatedly enumerating the entire computer. Reuse a valid session handle while its target remains applicable.
 3. Before acting, verify that Computer Use's latest observation belongs to the intended app and window. App activation alone does not establish the selected window or the tool's binding.
@@ -41,6 +43,28 @@ Use `ccuh_observe_event` only for authorized event forwarding or an explicitly i
 5. Keep independent tools' identities separate. A native window ID or another MCP's element ID is not automatically a valid Computer Use target.
 
 Use only documented actions in the available Computer Use interface. Do not substitute AppleScript, simulated input from another runtime, or undocumented internal APIs to work around a restriction.
+
+## Guard a single native action
+
+The optional [window guard](scripts/window-guard.js) checks the window header around one action. Read the resource and execute its plain JavaScript in the same `cua_repl` session as the app handle.
+
+- Call `ccuhWindowGuard.runOne(app, expected, action, verifyAfter?)`, with `expected.appName` and `expected.windowTitle` taken from the user's target and a confirmed observation. Names must match exactly after Unicode normalization.
+- The action callback receives the fresh AX snapshot for current element indices. Perform exactly one authorized action. Use a separate acquisition step when intentionally changing the target window.
+- Supply a read-only `verifyAfter(snapshot)` predicate that returns literal `true` only when the expected visible result is present. A matching window header alone does not establish action success.
+- `blocked` means the callback did not run. `stopped` means an action was attempted and its effects may be unknown. Never replay an action automatically after a failed observation or postcondition.
+- `target_matched` leaves `actionVerified` false. `postcondition_matched` reports only that the specified condition was observed.
+- The helper serializes its own operations on the same app handle. It does not intercept calls made outside the helper, prove CUA's internal binding, or make the check and action atomic against user input.
+
+## Try bounded window cycling on macOS
+
+When indexed window-menu selection reaches the wrong menu, the same resource provides `ccuhWindowGuard.acquireByCycling(app, expected, options)`. It sends only `super+grave`, reads a fresh AX header after each key, and stops when the requested title is observed or a stopping condition occurs.
+
+- This is a controlled diagnostic fallback, not independent user and AI focus. Do not use foreground window cycling as the normal targeting path while the user continues working. If independent window targeting is unavailable in the documented interface, report that capability gap instead of following or taking over the user's focus.
+- Use this experimental fallback only with uniquely named windows and a short, user-confirmed period of exclusive input with the intended app in front. An app-scoped AX header does not prove which app is physically in front. Concurrent user operation is not validated by this path.
+- Set `expected.appName` and `expected.windowTitle` from the confirmed target, and `options.fromWindowTitle` to the confirmed starting window. An initial mismatch sends no key.
+- Defaults are at most seven key presses and a soft 20-second budget. `maxSteps` can be 1 to 10; `maxElapsedMs` can be 1 to 60000. The time budget is checked before each key and cannot cancel an in-flight operation.
+- Stop on an unknown header, changed app, unchanged title, repeated title, failed key, or exhausted budget. A repeated title can also mean two windows share a name. Do not automatically restore the previous window or repeat the search.
+- `target_observed` means only that the requested app and title appeared in the latest header. Obtain a fresh observation through `runOne` before subsequent work. This fallback neither types nor sends a message and does not establish native window identity or CUA binding.
 
 ## Recover without silent repetition
 

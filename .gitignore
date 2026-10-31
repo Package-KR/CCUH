@@ -6,3 +6,4 @@ node_modules/
 .ccuh-bootstrap-*.pending
 /AGENTS.md
 /Agent/
+/native/.build/
