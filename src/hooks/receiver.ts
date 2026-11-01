@@ -65,6 +65,17 @@ function parseEvent(input: unknown): CuaRuntimeEvent | undefined {
   };
 }
 
+// 입력 검사 전 실행 시작 표식 구성
+function createStart(receiverHash: string) {
+  return {
+    schemaVersion: 1,
+    startId: randomUUID(),
+    startedAt: new Date().toISOString(),
+    processId: process.pid,
+    receiverHash,
+  };
+}
+
 // 원문을 제외한 수신 증거 구성
 function createReceipt(event: CuaRuntimeEvent, receiverHash: string) {
   return {
@@ -87,14 +98,18 @@ function receiptDirectory(): string {
   return directory;
 }
 
-// 마지막 수신 증거의 원자적 교체
-async function saveReceipt(receipt: ReturnType<typeof createReceipt>): Promise<void> {
+// 실행 시작 표식과 수신 증거의 원자적 교체
+async function saveRecord(
+  fileName: 'last-start.json' | 'last-receipt.json',
+  record: ReturnType<typeof createStart> | ReturnType<typeof createReceipt>,
+): Promise<void> {
   const directory = receiptDirectory();
   await mkdir(directory, { recursive: true, mode: 0o700 });
-  const temporary = join(directory, receipt.receiptId + '.pending');
+  const id = 'startId' in record ? record.startId : record.receiptId;
+  const temporary = join(directory, id + '.pending');
   try {
-    await writeFile(temporary, JSON.stringify(receipt) + '\n', { flag: 'wx', mode: 0o600 });
-    await rename(temporary, join(directory, 'last-receipt.json'));
+    await writeFile(temporary, JSON.stringify(record) + '\n', { flag: 'wx', mode: 0o600 });
+    await rename(temporary, join(directory, fileName));
   } finally {
     await unlink(temporary).catch(() => {});
   }
@@ -102,10 +117,11 @@ async function saveReceipt(receipt: ReturnType<typeof createReceipt>): Promise<v
 
 // 공유 CUA 런타임 이벤트의 수신 처리
 async function receive(): Promise<void> {
+  const receiverHash = hash(await readFile(new URL(import.meta.url)));
+  await saveRecord('last-start.json', createStart(receiverHash));
   const event = parseEvent(await readEvent());
   if (!event) return;
-  const receiverHash = hash(await readFile(new URL(import.meta.url)));
-  await saveReceipt(createReceipt(event, receiverHash));
+  await saveRecord('last-receipt.json', createReceipt(event, receiverHash));
 }
 
 try {
