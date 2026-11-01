@@ -11,31 +11,7 @@
   "os": [
     "darwin"
   ],
-  "bin": {
-    "ccuh": "bin/ccuh.mjs"
-  },
-  "files": [
-    ".codex-plugin/",
-    "bin/",
-    "dist/",
-    "hooks/pretooluse.mjs",
-    "hooks/posttooluse.mjs",
-    "scripts/plugin-runtime.mjs",
-    "scripts/plugin-state.mjs",
-    "skills/",
-    "start.mjs",
-    "LICENSE",
-    "README.md",
-    "README.ko.md"
-  ],
-  "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "prepare": "npm run build",
-    "start": "node src/server.ts",
-    "status": "node src/cli.ts status",
-    "recent": "node src/cli.ts recent",
-    "typecheck": "tsc --noEmit"
-  },
+  "scripts": {},
   "dependencies": {
     "@modelcontextprotocol/server": "2.4.0",
     "zod": "4.6.7"

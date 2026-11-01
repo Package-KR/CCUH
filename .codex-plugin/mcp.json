@@ -1,11 +1,3 @@
 {
-  "mcpServers": {
-    "ccuh": {
-      "type": "stdio",
-      "command": "node",
-      "args": ["./start.mjs"],
-      "cwd": ".",
-      "startup_timeout_sec": 180
-    }
-  }
+  "mcpServers": {}
 }
