@@ -1,5 +1,5 @@
 import { readEvents, analyzeEvents, groupCalls } from "./codex/store.js";
-export const VERSION = "0.1.2";
+export const VERSION = "0.1.3";
 export function buildStatus(events, entrypoint, platform = process.platform) {
     const analysis = analyzeEvents(events);
     const { summary } = analysis;
