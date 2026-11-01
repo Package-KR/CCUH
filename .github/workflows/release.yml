@@ -1,14 +1,154 @@
 name: Release
 
 'on':
+  push:
+    branches: [main]
   workflow_dispatch:
+    inputs:
+      bump:
+        description: Version increment
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+      repair_tag:
+        description: Existing tag to publish without incrementing the version
+        type: string
+        default: ''
 
 permissions:
   contents: read
 
+concurrency:
+  group: ccuh-release
+  cancel-in-progress: false
+
 jobs:
-  publish:
-    if: ${{ false }}
+  ci:
+    if: github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]'
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ inputs.repair_tag && format('refs/tags/{0}', inputs.repair_tag) || github.sha }}
+
+  prepare:
+    needs: ci
     runs-on: macos-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      commit: ${{ steps.release.outputs.commit }}
     steps:
-      - run: echo "Implementation reset. Releases are paused."
+      - name: Require verified CI commit
+        env:
+          VERIFIED_COMMIT: ${{ needs.ci.outputs.commit }}
+        run: |
+          if [[ ! "$VERIFIED_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "CI did not return a valid commit SHA." >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.ci.outputs.commit }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - name: Choose release
+        id: plan
+        env:
+          REPAIR_TAG: ${{ inputs.repair_tag }}
+        run: |
+          version="$(node scripts/release.mjs check)"
+          if [[ -n "$REPAIR_TAG" ]]; then
+            if [[ ! "$REPAIR_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+              echo "A stable vMAJOR.MINOR.PATCH tag is required." >&2
+              exit 1
+            fi
+            tagged="$(git rev-parse --verify "refs/tags/$REPAIR_TAG^{commit}")"
+            if [[ "$tagged" != "$(git rev-parse HEAD)" || "$REPAIR_TAG" != "v$version" ]]; then
+              echo "The tag does not match the verified commit and version." >&2
+              exit 1
+            fi
+            echo "mode=reuse" >> "$GITHUB_OUTPUT"
+          else
+            tagged="$(git rev-parse --verify "refs/tags/v$version^{commit}" 2>/dev/null || true)"
+            subject="$(git log -1 --format=%s)"
+            author="$(git log -1 --format=%ae)"
+            if [[ "$tagged" == "$(git rev-parse HEAD)" &&
+                  "$subject" == "chore: release v$version [skip ci]" &&
+                  "$author" == "41898282+github-actions[bot]@users.noreply.github.com" ]]; then
+              echo "mode=reuse" >> "$GITHUB_OUTPUT"
+            elif [[ "$version" == "0.0.0" && -z "$tagged" ]]; then
+              echo "mode=initial" >> "$GITHUB_OUTPUT"
+            else
+              if [[ "$version" == "0.0.0" ]] && ! git merge-base --is-ancestor "$tagged" HEAD; then
+                echo "The existing initial tag is not in this commit's history." >&2
+                exit 1
+              fi
+              echo "mode=bump" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Increment version
+        if: steps.plan.outputs.mode == 'bump'
+        env:
+          BUMP: ${{ inputs.bump || 'patch' }}
+        run: node scripts/release.mjs bump "$BUMP"
+
+      - name: Commit version and publish refs
+        id: release
+        env:
+          MODE: ${{ steps.plan.outputs.mode }}
+        run: |
+          version="$(node scripts/release.mjs check)"
+          tag="v$version"
+          if [[ "$MODE" == "bump" || "$MODE" == "initial" ]]; then
+            git config --local user.name "github-actions[bot]"
+            git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -- package.json package-lock.json .codex-plugin/plugin.json
+            git diff --cached --check
+            if [[ "$MODE" == "initial" ]]; then
+              git commit --allow-empty -m "chore: release $tag [skip ci]"
+            else
+              git commit -m "chore: release $tag [skip ci]"
+            fi
+            git tag -a "$tag" -m "CCUH $tag"
+            git push --atomic origin HEAD:refs/heads/main "refs/tags/$tag:refs/tags/$tag"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASE_COMMIT: ${{ needs.prepare.outputs.commit }}
+        run: |
+          if [[ "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" != "$RELEASE_COMMIT" ]]; then
+            echo "The tag does not point to the prepared commit." >&2
+            exit 1
+          fi
+          if gh release view "$RELEASE_TAG" --json tagName > /dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists."
+          else
+            gh release create "$RELEASE_TAG" --verify-tag --target "$RELEASE_COMMIT" --title "v.${RELEASE_TAG#v}" --generate-notes
+          fi
