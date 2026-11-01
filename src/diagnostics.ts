@@ -2,7 +2,7 @@ import { readEvents, analyzeEvents, groupCalls } from "./codex/store.ts";
 import type { StoreOptions } from "./codex/store.ts";
 import type { SanitizedEvent } from "./codex/event.ts";
 
-export const VERSION = "0.1.0";
+export const VERSION = "0.1.1";
 
 export function buildStatus(
   events: SanitizedEvent[],
