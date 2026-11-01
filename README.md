@@ -16,11 +16,17 @@ Users should be able to keep working while Codex Computer Use operates on the in
 
 ## Development
 
-This repository contains an architecture scaffold and an experimental hook receiver for checking automatic invocation. It has no MCP server, app or window operations, skill, or native engine. Public installation and releases are paused.
+This repository contains an architecture scaffold and an experimental hook receiver for checking automatic invocation. It has no MCP server, app or window operations, skill, or native engine. Planned releases cover only this minimal receiver.
 
 Development starts with one prerequisite: prove that a real Computer Use request automatically reaches CCUH while preserving app access restrictions and the user's focus from the first call. Window discovery and actions follow only after that prerequisite passes.
 
 The ordered milestones and completion criteria are maintained in [the development plan](docs/DEVELOPMENT.md).
+
+## Releases
+
+Pushes to `dev` run CI. Changes reaching `main` run the shared CI before `github-actions[bot]` creates the version commit, tag, and GitHub Release. The first release starts at `0.0.0`; later releases increment the patch version. Release titles use `v.0.0.0` format; Git tags use `v0.0.0`.
+
+If publication fails after the tag is pushed, rerun the failed publish job or run Release manually with `repair_tag` set to that existing tag. This reuses the version rather than incrementing it again. GitHub Actions must be allowed to write the version commit to `main`; branch protection is not bypassed.
 
 ## Structure
 

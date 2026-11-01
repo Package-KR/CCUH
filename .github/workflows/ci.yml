@@ -6,21 +6,34 @@ name: CI
   pull_request:
     branches: [dev, main]
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        required: false
+        default: ''
+    outputs:
+      commit:
+        description: Commit verified by CI
+        value: ${{ jobs.verify.outputs.commit }}
 
 permissions:
   contents: read
 
 concurrency:
-  group: ccuh-ci-${{ github.event.pull_request.number || github.ref }}
+  group: ccuh-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   verify:
     runs-on: macos-latest
     timeout-minutes: 10
+    outputs:
+      commit: ${{ steps.revision.outputs.commit }}
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.ref || github.sha }}
           persist-credentials: false
 
       - uses: actions/setup-node@v7
@@ -39,3 +52,10 @@ jobs:
 
       - name: Check formatting
         run: npx --yes prettier@3.7.4 --check .
+
+      - name: Check release metadata
+        run: node scripts/release.mjs check
+
+      - name: Record verified commit
+        id: revision
+        run: echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
