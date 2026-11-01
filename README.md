@@ -16,11 +16,11 @@ Users should be able to keep working while Codex Computer Use operates on the in
 
 ## Development
 
-This repository contains an architecture scaffold and an experimental receiver. Automatic hook registration is paused: the current CUA tool names are shared by browser and computer surfaces and do not identify Computer Use alone. There is no MCP server, app or window operations, skill, or native engine. Planned releases cover only this experimental scope.
+This repository contains an architecture scaffold and an experimental receiver. Automatic reception and exclusion checks for unrelated tools have been verified within the scope recorded in the development checklist. Browser operations alone do not establish that a call occurred outside Computer Use. There is no MCP server, app or window operations, skill, or native engine. Planned releases cover only this experimental scope.
 
 Development starts with one prerequisite: prove that a real Computer Use request automatically reaches CCUH while preserving app access restrictions and the user's focus from the first call. Window discovery and actions follow only after that prerequisite passes.
 
-The ordered milestones and completion criteria are maintained in [the development plan](docs/DEVELOPMENT.md).
+The five development stages, completion criteria, verification results, and observation limits are maintained in [the development checklist](docs/DEVELOPMENT.md).
 
 ## Releases
 
@@ -46,7 +46,7 @@ If publication fails after the tag is pushed, rerun the failed publish job or ru
 | `dist/`            | Generated distribution output                  |
 | `docs/`            | Development plan                               |
 
-The directories reserve responsibilities only. They do not imply implemented functionality. Hook definitions are empty until an acceptable Computer Use origin boundary is established; MCP and native engine entry points are absent. Manually supplied receiver input is not authenticated. Repository settings and the existing toolchain declarations remain available.
+The directories reserve responsibilities only. They do not imply implemented functionality. Only the minimal receiver hook is registered; MCP and native engine entry points are absent. Repository settings and the existing toolchain declarations remain available.
 
 ## License
 
