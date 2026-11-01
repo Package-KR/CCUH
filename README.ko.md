@@ -101,6 +101,8 @@ codex plugin marketplace upgrade ccuh
 <details>
 <summary>배포 관리</summary>
 
+`dev`에서 개발하고 검토한 변경을 `main`에 병합합니다. **CI** 워크플로는 `dev` 푸시와 `dev` 또는 `main` 대상 PR에서 타입 검사, 런타임 빌드와 네이티브 Swift 소스 검사를 수행하며 버전을 발행하지 않습니다.
+
 **Release** 워크플로는 패키지, 잠금 파일, 플러그인 매니페스트와 런타임의 버전을 함께 관리합니다. 빌드 검증 후 저장소의 `GITHUB_TOKEN`으로 배포하므로 GitHub Actions가 `main`과 릴리스 태그에 쓸 수 있어야 합니다.
 
 마이너 또는 메이저 버전은 **Actions → Release → Run workflow**에서 `bump`를 선택합니다. 버전 커밋과 태그 생성 후 GitHub Release 발행만 실패했다면 실패한 publish 작업을 다시 실행하거나, `repair_tag`에 기존 태그를 입력합니다. 이때는 버전을 추가로 올리지 않습니다.

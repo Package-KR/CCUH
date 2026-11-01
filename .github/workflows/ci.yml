@@ -1,0 +1,41 @@
+name: CI
+
+"on":
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Install build dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Check types and build
+        run: |
+          npm run typecheck
+          npm run build
+          node scripts/release.mjs check
+
+      - name: Check native window sources
+        run: xcrun swiftc -typecheck -parse-as-library -swift-version 6 -warnings-as-errors native/WindowSession.swift native/window-reader.swift
