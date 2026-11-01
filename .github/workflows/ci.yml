@@ -6,21 +6,36 @@ name: CI
   pull_request:
     branches: [dev, main]
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref to verify
+        type: string
+        required: false
+        default: ""
+    outputs:
+      commit:
+        description: Commit that passed all checks
+        value: ${{ jobs.verify.outputs.commit }}
 
 permissions:
   contents: read
 
+# Keep development cancellation separate from release verification.
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: ccuh-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.workflow == 'CI' }}
 
 jobs:
   verify:
     runs-on: macos-latest
     timeout-minutes: 15
+    outputs:
+      commit: ${{ steps.revision.outputs.commit }}
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.ref || github.sha }}
           persist-credentials: false
 
       - uses: actions/setup-node@v7
@@ -39,3 +54,13 @@ jobs:
 
       - name: Check native window sources
         run: xcrun swiftc -typecheck -parse-as-library -swift-version 6 -warnings-as-errors native/WindowSession.swift native/window-reader.swift
+
+      - name: Record verified commit
+        id: revision
+        run: |
+          commit="$(git rev-parse --verify HEAD)"
+          if [[ ! "$commit" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "CI could not resolve a valid commit SHA." >&2
+            exit 1
+          fi
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"

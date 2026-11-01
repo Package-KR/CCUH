@@ -24,8 +24,14 @@ concurrency:
   queue: max
 
 jobs:
-  prepare:
+  ci:
     if: github.ref == 'refs/heads/main' && github.actor != 'github-actions[bot]'
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ inputs.repair_tag && format('refs/tags/{0}', inputs.repair_tag) || 'main' }}
+
+  prepare:
+    needs: ci
     runs-on: macos-latest
     timeout-minutes: 15
     permissions:
@@ -34,9 +40,18 @@ jobs:
       tag: ${{ steps.release.outputs.tag }}
       commit: ${{ steps.release.outputs.commit }}
     steps:
+      - name: Require verified CI commit
+        env:
+          VERIFIED_COMMIT: ${{ needs.ci.outputs.commit }}
+        run: |
+          if [[ ! "$VERIFIED_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "CI did not return a valid commit SHA." >&2
+            exit 1
+          fi
+
       - uses: actions/checkout@v7
         with:
-          ref: main
+          ref: ${{ needs.ci.outputs.commit }}
           fetch-depth: 0
 
       - uses: actions/setup-node@v7
@@ -55,7 +70,11 @@ jobs:
               echo "A stable vMAJOR.MINOR.PATCH tag is required." >&2
               exit 1
             fi
-            git checkout --detach "refs/tags/$REPAIR_TAG"
+            tagged="$(git rev-parse --verify "refs/tags/$REPAIR_TAG^{commit}")"
+            if [[ "$tagged" != "$(git rev-parse HEAD)" ]]; then
+              echo "The release tag changed after CI verification." >&2
+              exit 1
+            fi
             version="$(node scripts/release.mjs check)"
             if [[ "$REPAIR_TAG" != "v$version" ]]; then
               echo "The existing tag does not match its package version." >&2
@@ -148,5 +167,5 @@ jobs:
           if gh release view "$RELEASE_TAG" --json tagName > /dev/null 2>&1; then
             echo "Release $RELEASE_TAG already exists."
           else
-            gh release create "$RELEASE_TAG" --verify-tag --target "$RELEASE_COMMIT" --title "CCUH $RELEASE_TAG" --generate-notes
+            gh release create "$RELEASE_TAG" --verify-tag --target "$RELEASE_COMMIT" --title "v.${RELEASE_TAG#v}" --generate-notes
           fi
