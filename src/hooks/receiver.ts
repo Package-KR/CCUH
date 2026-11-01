@@ -3,10 +3,10 @@ import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
 
-const COMPUTER_USE_TOOL_NAMES = new Set(['mcp__cua_repl__js', 'mcp__cua_repl__js_reset']);
+const CUA_RUNTIME_TOOL_NAMES = new Set(['mcp__cua_repl__js', 'mcp__cua_repl__js_reset']);
 const MAX_INPUT_BYTES = 256 * 1024;
 
-type ComputerUseEvent = {
+type CuaRuntimeEvent = {
   toolName: string;
   sessionId: string;
   callId: string;
@@ -44,13 +44,13 @@ async function readEvent(): Promise<unknown> {
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 
-// Computer Use 이벤트 검증과 변환
-function parseEvent(input: unknown): ComputerUseEvent | undefined {
+// 공유 CUA 런타임 이벤트 검증과 변환
+function parseEvent(input: unknown): CuaRuntimeEvent | undefined {
   if (
     !isRecord(input) ||
     input.hook_event_name !== 'PreToolUse' ||
     typeof input.tool_name !== 'string' ||
-    !COMPUTER_USE_TOOL_NAMES.has(input.tool_name) ||
+    !CUA_RUNTIME_TOOL_NAMES.has(input.tool_name) ||
     !validId(input.session_id) ||
     !validId(input.tool_use_id)
   )
@@ -66,7 +66,7 @@ function parseEvent(input: unknown): ComputerUseEvent | undefined {
 }
 
 // 원문을 제외한 수신 증거 구성
-function createReceipt(event: ComputerUseEvent, receiverHash: string) {
+function createReceipt(event: CuaRuntimeEvent, receiverHash: string) {
   return {
     schemaVersion: 1,
     receiptId: randomUUID(),
@@ -100,7 +100,7 @@ async function saveReceipt(receipt: ReturnType<typeof createReceipt>): Promise<v
   }
 }
 
-// 허용된 훅 이벤트의 수신 처리
+// 공유 CUA 런타임 이벤트의 수신 처리
 async function receive(): Promise<void> {
   const event = parseEvent(await readEvent());
   if (!event) return;
