@@ -1,6 +1,6 @@
-name: "[EN] Bug report"
+name: '[EN] Bug report'
 description: Report a CCUH setup, hook, or app and window targeting problem.
-title: "[Bug] "
+title: '[Bug] '
 body:
   - type: markdown
     attributes:
