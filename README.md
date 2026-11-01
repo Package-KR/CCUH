@@ -101,13 +101,13 @@ Codex may request review of changed hooks. If your client still uses the previou
 <details>
 <summary>Release maintenance</summary>
 
-Develop on `dev` and merge reviewed changes into `main`. The **CI** workflow checks types, builds the runtime, and checks the native Swift sources on `dev` pushes and pull requests to `dev` or `main`. It does not publish a version.
+Develop on `dev` and merge reviewed changes into `main`. **CI** runs on `dev` pushes and pull requests to `dev` or `main`, checking types, building the runtime, and checking the native Swift sources. **Release** calls the same CI workflow before publishing from `main`.
 
-The **Release** workflow keeps the package, lock file, plugin manifest, and runtime version in sync. It builds before publishing and uses the repository's `GITHUB_TOKEN`; allow GitHub Actions to write to `main` and release tags.
+The **Release** workflow proceeds only after shared CI succeeds and checks out the exact verified commit. It keeps the package, lock file, plugin manifest, and runtime version in sync, rebuilds after incrementing the version, and publishes with the repository's `GITHUB_TOKEN`. Allow GitHub Actions to write to `main` and release tags.
 
 For a minor or major increment, run **Actions → Release → Run workflow** with the desired `bump`. If the version commit and tag succeeded but GitHub Release publication failed, rerun the failed publish job or set `repair_tag` to the existing tag. This publishes the same version without another increment.
 
-Concurrent pushes are processed from the latest `main` and can be included in one release. A conflicting branch update stops publication without a force push.
+Concurrent pushes can be included in one release: CI checks the latest `main`, then the release uses that verified commit. A conflicting branch update stops publication without a force push.
 
 </details>
 
