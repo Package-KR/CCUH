@@ -1,0 +1,36 @@
+name: "[EN] Feature request"
+description: Suggest an improvement to CCUH or its Computer Use workflow.
+title: "[Feature] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Explain the workflow you want to improve. Redact credentials and private content from any examples or attachments.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: Describe the difficulty or goal behind this request.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe how you would like CCUH to behave and how that would help.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe any workarounds or other approaches you have considered.
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Include relevant apps, window or desktop situations, examples, or references.
+    validations:
+      required: false
