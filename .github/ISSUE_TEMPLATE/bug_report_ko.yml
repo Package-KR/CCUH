@@ -1,6 +1,6 @@
-name: "[한국어] 버그 신고"
+name: '[한국어] 버그 신고'
 description: CCUH 설치, 훅 실행 또는 앱과 창 선택 문제를 제보합니다.
-title: "[Bug] "
+title: '[Bug] '
 body:
   - type: markdown
     attributes:

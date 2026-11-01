@@ -1,6 +1,6 @@
-name: "[한국어] 기능 제안"
+name: '[한국어] 기능 제안'
 description: CCUH 기능이나 Computer Use 작업 흐름의 개선을 제안합니다.
-title: "[Feature] "
+title: '[Feature] '
 body:
   - type: markdown
     attributes:
