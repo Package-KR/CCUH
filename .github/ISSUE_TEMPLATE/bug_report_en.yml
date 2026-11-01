@@ -1,0 +1,71 @@
+name: "[EN] Bug report"
+description: Report a CCUH setup, hook, or app and window targeting problem.
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe what happened while using CCUH. Redact credentials and private content from logs or screenshots.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the problem and what CCUH or Computer Use actually did.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include the task, relevant app, and actions leading to the problem.
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: Describe what you expected to happen.
+    validations:
+      required: true
+  - type: dropdown
+    id: client
+    attributes:
+      label: Codex client
+      options:
+        - Codex App
+        - Codex CLI
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include versions and the installation method. Use Unknown for anything you cannot check.
+      placeholder: |
+        macOS:
+        Node.js:
+        Codex version:
+        CCUH version:
+        Installation method (marketplace plugin or manual setup):
+    validations:
+      required: true
+  - type: textarea
+    id: window_context
+    attributes:
+      label: Window and user activity context
+      description: If relevant, describe your keyboard or mouse activity and whether the target window was on another desktop, in full screen, or minimized. Use anonymized window names.
+    validations:
+      required: false
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics and logs
+      description: If available, include sanitized ccuh_status or ccuh_recent_calls output. Note whether hooks were trusted, the client was restarted, and MCP was disconnected or connected without records.
+      render: text
+    validations:
+      required: false
