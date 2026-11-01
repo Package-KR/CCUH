@@ -5,6 +5,7 @@
   "description": "A macOS companion for reliable app and window targeting in Codex Computer Use.",
   "homepage": "https://github.com/Package-KR/CCUH",
   "repository": "https://github.com/Package-KR/CCUH",
+  "hooks": "./.codex-plugin/hooks.json",
   "interface": {
     "displayName": "CCUH",
     "shortDescription": "Reliable app and window targeting for Codex Computer Use",
