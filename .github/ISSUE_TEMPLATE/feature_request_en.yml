@@ -1,6 +1,6 @@
-name: "[EN] Feature request"
+name: '[EN] Feature request'
 description: Suggest an improvement to CCUH or its Computer Use workflow.
-title: "[Feature] "
+title: '[Feature] '
 body:
   - type: markdown
     attributes:
