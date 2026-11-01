@@ -101,6 +101,8 @@ Codex may request review of changed hooks. If your client still uses the previou
 <details>
 <summary>Release maintenance</summary>
 
+Develop on `dev` and merge reviewed changes into `main`. The **CI** workflow checks types, builds the runtime, and checks the native Swift sources on `dev` pushes and pull requests to `dev` or `main`. It does not publish a version.
+
 The **Release** workflow keeps the package, lock file, plugin manifest, and runtime version in sync. It builds before publishing and uses the repository's `GITHUB_TOKEN`; allow GitHub Actions to write to `main` and release tags.
 
 For a minor or major increment, run **Actions → Release → Run workflow** with the desired `bump`. If the version commit and tag succeeded but GitHub Release publication failed, rerun the failed publish job or set `repair_tag` to the existing tag. This publishes the same version without another increment.
