@@ -16,7 +16,7 @@ Users should be able to keep working while Codex Computer Use operates on the in
 
 ## Development
 
-This repository currently contains an architecture scaffold. It has no runnable MCP server, hooks, skill, or native engine. Installation and releases are paused.
+This repository contains an architecture scaffold and an experimental hook receiver for checking automatic invocation. It has no MCP server, app or window operations, skill, or native engine. Public installation and releases are paused.
 
 Development starts with one prerequisite: prove that a real Computer Use request automatically reaches CCUH while preserving app access restrictions and the user's focus from the first call. Window discovery and actions follow only after that prerequisite passes.
 
@@ -40,7 +40,7 @@ The ordered milestones and completion criteria are maintained in [the developmen
 | `dist/`            | Generated distribution output                  |
 | `docs/`            | Development plan                               |
 
-The directories reserve responsibilities only. They do not imply implemented functionality. Repository settings and the existing toolchain declarations remain available, with runtime entry points disabled.
+The directories reserve responsibilities only. They do not imply implemented functionality. Only the minimal receiver hook is connected; MCP and native engine entry points are absent. Repository settings and the existing toolchain declarations remain available.
 
 ## License
 
