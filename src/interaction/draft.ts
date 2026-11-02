@@ -41,7 +41,12 @@ function readField(state: string, options: DraftValueOptions): DraftFrame['field
     const attributes = entry[2].slice(0, metadata?.index);
     return [{ index: Number(entry[1]), row, ids, attributes }];
   });
-  const rows = entries.filter(entry => entry.ids.length === 1 && entry.ids[0][1].trim() === options.fieldId);
+  const rows = entries.filter(
+    entry =>
+      entry.ids.length === 1 &&
+      (entry.ids[0].index === 0 || entry.ids[0][0].startsWith(',')) &&
+      entry.ids[0][1].trim() === options.fieldId,
+  );
   if (
     rows.length !== 1 ||
     !rows[0].attributes.includes('(settable)') ||
