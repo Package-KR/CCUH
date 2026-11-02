@@ -6,6 +6,7 @@
   "homepage": "https://github.com/Package-KR/CCUH",
   "repository": "https://github.com/Package-KR/CCUH",
   "hooks": "./.codex-plugin/hooks.json",
+  "skills": "./skills/",
   "interface": {
     "displayName": "CCUH",
     "shortDescription": "Reliable app and window targeting for Codex Computer Use",
