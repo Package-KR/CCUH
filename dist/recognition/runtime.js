@@ -193,7 +193,9 @@ function readField(state, options) {
         const attributes = entry[2].slice(0, metadata?.index);
         return [{ index: Number(entry[1]), row, ids, attributes }];
     });
-    const rows = entries.filter(entry => entry.ids.length === 1 && entry.ids[0][1].trim() === options.fieldId);
+    const rows = entries.filter(entry => entry.ids.length === 1 &&
+        (entry.ids[0].index === 0 || entry.ids[0][0].startsWith(',')) &&
+        entry.ids[0][1].trim() === options.fieldId);
     if (rows.length !== 1 ||
         !rows[0].attributes.includes('(settable)') ||
         !Number.isSafeInteger(rows[0].index) ||
@@ -587,5 +589,5 @@ async function selectWindowFromMenu({ app, state }, menuName, title) {
     }
 }
   })(guardExports, requireLocalModule);
-  return Object.freeze({ ...guardExports, sourceHash: '260c29215e5ae38a00dec7f30dd35779c7bac56978d71916f8515eb251a964cb' });
+  return Object.freeze({ ...guardExports, sourceHash: 'e13e7a48f5b823e5ce8f957295b3edad9562bdf4cea4cd52949ee4eceaefccf0' });
 })();
