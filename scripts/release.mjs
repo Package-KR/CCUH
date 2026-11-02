@@ -1,5 +1,6 @@
 import { closeSync, lstatSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -57,6 +58,55 @@ function readReleaseInputs(root) {
 // 현재 릴리스 버전 조회
 export function checkRelease(root = REPOSITORY_ROOT) {
   return readReleaseInputs(root).version;
+}
+
+// 커밋 메시지의 버전 증가 폭 판정
+export function classifyCommitBump(message) {
+  if (typeof message !== 'string') throw new ReleaseError('Expected a commit message string.');
+  const [subject, ...body] = message.replace(/\r\n/g, '\n').split('\n');
+  if (/^BREAKING(?: |-)CHANGE:[ \t]+\S/m.test(body.join('\n'))) return 'major';
+  const header = /^([a-z][a-z0-9-]*)(?:\([^()\r\n]+\))?(!)?:[ \t]+\S.*$/i.exec(subject);
+  if (!header) return 'patch';
+  if (header[2]) return 'major';
+  return header[1].toLowerCase() === 'feat' ? 'minor' : 'patch';
+}
+
+// 로컬 릴리스 이력 조회
+function readGit(root, args) {
+  try {
+    return execFileSync('git', args, {
+      cwd: resolve(root),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      maxBuffer: 16 * 1024 * 1024,
+    });
+  } catch {
+    throw new ReleaseError('Could not inspect a complete local release history.');
+  }
+}
+
+// 현재 버전 이후 커밋의 가장 큰 증가 폭 선택
+export function detectReleaseBump(kind = 'auto', root = REPOSITORY_ROOT) {
+  if (!['auto', 'patch', 'minor', 'major'].includes(kind))
+    throw new ReleaseError('Release kind must be auto, patch, minor or major.');
+  if (kind !== 'auto') return kind;
+  const version = checkRelease(root);
+  let base;
+  try {
+    base = readGit(root, ['rev-parse', '--verify', `refs/tags/v${version}^{commit}`]).trim();
+    readGit(root, ['merge-base', '--is-ancestor', base, 'HEAD']);
+  } catch {
+    throw new ReleaseError('The current version tag must exist and be an ancestor of HEAD.');
+  }
+  const messages = readGit(root, ['log', '-z', '--format=%B', `${base}..HEAD`, '--']).split('\0');
+  let bump = 'patch';
+  for (const message of messages) {
+    if (!message) continue;
+    const candidate = classifyCommitBump(message);
+    if (candidate === 'major') return 'major';
+    if (candidate === 'minor') bump = 'minor';
+  }
+  return bump;
 }
 
 // 검증한 메타데이터 파일 교체
@@ -117,8 +167,9 @@ export function bumpReleaseVersion(kind, root = REPOSITORY_ROOT) {
 function run() {
   const [command, kind, ...extra] = process.argv.slice(2);
   if (command === 'check' && kind === undefined) return checkRelease();
+  if (command === 'detect' && extra.length === 0) return detectReleaseBump(kind);
   if (command === 'bump' && kind !== undefined && extra.length === 0) return bumpReleaseVersion(kind);
-  throw new ReleaseError('Usage: release.mjs check | bump patch|minor|major');
+  throw new ReleaseError('Usage: release.mjs check | detect [auto|patch|minor|major] | bump patch|minor|major');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
