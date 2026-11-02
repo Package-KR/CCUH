@@ -1,6 +1,6 @@
 ---
 name: ccuh
-description: Verify the intended native app and window, use one bounded official re-selection when the target differs, and check the observed result of an input or click during a bundled Computer Use task. Apply only alongside actual Computer Use, not ordinary coding, setup, searches, or unrelated tools.
+description: Verify the intended native app and window, use bounded official re-selection, check input or click results, and retry eligible local draft replacement once during a bundled Computer Use task. Apply only alongside actual Computer Use, not ordinary coding, setup, searches, or unrelated tools.
 ---
 
 # CCUH
@@ -64,6 +64,18 @@ Read both `status` and `outcome`:
 Identical before/after snapshots skip the verifier and return `no-observable-change`. A post-action target mismatch skips verification and returns unknown without reselecting the target. Operations whose intended effect closes or changes the target cannot be confirmed through this same-target path. The helper does not poll, retry, infer denial from exception text, or persist snapshots and exception bodies. Async verifier callbacks retain the same-App busy guard until they finish.
 
 Emit the fixed result summary when reporting a check; do not dump the supplied snapshots. Keep using `withTarget` for target-guarded reads and operations without an AX-verifiable postcondition, and report their outcome limits explicitly.
+
+## Replace a local draft with a bounded retry
+
+Use `ccuh.setDraftValue(target, { effect: 'local-draft', fieldId, value, readValue })` only for an authorized local draft whose exact replacement does not submit, persist, send, or trigger an external operation. If those semantics are unknown, use the one-shot path instead. This API calls only the same official App's `setValue(index, value)`; it does not retry arbitrary action callbacks, typing, pasting, appending, toggling, saving, or submitting. The effect declaration does not grant app access or prove the field is safe.
+
+Take `fieldId` from the actual field's AX ID metadata. It is a selector, not a physical window identity or access approval. The helper requires one editable row with that ID and a unique numeric index in the fresh full snapshot. Missing IDs, duplicate or ambiguous rows, unreadable values and invalid indexes stop without guessing. `readValue({ row, state })` must synchronously read that same field's string value from the supplied snapshot only. It must not query or operate apps. Return undefined when parsing is uncertain; do not turn absence or placeholder text into an empty value.
+
+The helper performs at most two setter calls in one invocation. An already observed desired value skips writing. Otherwise it captures the baseline value and first index, attempts once, and observes again. A second attempt requires a normal return, the baseline value still unchanged, the same unique field selector and a changed valid index. Before writing again it obtains another fresh matched observation and checks those conditions again. A delayed first effect skips the second attempt; an unexpected value stops to avoid overwriting a user edit. Any setter exception stops even if the desired value is later observed. Unknown targets, changed fields and unchanged references also stop.
+
+Read `attempts` as setter calls, `lastInvocation` as the last setter's return or exception, and `observedValue` as a relation to the desired/baseline value. `status: 'observed'` means the requested value was present in AX; it does not attribute the change to a particular attempt or prove persistence. `blocked` means no setter was called; `stopped` means no further setter will be called. The app-wide busy guard spans preparation, both attempts, all observations and value readers.
+
+Never call the helper repeatedly or create a new target merely to reset its limit. Stop on its fixed reason and report it. Fresh AX checks do not provide atomic compare-and-set: a user edit after the last check or a late app update remains possible. This workflow reduces blind replay but cannot promise zero interference or saved/server-side completion.
 
 If a menu or selection does not match the fresh observation, stop and report the mismatch immediately. Retry only after new evidence changes the conditions. Keep the user's input target intact; do not substitute app activation, global keys, private AX access, or another engine for a failed official route.
 
