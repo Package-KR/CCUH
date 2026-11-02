@@ -143,7 +143,150 @@ function classifyActionOutcome(invocation, evidence) {
     return { invocation, status: 'unknown', reason: 'verification-inconclusive' };
 }
   })(outcomeExports);
-  const localModules = Object.freeze({ './classify.ts': classifyExports, '../interaction/outcome.ts': outcomeExports });
+  const retryExports = {};
+  ((exports) => {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.decideDraftReplace = decideDraftReplace;
+// 새 관측과 참조에 따른 초안 값 교체 시도 판단
+function decideDraftReplace(attempts, evidence) {
+    if (evidence.kind === 'unavailable') {
+        return { decision: 'stop', reason: evidence.reason };
+    }
+    if (evidence.value === 'desired') {
+        return { decision: 'stop', reason: 'already-desired' };
+    }
+    if (evidence.value === 'unexpected') {
+        return { decision: 'stop', reason: 'unexpected-value' };
+    }
+    if (attempts === 2) {
+        return { decision: 'stop', reason: 'attempt-limit' };
+    }
+    if (evidence.reference === 'invalid') {
+        return { decision: 'stop', reason: 'invalid-reference' };
+    }
+    if (attempts === 1 && evidence.reference === 'unchanged') {
+        return { decision: 'stop', reason: 'unchanged-reference' };
+    }
+    return { decision: 'set', attempt: attempts === 0 ? 1 : 2 };
+}
+  })(retryExports);
+  const draftExports = {};
+  // 초안 처리의 순수 재시도 모듈 제공
+  function requireDraftModule(name) {
+    if (name !== './retry.ts') throw new Error('Unsupported CCUH runtime module');
+    return retryExports;
+  }
+  ((exports, require) => {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.runDraftValue = runDraftValue;
+const retry_ts_1 = require("./retry.ts");
+// 최신 스냅샷의 유일한 편집 가능 필드 확인
+function readField(state, options) {
+    const entries = state.split(/\r?\n/u).flatMap(row => {
+        const entry = /^\s*(\d+)\s+(.+)$/u.exec(row);
+        if (!entry)
+            return [];
+        const ids = [...entry[2].matchAll(/(?:^|,\s*|\s+)ID: ([^,]+)(?=,|$)/gu)];
+        const metadata = /(?:^|,\s*|\s+)(?:Value|Description|Help|ID|Secondary Actions):/u.exec(entry[2]);
+        const attributes = entry[2].slice(0, metadata?.index);
+        return [{ index: Number(entry[1]), row, ids, attributes }];
+    });
+    const rows = entries.filter(entry => entry.ids.length === 1 && entry.ids[0][1].trim() === options.fieldId);
+    if (rows.length !== 1 ||
+        !rows[0].attributes.includes('(settable)') ||
+        !Number.isSafeInteger(rows[0].index) ||
+        entries.filter(entry => entry.index === rows[0].index).length !== 1)
+        return;
+    try {
+        const value = options.readValue({ row: rows[0].row, state });
+        if (typeof value === 'string')
+            return { index: rows[0].index, value };
+    }
+    catch {
+        return;
+    }
+}
+// 현재 값과 참조를 원래 초안에 대조
+function inspectFrame(observation, options, baseline, firstIndex) {
+    if (observation.recognition.status !== 'matched' || observation.state === undefined) {
+        return { observation, evidence: { kind: 'unavailable', reason: 'target-unconfirmed' } };
+    }
+    const field = readField(observation.state, options);
+    if (!field)
+        return { observation, evidence: { kind: 'unavailable', reason: 'field-unconfirmed' } };
+    return {
+        observation,
+        field,
+        evidence: {
+            kind: 'observed',
+            value: field.value === options.value
+                ? 'desired'
+                : baseline === undefined || field.value === baseline
+                    ? 'initial'
+                    : 'unexpected',
+            reference: firstIndex === undefined || field.index === firstIndex ? 'unchanged' : 'changed',
+        },
+    };
+}
+// UI 원문을 제외한 초안 처리 결과 구성
+function summarize(frame, reason, attempts, lastInvocation) {
+    return {
+        status: reason === 'already-desired' ? 'observed' : attempts === 0 ? 'blocked' : 'stopped',
+        reason,
+        attempts,
+        lastInvocation,
+        observedValue: frame.evidence.kind === 'observed' ? frame.evidence.value : 'unavailable',
+        recognition: frame.observation.recognition,
+    };
+}
+// 예외가 있었던 입력의 자동 반복 차단
+function decideNext(frame, attempts, lastInvocation) {
+    return (0, retry_ts_1.decideDraftReplace)(attempts, lastInvocation === 'threw' ? { kind: 'unavailable', reason: 'invocation-error' } : frame.evidence);
+}
+// 같은 공식 앱에서 로컬 초안 교체를 최대 두 번 수행
+async function runDraftValue(initial, runtime, options) {
+    let frame = inspectFrame(initial, options);
+    const baseline = frame.field?.value;
+    let firstIndex;
+    let attempts = 0;
+    let lastInvocation = 'not-attempted';
+    let decision = decideNext(frame, attempts, lastInvocation);
+    // 같은 공식 앱의 재관측 실패를 미확인으로 변환
+    async function observe() {
+        try {
+            return await runtime.observe();
+        }
+        catch {
+            return { recognition: { status: 'unknown', reason: 'unclassified-error', basis: [] } };
+        }
+    }
+    while (decision.decision === 'set') {
+        if (attempts > 0) {
+            frame = inspectFrame(await observe(), options, baseline, firstIndex);
+            decision = decideNext(frame, attempts, lastInvocation);
+            if (decision.decision === 'stop')
+                break;
+        }
+        if (!frame.field)
+            return summarize(frame, 'field-unconfirmed', attempts, lastInvocation);
+        firstIndex ??= frame.field.index;
+        attempts = decision.attempt;
+        lastInvocation = 'returned';
+        try {
+            await runtime.setValue(frame.field.index, options.value);
+        }
+        catch {
+            lastInvocation = 'threw';
+        }
+        frame = inspectFrame(await observe(), options, baseline, firstIndex);
+        decision = decideNext(frame, attempts, lastInvocation);
+    }
+    return summarize(frame, decision.reason, attempts, lastInvocation);
+}
+  })(draftExports, requireDraftModule);
+  const localModules = Object.freeze({ './classify.ts': classifyExports, '../interaction/outcome.ts': outcomeExports, '../interaction/draft.ts': draftExports });
   const guardExports = {};
   // 허용된 순수 로컬 모듈 제공
   function requireLocalModule(name) {
@@ -157,9 +300,11 @@ exports.createTarget = createTarget;
 exports.prepareTarget = prepareTarget;
 exports.withTarget = withTarget;
 exports.withVerifiedTarget = withVerifiedTarget;
+exports.setDraftValue = setDraftValue;
 exports.selectWindowFromMenu = selectWindowFromMenu;
 const classify_ts_1 = require("./classify.ts");
 const outcome_ts_1 = require("../interaction/outcome.ts");
+const draft_ts_1 = require("../interaction/draft.ts");
 const targets = new WeakMap();
 const busyApps = new WeakSet();
 // 유효한 대상 식별 문자열 검사
@@ -346,6 +491,46 @@ async function withVerifiedTarget(token, action, verify) {
         busyApps.delete(target.app);
     }
 }
+// 명시한 로컬 초안 필드의 교체와 제한된 재시도
+async function setDraftValue(token, options) {
+    const target = targets.get(token);
+    const initial = {
+        status: 'blocked',
+        reason: 'invalid-options',
+        attempts: 0,
+        lastInvocation: 'not-attempted',
+        observedValue: 'unavailable',
+        recognition: unknown('invalid-evidence'),
+    };
+    if (!target ||
+        !options ||
+        options.effect !== 'local-draft' ||
+        !validText(options.fieldId) ||
+        typeof options.value !== 'string' ||
+        typeof options.readValue !== 'function' ||
+        typeof target.app.setValue !== 'function')
+        return initial;
+    if (busyApps.has(target.app))
+        return { ...initial, reason: 'app-busy', recognition: unknown('unclassified-error') };
+    const settings = Object.freeze({
+        effect: options.effect,
+        fieldId: options.fieldId,
+        value: options.value,
+        readValue: options.readValue,
+    });
+    const setValue = target.app.setValue.bind(target.app);
+    busyApps.add(target.app);
+    try {
+        const { summary, state } = await prepare(target);
+        if (summary.status !== 'ready' || state === undefined) {
+            return { ...initial, reason: 'target-unconfirmed', recognition: summary.recognition };
+        }
+        return await (0, draft_ts_1.runDraftValue)({ recognition: summary.recognition, state }, { setValue, observe: () => observeTarget(target) }, settings);
+    }
+    finally {
+        busyApps.delete(target.app);
+    }
+}
 // 전체 접근성 스냅샷의 메뉴 행 추출
 function readMenuRows(state) {
     return state.split(/\r?\n/u).flatMap(line => {
@@ -402,5 +587,5 @@ async function selectWindowFromMenu({ app, state }, menuName, title) {
     }
 }
   })(guardExports, requireLocalModule);
-  return Object.freeze({ ...guardExports, sourceHash: '6156bdbca8837c74237a450355ccb552bf7ada5b537dc9c9e7e4886dab7d2874' });
+  return Object.freeze({ ...guardExports, sourceHash: '260c29215e5ae38a00dec7f30dd35779c7bac56978d71916f8515eb251a964cb' });
 })();
