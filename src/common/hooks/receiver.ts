@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const CUA_RUNTIME_TOOL_NAMES = new Set(['mcp__cua_repl__js', 'mcp__cua_repl__js_reset']);
 const PRE_INPUT_LIMIT = 256 * 1024;
@@ -75,6 +76,24 @@ function parseEvent(input: unknown, expectedEvent: HookEventName): CuaRuntimeEve
     responsePresent: Object.hasOwn(input, 'tool_response'),
     response: input.tool_response,
   };
+}
+
+// 현재 Computer Use 작업에 대상 가드 지침 전달
+function emitGuidance(eventName: HookEventName, toolName: string): void {
+  const skill = fileURLToPath(new URL('../../../skills/ccuh/SKILL.md', import.meta.url));
+  const runtime = fileURLToPath(new URL('../../../dist/recognition/runtime.js', import.meta.url));
+  const additionalContext = [
+    'CCUH_TARGET_GUIDANCE_V1: This is a bundled Computer Use invocation, not app access approval.',
+    `For native app work in this authorized task, read ${skill}.`,
+    `Load ${runtime} as plain JavaScript in cua_repl once, then use ccuh.withTarget with the same official App handle and explicit intended app/window before native actions.`,
+    'Keep the intended target separate from the user foreground. Reconfirm fresh state, allow at most one official re-selection, and stop on uncertainty or access failure. Never retry a completed action automatically.',
+    toolName === 'mcp__cua_repl__js_reset'
+      ? 'js_reset clears the helper and target bindings. Reload before the next native app action.'
+      : 'If the helper is absent or its source differs, reload it before the next native app action.',
+    'Browser Tab tasks keep their documented browser bindings; do not open native apps just to activate CCUH. Other tools and unrelated tasks do not activate this workflow.',
+    'This context guides the agent; it does not rewrite the pending call or replace host approvals.',
+  ].join('\n');
+  process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: eventName, additionalContext } }) + '\n');
 }
 
 // 반환 값의 JSON 유형 확인
@@ -194,6 +213,7 @@ export async function receive(expectedEvent: HookEventName): Promise<void> {
     }
     const event = parseEvent(input.value, expectedEvent);
     if (!event) return;
+    emitGuidance(expectedEvent, event.toolName);
     if (expectedEvent === 'PreToolUse') await saveRecord('last-receipt.json', createReceipt(event, receiverHash));
     else await saveRecord('last-result.json', createResult(event, input.inputBytes, receiverHash));
   } catch {

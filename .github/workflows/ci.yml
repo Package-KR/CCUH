@@ -52,6 +52,11 @@ jobs:
           node --check hooks/receiver.mjs
           node --check hooks/result.mjs
 
+      - name: Check Computer Use runtime
+        run: |
+          node scripts/build-runtime.mjs --check
+          node --check dist/recognition/runtime.js
+
       - name: Check formatting
         run: npx --yes prettier@3.7.4 --check .
 
