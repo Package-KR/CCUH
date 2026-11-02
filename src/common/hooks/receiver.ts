@@ -86,6 +86,7 @@ function emitGuidance(eventName: HookEventName, toolName: string): void {
     'CCUH_TARGET_GUIDANCE_V1: This is a bundled Computer Use invocation, not app access approval.',
     `For native app work in this authorized task, read ${skill}.`,
     `Load ${runtime} as plain JavaScript in cua_repl once, then use ccuh.withTarget with the same official App handle and explicit intended app/window before native actions.`,
+    'For input or click work with a concrete AX-visible postcondition, use ccuh.withVerifiedTarget(target, action, verify). It attempts once and separates invocation return/throw from the observed effect. checked is not confirmed; inspect outcome.status. Never repeat an unconfirmed send or save.',
     'Keep the intended target separate from the user foreground. Reconfirm fresh state, allow at most one official re-selection, and stop on uncertainty or access failure. Never retry a completed action automatically.',
     toolName === 'mcp__cua_repl__js_reset'
       ? 'js_reset clears the helper and target bindings. Reload before the next native app action.'

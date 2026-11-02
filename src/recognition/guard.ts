@@ -1,5 +1,7 @@
 import { classifyRecognition } from './classify.ts';
 import type { RecognitionRequest, RecognitionResult } from './classify.ts';
+import { classifyActionOutcome } from '../interaction/outcome.ts';
+import type { ActionEvidence, ActionInvocation, ActionOutcome, VerificationVerdict } from '../interaction/outcome.ts';
 
 export type AppApi = {
   getAXState(options: { disableDiffing: true; emit: false }): Promise<string>;
@@ -25,6 +27,10 @@ export type TargetSummary = {
 export type TargetExecution<T> =
   | (Omit<TargetSummary, 'status'> & { status: 'blocked' })
   | (Omit<TargetSummary, 'status'> & { status: 'executed'; value?: T });
+export type VerificationContext = { before: string; after: string };
+export type VerifiedTargetExecution<T> =
+  | (Omit<TargetSummary, 'status'> & { status: 'blocked' })
+  | (Omit<TargetSummary, 'status'> & { status: 'checked'; outcome: ActionOutcome; value?: T });
 
 type TargetRecord = Readonly<{
   app: AppApi;
@@ -34,7 +40,7 @@ type TargetRecord = Readonly<{
 }>;
 type Observation = { recognition: RecognitionResult; state?: string };
 type Preparation = { summary: TargetSummary; state?: string };
-type Header = { app: string; window: string };
+type Header = { app: string; window?: string };
 type MenuRow = { index: number; depth: number; label: string; id?: string };
 
 const targets = new WeakMap<object, TargetRecord>();
@@ -53,7 +59,8 @@ function unknown(reason: 'invalid-evidence' | 'unclassified-error'): Recognition
 // 전체 스냅샷의 첫 창 헤더 추출
 function readHeader(state: string): Header | undefined {
   const match = /^Window: "(.*)", App: ([^\r\n]+)\.$/u.exec(state.split(/\r?\n/u, 1)[0] ?? '');
-  return match && validText(match[1]) && validText(match[2]) ? { window: match[1], app: match[2] } : undefined;
+  if (!match || !validText(match[2]) || (match[1] !== '' && !validText(match[1]))) return;
+  return { app: match[2], ...(match[1] === '' ? {} : { window: match[1] }) };
 }
 
 // 정규화된 표시 이름 비교
@@ -78,7 +85,7 @@ async function observeTarget(target: TargetRecord): Promise<Observation> {
           result: {
             kind: 'observed',
             app: { kind: 'app-name', value: header.app },
-            window: { kind: 'window-title', value: header.window },
+            ...(header.window === undefined ? {} : { window: { kind: 'window-title', value: header.window } }),
           },
         },
         { nowMs: Date.now(), maxAgeMs: target.maxAgeMs },
@@ -184,6 +191,51 @@ export async function withTarget<T>(
       status: 'executed',
       recognition: observation.recognition,
       ...(value === undefined ? {} : { value }),
+    };
+  } finally {
+    busyApps.delete(target.app);
+  }
+}
+
+// 작업 한 번 실행 후 같은 대상의 실제 변화 확인
+export async function withVerifiedTarget<T>(
+  token: TargetToken,
+  action: (context: ActionContext) => Promise<T>,
+  verify: (context: VerificationContext) => VerificationVerdict | Promise<VerificationVerdict>,
+): Promise<VerifiedTargetExecution<T>> {
+  const target = targets.get(token);
+  if (!target || typeof action !== 'function' || typeof verify !== 'function') return blocked('invalid-evidence');
+  if (busyApps.has(target.app)) return blocked('unclassified-error');
+  busyApps.add(target.app);
+  try {
+    const { summary, state } = await prepare(target);
+    if (summary.status !== 'ready' || state === undefined) return { ...summary, status: 'blocked' };
+    let invocation: ActionInvocation = 'returned';
+    let value: T | undefined;
+    try {
+      value = await action({ app: target.app, state });
+    } catch {
+      invocation = 'threw';
+    }
+    const observation = await observeTarget(target);
+    let evidence: ActionEvidence = { kind: 'unavailable', reason: 'target-unconfirmed' };
+    if (observation.recognition.status === 'matched' && observation.state !== undefined) {
+      evidence = { kind: 'observed', changed: state !== observation.state, verdict: 'unknown' };
+      if (evidence.changed) {
+        try {
+          const verdict = await verify({ before: state, after: observation.state });
+          evidence.verdict = verdict === true || verdict === false ? verdict : 'unknown';
+        } catch {
+          evidence = { kind: 'unavailable', reason: 'verification-threw' };
+        }
+      }
+    }
+    return {
+      ...summary,
+      status: 'checked',
+      recognition: observation.recognition,
+      outcome: classifyActionOutcome(invocation, evidence),
+      ...(invocation === 'returned' && value !== undefined ? { value } : {}),
     };
   } finally {
     busyApps.delete(target.app);
