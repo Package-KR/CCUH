@@ -2,10 +2,13 @@ import { classifyRecognition } from './classify.ts';
 import type { RecognitionRequest, RecognitionResult } from './classify.ts';
 import { classifyActionOutcome } from '../interaction/outcome.ts';
 import type { ActionEvidence, ActionInvocation, ActionOutcome, VerificationVerdict } from '../interaction/outcome.ts';
+import { runDraftValue } from '../interaction/draft.ts';
+import type { DraftValueOptions, DraftValueResult } from '../interaction/draft.ts';
 
 export type AppApi = {
   getAXState(options: { disableDiffing: true; emit: false }): Promise<string>;
   click(index: number): Promise<unknown>;
+  setValue?(index: number, value: string): Promise<unknown>;
 };
 export type ActionContext = { app: AppApi; state: string };
 export type TargetOptions = {
@@ -237,6 +240,51 @@ export async function withVerifiedTarget<T>(
       outcome: classifyActionOutcome(invocation, evidence),
       ...(invocation === 'returned' && value !== undefined ? { value } : {}),
     };
+  } finally {
+    busyApps.delete(target.app);
+  }
+}
+
+// 명시한 로컬 초안 필드의 교체와 제한된 재시도
+export async function setDraftValue(token: TargetToken, options: DraftValueOptions): Promise<DraftValueResult> {
+  const target = targets.get(token);
+  const initial: DraftValueResult = {
+    status: 'blocked',
+    reason: 'invalid-options',
+    attempts: 0,
+    lastInvocation: 'not-attempted',
+    observedValue: 'unavailable',
+    recognition: unknown('invalid-evidence'),
+  };
+  if (
+    !target ||
+    !options ||
+    options.effect !== 'local-draft' ||
+    !validText(options.fieldId) ||
+    typeof options.value !== 'string' ||
+    typeof options.readValue !== 'function' ||
+    typeof target.app.setValue !== 'function'
+  )
+    return initial;
+  if (busyApps.has(target.app)) return { ...initial, reason: 'app-busy', recognition: unknown('unclassified-error') };
+  const settings = Object.freeze({
+    effect: options.effect,
+    fieldId: options.fieldId,
+    value: options.value,
+    readValue: options.readValue,
+  });
+  const setValue = target.app.setValue.bind(target.app);
+  busyApps.add(target.app);
+  try {
+    const { summary, state } = await prepare(target);
+    if (summary.status !== 'ready' || state === undefined) {
+      return { ...initial, reason: 'target-unconfirmed', recognition: summary.recognition };
+    }
+    return await runDraftValue(
+      { recognition: summary.recognition, state },
+      { setValue, observe: () => observeTarget(target) },
+      settings,
+    );
   } finally {
     busyApps.delete(target.app);
   }
