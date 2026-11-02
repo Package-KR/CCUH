@@ -48,7 +48,9 @@ jobs:
         run: node node_modules/typescript/bin/tsc --noEmit
 
       - name: Check hook entry syntax
-        run: node --check hooks/receiver.mjs
+        run: |
+          node --check hooks/receiver.mjs
+          node --check hooks/result.mjs
 
       - name: Check formatting
         run: npx --yes prettier@3.7.4 --check .

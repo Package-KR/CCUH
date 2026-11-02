@@ -1,1 +1,2 @@
-await import('../src/hooks/receiver.ts');
+const { receive } = await import('../src/common/hooks/receiver.ts');
+await receive('PreToolUse');
