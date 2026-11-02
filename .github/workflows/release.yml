@@ -6,10 +6,10 @@ name: Release
   workflow_dispatch:
     inputs:
       bump:
-        description: Version increment
+        description: Commit-based version increment or manual override
         type: choice
-        options: [patch, minor, major]
-        default: patch
+        options: [auto, patch, minor, major]
+        default: auto
       repair_tag:
         description: Existing tag to publish without incrementing the version
         type: string
@@ -97,8 +97,11 @@ jobs:
       - name: Increment version
         if: steps.plan.outputs.mode == 'bump'
         env:
-          BUMP: ${{ inputs.bump || 'patch' }}
-        run: node scripts/release.mjs bump "$BUMP"
+          BUMP: ${{ inputs.bump || 'auto' }}
+        run: |
+          selected="$(node scripts/release.mjs detect "$BUMP")"
+          echo "Selected version increment: $selected"
+          node scripts/release.mjs bump "$selected"
 
       - name: Commit version and publish refs
         id: release
