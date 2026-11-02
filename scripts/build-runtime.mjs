@@ -4,17 +4,17 @@ import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 
 const root = new URL('../', import.meta.url);
-const sourcePaths = ['src/recognition/classify.ts', 'src/recognition/guard.ts'];
+const sourcePaths = ['src/recognition/classify.ts', 'src/interaction/outcome.ts', 'src/recognition/guard.ts'];
 const outputPath = new URL('dist/recognition/runtime.js', root);
 
-// 로컬 분류 모듈만 참조하는지 검사
+// 허용된 순수 로컬 모듈만 참조하는지 검사
 function validateDependencies(source, path) {
   const file = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
-  const allowed = path === sourcePaths[1] ? './classify.ts' : undefined;
+  const allowed = path === sourcePaths[2] ? ['./classify.ts', '../interaction/outcome.ts'] : [];
 
   // 허용한 정적 모듈 경로 검사
   function validateReference(node) {
-    if (!node || !ts.isStringLiteral(node) || node.text !== allowed) {
+    if (!node || !ts.isStringLiteral(node) || !allowed.includes(node.text)) {
       throw new Error(`Unsupported module dependency in ${path}`);
     }
   }
@@ -72,7 +72,7 @@ async function createRuntime() {
     modules.push(transpile(bytes.toString('utf8'), path));
   }
   const sourceHash = hash.digest('hex');
-  return `// 대상 재확인 도우미 구성\nvar ccuh = (() => {\n  const classifyExports = {};\n  ((exports) => {\n${modules[0]}\n  })(classifyExports);\n  const guardExports = {};\n  // 허용된 로컬 분류 모듈 제공\n  function requireLocalModule(name) {\n    if (name !== './classify.ts') throw new Error('Unsupported CCUH runtime module');\n    return classifyExports;\n  }\n  ((exports, require) => {\n${modules[1]}\n  })(guardExports, requireLocalModule);\n  return Object.freeze({ ...guardExports, sourceHash: '${sourceHash}' });\n})();\n`;
+  return `// 대상 재확인 도우미 구성\nvar ccuh = (() => {\n  const classifyExports = {};\n  ((exports) => {\n${modules[0]}\n  })(classifyExports);\n  const outcomeExports = {};\n  ((exports) => {\n${modules[1]}\n  })(outcomeExports);\n  const localModules = Object.freeze({ './classify.ts': classifyExports, '../interaction/outcome.ts': outcomeExports });\n  const guardExports = {};\n  // 허용된 순수 로컬 모듈 제공\n  function requireLocalModule(name) {\n    if (!Object.hasOwn(localModules, name)) throw new Error('Unsupported CCUH runtime module');\n    return localModules[name];\n  }\n  ((exports, require) => {\n${modules[2]}\n  })(guardExports, requireLocalModule);\n  return Object.freeze({ ...guardExports, sourceHash: '${sourceHash}' });\n})();\n`;
 }
 
 // 생성물을 갱신하거나 현재 소스와 일치하는지 확인

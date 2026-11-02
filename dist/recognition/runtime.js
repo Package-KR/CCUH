@@ -121,11 +121,34 @@ function classifyRecognition(request, observation, policy) {
         : { status: 'failed', reason: 'window-selector-mismatch', basis };
 }
   })(classifyExports);
+  const outcomeExports = {};
+  ((exports) => {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.classifyActionOutcome = classifyActionOutcome;
+// 호출 결과와 관측 증거를 분리한 동작 결과 분류
+function classifyActionOutcome(invocation, evidence) {
+    if (evidence.kind === 'unavailable') {
+        return { invocation, status: 'unknown', reason: evidence.reason };
+    }
+    if (!evidence.changed) {
+        return { invocation, status: 'not-observed', reason: 'no-observable-change' };
+    }
+    if (evidence.verdict === true) {
+        return { invocation, status: 'confirmed', reason: 'postcondition-matched' };
+    }
+    if (evidence.verdict === false) {
+        return { invocation, status: 'not-observed', reason: 'postcondition-not-observed' };
+    }
+    return { invocation, status: 'unknown', reason: 'verification-inconclusive' };
+}
+  })(outcomeExports);
+  const localModules = Object.freeze({ './classify.ts': classifyExports, '../interaction/outcome.ts': outcomeExports });
   const guardExports = {};
-  // 허용된 로컬 분류 모듈 제공
+  // 허용된 순수 로컬 모듈 제공
   function requireLocalModule(name) {
-    if (name !== './classify.ts') throw new Error('Unsupported CCUH runtime module');
-    return classifyExports;
+    if (!Object.hasOwn(localModules, name)) throw new Error('Unsupported CCUH runtime module');
+    return localModules[name];
   }
   ((exports, require) => {
 "use strict";
@@ -133,8 +156,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.createTarget = createTarget;
 exports.prepareTarget = prepareTarget;
 exports.withTarget = withTarget;
+exports.withVerifiedTarget = withVerifiedTarget;
 exports.selectWindowFromMenu = selectWindowFromMenu;
 const classify_ts_1 = require("./classify.ts");
+const outcome_ts_1 = require("../interaction/outcome.ts");
 const targets = new WeakMap();
 const busyApps = new WeakSet();
 // 유효한 대상 식별 문자열 검사
@@ -148,7 +173,9 @@ function unknown(reason) {
 // 전체 스냅샷의 첫 창 헤더 추출
 function readHeader(state) {
     const match = /^Window: "(.*)", App: ([^\r\n]+)\.$/u.exec(state.split(/\r?\n/u, 1)[0] ?? '');
-    return match && validText(match[1]) && validText(match[2]) ? { window: match[1], app: match[2] } : undefined;
+    if (!match || !validText(match[2]) || (match[1] !== '' && !validText(match[1])))
+        return;
+    return { app: match[2], ...(match[1] === '' ? {} : { window: match[1] }) };
 }
 // 정규화된 표시 이름 비교
 function equalText(left, right) {
@@ -170,7 +197,7 @@ async function observeTarget(target) {
                 result: {
                     kind: 'observed',
                     app: { kind: 'app-name', value: header.app },
-                    window: { kind: 'window-title', value: header.window },
+                    ...(header.window === undefined ? {} : { window: { kind: 'window-title', value: header.window } }),
                 },
             }, { nowMs: Date.now(), maxAgeMs: target.maxAgeMs }),
         };
@@ -273,6 +300,52 @@ async function withTarget(token, action) {
         busyApps.delete(target.app);
     }
 }
+// 작업 한 번 실행 후 같은 대상의 실제 변화 확인
+async function withVerifiedTarget(token, action, verify) {
+    const target = targets.get(token);
+    if (!target || typeof action !== 'function' || typeof verify !== 'function')
+        return blocked('invalid-evidence');
+    if (busyApps.has(target.app))
+        return blocked('unclassified-error');
+    busyApps.add(target.app);
+    try {
+        const { summary, state } = await prepare(target);
+        if (summary.status !== 'ready' || state === undefined)
+            return { ...summary, status: 'blocked' };
+        let invocation = 'returned';
+        let value;
+        try {
+            value = await action({ app: target.app, state });
+        }
+        catch {
+            invocation = 'threw';
+        }
+        const observation = await observeTarget(target);
+        let evidence = { kind: 'unavailable', reason: 'target-unconfirmed' };
+        if (observation.recognition.status === 'matched' && observation.state !== undefined) {
+            evidence = { kind: 'observed', changed: state !== observation.state, verdict: 'unknown' };
+            if (evidence.changed) {
+                try {
+                    const verdict = await verify({ before: state, after: observation.state });
+                    evidence.verdict = verdict === true || verdict === false ? verdict : 'unknown';
+                }
+                catch {
+                    evidence = { kind: 'unavailable', reason: 'verification-threw' };
+                }
+            }
+        }
+        return {
+            ...summary,
+            status: 'checked',
+            recognition: observation.recognition,
+            outcome: (0, outcome_ts_1.classifyActionOutcome)(invocation, evidence),
+            ...(invocation === 'returned' && value !== undefined ? { value } : {}),
+        };
+    }
+    finally {
+        busyApps.delete(target.app);
+    }
+}
 // 전체 접근성 스냅샷의 메뉴 행 추출
 function readMenuRows(state) {
     return state.split(/\r?\n/u).flatMap(line => {
@@ -329,5 +402,5 @@ async function selectWindowFromMenu({ app, state }, menuName, title) {
     }
 }
   })(guardExports, requireLocalModule);
-  return Object.freeze({ ...guardExports, sourceHash: '1ab7d4879e9a82a8eae75a1c8ba671b2107ea226b261fa695ae79b36722071de' });
+  return Object.freeze({ ...guardExports, sourceHash: '6156bdbca8837c74237a450355ccb552bf7ada5b537dc9c9e7e4886dab7d2874' });
 })();
