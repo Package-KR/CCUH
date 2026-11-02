@@ -1,0 +1,202 @@
+import { createHash, randomUUID } from 'node:crypto';
+import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { isAbsolute, join } from 'node:path';
+
+const CUA_RUNTIME_TOOL_NAMES = new Set(['mcp__cua_repl__js', 'mcp__cua_repl__js_reset']);
+const PRE_INPUT_LIMIT = 256 * 1024;
+const POST_INPUT_LIMIT = 8 * 1024 * 1024;
+
+type HookEventName = 'PreToolUse' | 'PostToolUse';
+type InputRead = { inputBytes: number; oversized: true } | { inputBytes: number; oversized: false; value: unknown };
+
+type CuaRuntimeEvent = {
+  toolName: string;
+  sessionId: string;
+  callId: string;
+  code?: string;
+  responsePresent: boolean;
+  response: unknown;
+};
+
+// 수신 값의 해시 생성
+function hash(value: string | Uint8Array): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+// JSON 객체 판별
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+// 훅 호출 식별자 검사
+function validId(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0 && value.length <= 1024;
+}
+
+// 제한된 훅 입력 읽기
+async function readEvent(limit: number): Promise<InputRead> {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  let oversized = false;
+  for await (const chunk of process.stdin) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    size += buffer.length;
+    if (size > limit) {
+      oversized = true;
+      chunks.length = 0;
+    } else if (!oversized) {
+      chunks.push(buffer);
+    }
+  }
+  return oversized
+    ? { inputBytes: size, oversized: true }
+    : { inputBytes: size, oversized: false, value: JSON.parse(Buffer.concat(chunks).toString('utf8')) };
+}
+
+// 공유 CUA 런타임 이벤트 검증과 변환
+function parseEvent(input: unknown, expectedEvent: HookEventName): CuaRuntimeEvent | undefined {
+  if (
+    !isRecord(input) ||
+    input.hook_event_name !== expectedEvent ||
+    typeof input.tool_name !== 'string' ||
+    !CUA_RUNTIME_TOOL_NAMES.has(input.tool_name) ||
+    !validId(input.session_id) ||
+    !validId(input.tool_use_id)
+  )
+    return;
+
+  const code = isRecord(input.tool_input) ? input.tool_input.code : undefined;
+  return {
+    toolName: input.tool_name,
+    sessionId: input.session_id,
+    callId: input.tool_use_id,
+    ...(typeof code === 'string' ? { code } : {}),
+    responsePresent: Object.hasOwn(input, 'tool_response'),
+    response: input.tool_response,
+  };
+}
+
+// 반환 값의 JSON 유형 확인
+function responseType(value: unknown, present: boolean): string {
+  if (!present) return 'missing';
+  if (value === null) return 'null';
+  return Array.isArray(value) ? 'array' : typeof value;
+}
+
+// 표준 콘텐츠 유형별 개수 집계
+function contentTypeCounts(response: unknown) {
+  const counts = { text: 0, image: 0, audio: 0, resource: 0, resource_link: 0, unknown: 0 };
+  if (!isRecord(response) || !Array.isArray(response.content)) return counts;
+  for (const block of response.content) {
+    const type = isRecord(block) ? block.type : undefined;
+    switch (type) {
+      case 'text':
+      case 'image':
+      case 'audio':
+      case 'resource':
+      case 'resource_link':
+        counts[type] += 1;
+        break;
+      default:
+        counts.unknown += 1;
+    }
+  }
+  return counts;
+}
+
+// 원문을 제외한 반환 관측 구성
+function createResult(event: CuaRuntimeEvent | undefined, inputBytes: number, receiverHash: string) {
+  const response = event && isRecord(event.response) ? event.response : undefined;
+  return {
+    schemaVersion: 1,
+    resultId: randomUUID(),
+    receivedAt: new Date().toISOString(),
+    eventName: 'PostToolUse',
+    toolName: event?.toolName ?? null,
+    sessionHash: event ? hash(event.sessionId) : null,
+    callHash: event ? hash(event.callId) : null,
+    codeHash: event?.code === undefined ? null : hash(event.code),
+    receiverHash,
+    inputBytes,
+    inputLimitBytes: POST_INPUT_LIMIT,
+    observation: event ? (event.responsePresent ? 'response_received' : 'response_missing') : 'input_limit_exceeded',
+    responsePresent: event?.responsePresent ?? null,
+    responseType: event ? responseType(event.response, event.responsePresent) : null,
+    isErrorPresent: event ? response !== undefined && Object.hasOwn(response, 'isError') : null,
+    isError: typeof response?.isError === 'boolean' ? response.isError : null,
+    contentArrayPresent: event ? Array.isArray(response?.content) : null,
+    contentTypeCounts: event ? contentTypeCounts(event.response) : null,
+  };
+}
+
+// 입력 검사 전 실행 시작 표식 구성
+function createStart(receiverHash: string) {
+  return {
+    schemaVersion: 1,
+    startId: randomUUID(),
+    startedAt: new Date().toISOString(),
+    processId: process.pid,
+    receiverHash,
+  };
+}
+
+// 원문을 제외한 수신 증거 구성
+function createReceipt(event: CuaRuntimeEvent, receiverHash: string) {
+  return {
+    schemaVersion: 1,
+    receiptId: randomUUID(),
+    receivedAt: new Date().toISOString(),
+    toolName: event.toolName,
+    sessionHash: hash(event.sessionId),
+    callHash: hash(event.callId),
+    codeHash: event.code === undefined ? null : hash(event.code),
+    receiverHash,
+  };
+}
+
+// 수신 증거 저장 경로 결정
+function receiptDirectory(): string {
+  const directory =
+    process.env.CCUH_RECEIPT_DIR ?? join(process.env.CODEX_HOME ?? join(homedir(), '.codex'), 'ccuh', 'receiver');
+  if (!isAbsolute(directory)) throw new Error('Receipt directory must be absolute');
+  return directory;
+}
+
+// 관측 기록의 원자적 교체
+async function saveRecord(
+  fileName: 'last-start.json' | 'last-receipt.json' | 'last-result.json',
+  record: ReturnType<typeof createStart> | ReturnType<typeof createReceipt> | ReturnType<typeof createResult>,
+): Promise<void> {
+  const directory = receiptDirectory();
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+  const id = 'startId' in record ? record.startId : 'receiptId' in record ? record.receiptId : record.resultId;
+  const temporary = join(directory, id + '.pending');
+  try {
+    await writeFile(temporary, JSON.stringify(record) + '\n', { flag: 'wx', mode: 0o600 });
+    await rename(temporary, join(directory, fileName));
+  } finally {
+    await unlink(temporary).catch(() => {});
+  }
+}
+
+// 지정된 훅의 요청과 반환 관측 처리
+export async function receive(expectedEvent: HookEventName): Promise<void> {
+  try {
+    const receiverHash = hash(await readFile(new URL(import.meta.url)));
+    if (expectedEvent === 'PreToolUse') await saveRecord('last-start.json', createStart(receiverHash));
+    const input = await readEvent(expectedEvent === 'PreToolUse' ? PRE_INPUT_LIMIT : POST_INPUT_LIMIT);
+    if (input.oversized) {
+      if (expectedEvent === 'PostToolUse') {
+        await saveRecord('last-result.json', createResult(undefined, input.inputBytes, receiverHash));
+      }
+      return;
+    }
+    const event = parseEvent(input.value, expectedEvent);
+    if (!event) return;
+    if (expectedEvent === 'PreToolUse') await saveRecord('last-receipt.json', createReceipt(event, receiverHash));
+    else await saveRecord('last-result.json', createResult(event, input.inputBytes, receiverHash));
+  } catch {
+    process.stderr.write('CCUH: receiver could not record the invocation\n');
+  }
+}

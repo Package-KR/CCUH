@@ -16,9 +16,9 @@ Computer Use can connect to the wrong app or window, fail to enter text, or retu
 
 ## Development
 
-This repository contains an architecture scaffold and an experimental receiver. Automatic reception and exclusion checks for unrelated tools have been verified within the scope recorded in the development checklist. Browser operations alone do not establish that a call occurred outside Computer Use. There is no MCP server, app or window operations, skill, or native engine. Planned releases cover only this experimental scope.
+This repository contains an architecture scaffold and an experimental receiver. Hooks observe the supported Computer Use calls before invocation and after a returned result, without storing code or UI content. Actual automatic reception and exclusion checks for unrelated tools have been verified within the scope recorded in the development checklist. Browser operations alone do not establish that a call occurred outside Computer Use. There is no MCP server, app or window operations, skill, or native engine. Planned releases cover only this experimental scope.
 
-Development is organized into common integration, app recognition, and in-app interaction. The next task is to inspect actual tool results and determine which failures can be observed reliably before adding recovery behavior.
+Development is organized into common integration, app recognition, and in-app interaction. Result observation is implemented; app recognition and recovery are next. A returned result is not proof that an app action succeeded. In the live thrown-error probe, no post-hook receipt was observed for that call in the tested environment, so its return remained unobserved.
 
 The domain checklist, completion criteria, verification results, and observation limits are maintained in [the development checklist](docs/DEVELOPMENT.md).
 
@@ -32,14 +32,16 @@ If publication fails after the tag is pushed, rerun the failed publish job or ru
 
 | Directory          | Current responsibility                 |
 | ------------------ | -------------------------------------- |
-| `src/hooks/`       | Minimal receiver implementation        |
-| `hooks/`           | Distributed hook entry point           |
+| `src/common/`      | Invocation and result observation      |
+| `src/recognition/` | App recognition placeholder            |
+| `src/interaction/` | In-app failure handling placeholder    |
+| `hooks/`           | Distributed before and after entries   |
 | `.codex-plugin/`   | Plugin configuration                   |
 | `.agents/plugins/` | Marketplace configuration              |
 | `scripts/`         | Development and distribution utilities |
 | `docs/`            | Domain checklist                       |
 
-The planned source domains are `common`, `recognition`, and `interaction`. The receiver remains in `src/hooks/` until that migration is implemented. Only the minimal receiver hook is registered; MCP and native engine entry points are absent.
+Only the two observation hooks are registered; MCP and native engine entry points are absent. The receiver retains the latest start, invocation, and result metadata under `~/.codex/ccuh/receiver/`. Match session and call hashes before relating records; these latest files are not a complete history of concurrent calls. Error flags are recorded only when present as booleans, and missing results remain unknown.
 
 ## License
 

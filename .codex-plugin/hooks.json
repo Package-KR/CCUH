@@ -12,6 +12,19 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^(?:mcp__cua_repl__js|mcp__cua_repl__js_reset)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/hooks/result.mjs\"",
+            "timeout": 3,
+            "statusMessage": "CCUH: receiving a CUA tool result"
+          }
+        ]
+      }
     ]
   }
 }
