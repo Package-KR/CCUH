@@ -12,6 +12,7 @@ const sourcePaths = [
   'src/interaction/draft.ts',
   'src/interaction/transition.ts',
   'src/recognition/guard.ts',
+  'src/recognition/browser.ts',
 ];
 const outputPath = new URL('dist/recognition/runtime.js', root);
 
@@ -147,7 +148,11 @@ ${modules[5]}
   ((exports, require) => {
 ${modules[6]}
   })(guardExports, requireLocalModule);
-  return Object.freeze({ ...guardExports, sourceHash: '${sourceHash}' });
+  const browserExports = {};
+  ((exports) => {
+${modules[7]}
+  })(browserExports);
+  return Object.freeze({ ...guardExports, ...browserExports, sourceHash: '${sourceHash}' });
 })();
 `;
 }

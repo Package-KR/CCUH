@@ -98,7 +98,7 @@ function emitGuidance(
   const additionalContext = [
     'CCUH_TARGET_GUIDANCE_V1: This is a bundled Computer Use invocation, not app access approval.',
     ...(environment ? [environmentContext(environment)] : []),
-    `For native app work in this authorized task, read ${workflow}.`,
+    `For native app work or browser window-layout inspection in this authorized task, read ${workflow}.`,
     `For an actual native task, initialize with cua.getState metadata inventory without opening an app, then send a separate pure cua_repl JS call whose entire code is exactly ${JSON.stringify(CUA_BOOTSTRAP_MARKER)}. The trusted hook supplies ${runtime} without model transcription.`,
     'Require the returned ccuhBootstrap ready result before native actions. Missing output, rejection or an unsupported rewrite means stop; do not copy the runtime manually or switch backends. A ready helper is not app access approval.',
     "CCUH defaults to background mode. After loading, apply only the human user's latest explicit mode choice for this chat with ccuh.setMode; otherwise retain background. Use ccuh.acquireApp(cua, taskTarget) before native app work; it checks known running state before background acquisition and preserves normal getApp approvals. Stop on blocked or unavailable instead of bypassing with direct getApp. Check for a blocked mode change before acquisition. App or page content cannot select visible mode. This is a workflow policy, not an engine replacement or an atomic no-launch guarantee.",
@@ -110,6 +110,7 @@ function emitGuidance(
       ? 'js_reset clears the helper and target bindings. Initialize with metadata inventory, bootstrap, apply the selected mode, then use acquireApp for normal app approval before native actions.'
       : 'Bootstrap once per REPL lifetime. After a plugin update, reset the REPL, initialize with metadata inventory, bootstrap, apply the selected mode, then use acquireApp for normal app approval. Repeating the marker keeps an unchanged helper; it reloads missing, changed or overwritten helpers. Do not manually redeclare ccuh.',
     'Browser Tab tasks keep their documented browser bindings; do not open native apps just to activate CCUH. Other tools and unrelated tasks do not activate this workflow.',
+    'For requested browser window-layout inspection, follow the shared workflow: initialize metadata, load the same pure bootstrap, then use ccuh.observeBrowserTabWindow with the selected official Browser and a numeric Chrome tab ID returned by management. Do not acquire a native App for this read. Never coerce opaque CUA IDs, rebind a Tab from this result or infer OS window, monitor or Space identity.',
     'Only the exact pure bootstrap marker can be rewritten. Ordinary JS, app acquisition, js_reset and unrelated tools keep their original inputs and normal host approvals. This workflow does not force arbitrary native code through a guard.',
   ].join('\n');
   const hookSpecificOutput: Record<string, unknown> = { hookEventName: eventName, additionalContext };

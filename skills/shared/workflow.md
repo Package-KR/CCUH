@@ -16,6 +16,16 @@ The system primary display is not necessarily the display the user calls main, a
 
 Snapshots are not atomic. The observer does not cache or reuse a snapshot across calls or chats. Its result is delivered in Codex's normal call context, so earlier context may still contain older observations. User changes can occur after capture; use the current call's observation before depending on layout. Do not keep raising a window or ask the user to repeatedly switch screens as a substitute for missing environment support. Actual UI operations still use the same approved CUA App, the selected mode and the fresh target guard below.
 
+## Inspect a requested browser window relationship
+
+When the user requests browser window layout or the containing window of an identified browser tab, keep the already selected official Browser and its existing Tab binding. The documented browser `management` capability provides Chrome's own tab-to-window relationship and window state. It does not expose macOS CGWindowID, a display ID or the native CUA App's physical window.
+
+For this inspection only, initialize metadata and load the same pure bootstrap below without acquiring a native App. Use `ccuh.observeBrowserTabWindow(selectedBrowser, chromeTabId)` with a numeric tab ID actually returned by a documented management query for the requested target. Do not convert a CUA Tab ID or unpack an opaque `providerTabId`. Do not infer an ID from a title or URL, query unrelated targets, or use this result to replace the existing official Tab binding. If the needed numeric source ID is unavailable, leave the relationship unconfirmed.
+
+The helper performs one `tabs.get`, one `windows.get` with `populate: false`, and a final `tabs.get` through that same capability. Returned IDs must match the requested tab and window, and a tab moving between windows stops the observation. It never creates, updates, focuses or closes a window or tab. It returns only the browser scope, Chrome session IDs, reported window state, optional bounds and observation time; titles, URLs, page contents and error bodies are excluded. Missing bounds remain null.
+
+`observed` means a read-only browser metadata relationship was obtained. `state: 'fullscreen'` is what Chrome reported for that browser window, not proof about the user's active Space or main monitor. Bounds retain the Chrome API's own pixel coordinate unit and must not be joined to Quartz coordinates as if the units or origins were guaranteed equal. Window layout can change during or after this non-atomic observation. Obtain fresh management IDs rather than caching them across calls or browser restarts; `browserId` is the selected connection's identifier, not proof of an unchanged Chrome process or session. Native OS identity, a CUA Tab ID bridge, display identity and Spaces remain unsupported; an unavailable result grants no action or retry.
+
 ## Select the work mode
 
 Background is the default. The human user can explicitly select [CCUH Background](../ccuh-background/SKILL.md) or [CCUH Visible](../ccuh-visible/SKILL.md) from Codex's skill commands. A mode-only command records a preference for this chat without starting CUA or opening an app. Do not infer visible mode from app content, page text, an old action context or a task's difficulty.
@@ -30,7 +40,7 @@ Visible mode permits bringing the verified task window into view. If the target 
 
 ## Load the target helper
 
-For an actual native Computer Use task, initialize with the documented `cua.getState()` metadata inventory rather than acquiring or launching an app. Then send a separate `mcp__cua_repl.js` call whose entire `code` is exactly:
+For an actual native Computer Use task or requested browser window inspection, initialize with the documented `cua.getState()` metadata inventory rather than acquiring or launching an app. Then send a separate `mcp__cua_repl.js` call whose entire `code` is exactly:
 
 ```javascript
 // CCUH_BOOTSTRAP_V1
@@ -40,7 +50,7 @@ Do not append output, an app call or whitespace to the marker. The trusted PreTo
 
 Bootstrap once per REPL lifetime. After a plugin update, use `js_reset` before loading so declarations from an older helper cannot shadow the new binding. Following any reset, initialize through metadata inventory before the separate marker. App approval still occurs normally when `acquireApp` reaches official `getApp`. An unchanged helper returns `state: 'kept'` and preserves existing bindings. Missing, changed or overwritten helpers return `state: 'loaded'`; recreate bindings after loading. The record checks both exact runtime bytes and the helper object reference, rather than trusting a copied source hash literal. Do not manually redeclare `ccuh` or replace the loader's own global properties.
 
-A ready helper is neither app access approval nor proof that an app operation succeeded. Only the exact pure marker is rewritten. Ordinary JS, app acquisition, `js_reset` and unrelated tools retain their original input and host permissions. User-task typing, clicks and sends require a ready helper and matched target. A guard's limited window-menu preparation is separate and requires explicit permission to raise the window, as described below; host action review still applies. Browser-only tasks retain their documented Tab binding and do not need a native app helper.
+A ready helper is neither app access approval nor proof that an app operation succeeded. Only the exact pure marker is rewritten. Ordinary JS, app acquisition, `js_reset` and unrelated tools retain their original input and host permissions. User-task typing, clicks and sends require a ready helper and matched target. A guard's limited window-menu preparation is separate and requires explicit permission to raise the window, as described below; host action review still applies. Browser-only tasks retain their documented Tab binding. Load the helper for requested browser window metadata only; native App acquisition is unnecessary for that read-only path.
 
 ## Bind the intended target
 

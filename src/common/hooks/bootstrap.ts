@@ -20,6 +20,7 @@ const REQUIRED_FUNCTIONS = [
   'setDraftValue',
   'selectWindowFromMenu',
   'verifyModalDismissal',
+  'observeBrowserTabWindow',
 ];
 
 // 정확한 표식과 자체 데이터 필드로 된 도구 인수 복제
