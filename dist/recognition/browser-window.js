@@ -13,11 +13,9 @@ const UNSUPPORTED = Object.freeze([
     'spaces',
 ]);
 const WINDOW_STATES = ['normal', 'minimized', 'maximized', 'fullscreen', 'locked-fullscreen'];
-// 임의 형 변환 없이 브라우저 식별 숫자 검사
 function validId(value) {
     return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
 }
-// 필요한 자체 데이터 필드만 읽기
 function readFields(value, keys) {
     if (value === null || typeof value !== 'object' || Array.isArray(value))
         return;
@@ -37,14 +35,12 @@ function readFields(value, keys) {
         return;
     }
 }
-// 브라우저 탭의 자체 식별자 판독
 function readTab(value) {
     const fields = readFields(value, ['id', 'windowId']);
     if (!fields || !validId(fields.id) || !validId(fields.windowId))
         return;
     return { id: fields.id, windowId: fields.windowId };
 }
-// 브라우저 창의 상태와 제공된 좌표 검사
 function readWindow(value) {
     const coordinates = ['left', 'top', 'width', 'height'];
     const fields = readFields(value, ['id', 'state', ...coordinates]);
@@ -70,7 +66,6 @@ function readWindow(value) {
         : null;
     return { id: fields.id, state: fields.state, bounds };
 }
-// 선택한 브라우저의 식별자 유지 확인
 function sameBrowser(browser, browserId) {
     try {
         return browser.browserId === browserId;
@@ -79,11 +74,9 @@ function sameBrowser(browser, browserId) {
         return false;
     }
 }
-// 원문을 제외한 브라우저 관측 중단 결과 구성
 function unavailable(reason) {
     return Object.freeze({ status: 'unavailable', reason });
 }
-// 같은 브라우저 탭의 창 연결과 창 상태를 읽기 전용 관측
 async function observeBrowserTabWindow(browser, chromeTabId) {
     let reason = 'invalid-input';
     try {
