@@ -27,10 +27,10 @@ Background is the default. Select a mode for the current chat with `$ccuh-backgr
 
 Both modes share the same target checks and failure handling. Background applies automatically during Computer Use when no explicit mode has been selected.
 
-| Mode       | Behavior                                                                                                                                |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Background | Keeps CCUH from deliberately raising windows or switching the user's workspace. Stops when no supported background route is available.  |
-| Visible    | Allows an explicitly selected task window to be brought into view through an exposed official action. Normal app approvals still apply. |
+| Mode       | Behavior                                                                                                                                                       |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Background | Disallows deliberate window raising and workspace switching. Checks that the app is already running before acquisition and stops on closed or uncertain state. |
+| Visible    | Allows an explicitly selected task window to be brought into view through an exposed official action. Normal app approvals still apply.                        |
 
 These modes guide CCUH within official Computer Use; they do not change its internal engine.
 

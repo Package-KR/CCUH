@@ -14,6 +14,30 @@ export type AppApi = {
   setValue?(index: number, value: string): Promise<unknown>;
 };
 export type ExecutionMode = 'background' | 'visible';
+export type AppAcquisitionApi = {
+  listApps(options: { emit: false }): Promise<unknown>;
+  getApp(target: string): Promise<unknown>;
+};
+export type AppAcquisitionReason =
+  | 'invalid-input'
+  | 'operation-in-progress'
+  | 'inventory-unavailable'
+  | 'invalid-inventory'
+  | 'app-unobserved'
+  | 'app-ambiguous'
+  | 'app-not-running'
+  | 'running-state-unavailable'
+  | 'acquisition-unavailable'
+  | 'invalid-app-handle';
+type AppAcquisitionFailure = Readonly<{
+  status: 'blocked' | 'unavailable';
+  mode: ExecutionMode;
+  reason: AppAcquisitionReason;
+  acquisitionAttempts: 0 | 1;
+}>;
+export type AppAcquisitionResult =
+  | Readonly<{ status: 'acquired'; mode: ExecutionMode; acquisitionAttempts: 1; app: AppApi }>
+  | AppAcquisitionFailure;
 export type ModeChangeResult = Readonly<
   | { status: 'changed' | 'kept'; mode: ExecutionMode }
   | { status: 'blocked'; mode: ExecutionMode; reason: 'operation-in-progress' }
@@ -102,6 +126,7 @@ type Observation = { recognition: RecognitionResult; state?: string };
 type Preparation = { summary: TargetSummary; state?: string };
 type Header = { app: string; window?: string };
 type MenuRow = { index: number; depth: number; label: string; id?: string; contentMetadata: boolean };
+type AppInventoryEntry = { id: string; displayName?: string; isRunning?: boolean };
 
 const targets = new WeakMap<object, TargetRecord>();
 const busyApps = new WeakSet<AppApi>();
@@ -129,6 +154,123 @@ export function setMode(mode: ExecutionMode): ModeChangeResult {
 // 현재 모드와 대상별 창 올림 제한 확인
 function windowRaiseAllowed(permission: boolean | undefined): boolean {
   return executionMode === 'visible' && permission !== false;
+}
+
+// 제어 문자가 없는 앱 선택 문자열 검사
+function validAppSelector(value: unknown): value is string {
+  return validText(value) && !/[\u0000-\u001f\u007f]/u.test(value);
+}
+
+// 공식 앱 목록의 자체 데이터 필드 판독
+function readAppInventory(value: unknown): AppInventoryEntry[] | undefined {
+  if (!Array.isArray(value)) return;
+  const entries: AppInventoryEntry[] = [];
+  try {
+    for (const row of value) {
+      if (row === null || typeof row !== 'object' || Array.isArray(row)) return;
+      const idField = Object.getOwnPropertyDescriptor(row, 'id');
+      const nameField = Object.getOwnPropertyDescriptor(row, 'displayName');
+      const runningField = Object.getOwnPropertyDescriptor(row, 'isRunning');
+      if (
+        !idField ||
+        !Object.hasOwn(idField, 'value') ||
+        (nameField && !Object.hasOwn(nameField, 'value')) ||
+        (runningField && !Object.hasOwn(runningField, 'value'))
+      )
+        return;
+      const id: unknown = idField.value;
+      const displayName: unknown = nameField?.value;
+      const isRunning: unknown = runningField?.value;
+      if (
+        !validAppSelector(id) ||
+        (displayName !== undefined && !validAppSelector(displayName)) ||
+        (isRunning !== undefined && typeof isRunning !== 'boolean')
+      )
+        return;
+      entries.push({
+        id,
+        ...(displayName === undefined ? {} : { displayName }),
+        ...(isRunning === undefined ? {} : { isRunning }),
+      });
+    }
+  } catch {
+    return;
+  }
+  return entries;
+}
+
+// 승인 경로가 반환한 앱 객체의 최소 메서드 확인
+function validAcquiredApp(value: unknown): value is AppApi {
+  try {
+    return (
+      value !== null &&
+      typeof value === 'object' &&
+      typeof (value as AppApi).getAXState === 'function' &&
+      typeof (value as AppApi).click === 'function'
+    );
+  } catch {
+    return false;
+  }
+}
+
+// 원문을 제외한 앱 획득 중단 요약 구성
+function acquisitionFailure(
+  mode: ExecutionMode,
+  status: 'blocked' | 'unavailable',
+  reason: AppAcquisitionReason,
+  acquisitionAttempts: 0 | 1 = 0,
+): AppAcquisitionFailure {
+  return Object.freeze({ status, mode, reason, acquisitionAttempts });
+}
+
+// 현재 모드의 실행 상태 조건을 확인한 뒤 공식 앱 획득
+export async function acquireApp(api: AppAcquisitionApi, target: string): Promise<AppAcquisitionResult> {
+  try {
+    if (
+      api === null ||
+      typeof api !== 'object' ||
+      Array.isArray(api) ||
+      typeof api.listApps !== 'function' ||
+      typeof api.getApp !== 'function' ||
+      !validAppSelector(target)
+    )
+      return acquisitionFailure(executionMode, 'blocked', 'invalid-input');
+  } catch {
+    return acquisitionFailure(executionMode, 'blocked', 'invalid-input');
+  }
+  if (activeOperations > 0) return acquisitionFailure(executionMode, 'blocked', 'operation-in-progress');
+  const mode = executionMode;
+  activeOperations += 1;
+  try {
+    let appTarget = target;
+    if (mode === 'background') {
+      let inventory: AppInventoryEntry[] | undefined;
+      try {
+        inventory = readAppInventory(await api.listApps({ emit: false }));
+      } catch {
+        return acquisitionFailure(mode, 'unavailable', 'inventory-unavailable');
+      }
+      if (!inventory) return acquisitionFailure(mode, 'unavailable', 'invalid-inventory');
+      const matches = inventory.filter(
+        row => row.id === target || (row.displayName !== undefined && equalText(row.displayName, target)),
+      );
+      if (matches.length === 0) return acquisitionFailure(mode, 'blocked', 'app-unobserved');
+      if (matches.length !== 1) return acquisitionFailure(mode, 'blocked', 'app-ambiguous');
+      if (matches[0].isRunning === undefined) return acquisitionFailure(mode, 'blocked', 'running-state-unavailable');
+      if (!matches[0].isRunning) return acquisitionFailure(mode, 'blocked', 'app-not-running');
+      appTarget = matches[0].id;
+    }
+    let app: unknown;
+    try {
+      app = await api.getApp(appTarget);
+    } catch {
+      return acquisitionFailure(mode, 'unavailable', 'acquisition-unavailable', 1);
+    }
+    if (!validAcquiredApp(app)) return acquisitionFailure(mode, 'unavailable', 'invalid-app-handle', 1);
+    return Object.freeze({ status: 'acquired', mode, acquisitionAttempts: 1, app });
+  } finally {
+    activeOperations -= 1;
+  }
 }
 
 // 유효한 대상 식별 문자열 검사
