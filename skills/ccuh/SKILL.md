@@ -9,13 +9,23 @@ Use the intended task target even when the user selects another window. An offic
 
 ## Load the target helper
 
-Read [the runtime](../../dist/recognition/runtime.js) as text and execute its contents unchanged through `mcp__cua_repl.js`. It declares `var ccuh` and performs no UI action when loaded. Inspect `ccuh.sourceHash` to identify the loaded source. Do not import filesystem modules, execute the helper through another UI engine, or modify the supplied `cua` API.
+Follow Computer Use's normal first-call initialization and app approval requirements first. Then send a separate `mcp__cua_repl.js` call whose entire `code` is exactly:
 
-Load once per REPL lifetime, again after `js_reset`, and when the installed helper changes. The normal first-call requirements of Computer Use still apply. A first app acquisition may be necessary before bootstrapping; perform no typing, clicking, or sending through that handle until the guard is ready. Browser-only tasks retain their documented Tab binding and do not need a native app helper.
+```javascript
+// CCUH_BOOTSTRAP_V1
+```
+
+Do not append output, an app call or whitespace to the marker. The trusted PreToolUse hook supplies the exact installed [runtime](../../dist/recognition/runtime.js) through Codex's supported input rewrite. It declares `var ccuh` and performs no UI action during loading. Require a returned object with `ccuhBootstrap: 'ready'`, its runtime byte hash and source hash before native actions. Missing output, a rejected marker or an unsupported host means stop. Do not fall back to copying the file, filesystem imports inside CUA, another engine or modifications to the supplied `cua` API.
+
+Bootstrap once per REPL lifetime. After a plugin update, use `js_reset` before loading so declarations from an older helper cannot shadow the new binding. Following any reset, perform the normal first-call initialization and app approval before the separate marker. An unchanged helper returns `state: 'kept'` and preserves existing bindings. Missing, changed or overwritten helpers return `state: 'loaded'`; recreate bindings after loading. The record checks both exact runtime bytes and the helper object reference, rather than trusting a copied source hash literal. Do not manually redeclare `ccuh` or replace the loader's own global properties.
+
+A ready helper is neither app access approval nor proof that an app operation succeeded. Only the exact pure marker is rewritten. Ordinary JS, app acquisition, `js_reset` and unrelated tools retain their original input and host permissions. Perform no typing, clicking or sending until the helper and intended target are ready. Browser-only tasks retain their documented Tab binding and do not need a native app helper.
 
 ## Bind the intended target
 
 Obtain the app through the normal `cua.getApp()` approval flow. Reuse the same returned object for the task's windows. If acquisition is denied or incomplete, stop; neither hook context nor a matching name transfers approval to another handle or backend.
+
+An acquisition or read timeout is not proof of user denial. Report it and do not keep calling the same unavailable handle. If fresh evidence indicates a stale REPL connection while the app is healthy, one documented `js_reset` followed by normal app acquisition can establish a new observation. Reload the helper and recreate bindings after reset. This does not permit replaying an uncertain input, selection, send or save, or resetting an action limit.
 
 Derive the expected app name and window condition from the user's task and actual observations. Do not adopt the current foreground window as the task target. If the intended window is ambiguous, request the missing distinction rather than guessing.
 
@@ -44,6 +54,10 @@ Use `ccuh.withTarget(target, async ({ app, state }) => { ... })` for each native
 
 The helper can call the supplied official re-selection route once when the app matches but its window differs, then reads and checks the result again. It does not recover unknown targets, app mismatches, or access failures. `prepareTarget(target)` provides the same target check as a summary; it is not a durable permission to act later. `withTarget` always checks again.
 
+`selectWindowFromMenu` can select from an already open, exactly matched window popup without opening it again. Menu and target references must be unique safe integers. After a menu-opening click returns, a same-app popup belonging to another directly observed menu permits one additional state read, with no extra click or key. If the requested popup and unique official window item are still unconfirmed, it stops. A re-selection attempt counts callback entry, not proof that an item was clicked.
+
+For a blocked menu route, an optional fourth observer receives one frozen summary of the stage, reason, reference checks and attempted-operation counts. It contains no app names, window titles, snapshots or error bodies. Keep the observer free of app calls; its exceptions do not permit another action. `selection-requested` means the item click returned, while the outer target guard still determines whether the requested window was observed.
+
 Read the returned `recognition`, `recoveryAttempts`, and `recovered` fields. `blocked` means the action callback did not run. `executed` means the callback returned, and its `recognition` describes the subsequent target observation; it does not prove that a save, send, or other app operation succeeded. Confirm the requested outcome from official fresh state. A callback exception is not retried, and an uncertain send or save must not be repeated automatically.
 
 ## Verify an input or click result
@@ -61,9 +75,25 @@ Read both `status` and `outcome`:
 - `outcome.status: 'not-observed'` means no AX change or no matching transition at that observation. It is not proof of permanent failure or permission to retry.
 - `outcome.status: 'unknown'` means the target or observation could not be confirmed, the verifier threw, or the verdict was inconclusive.
 
-Identical before/after snapshots skip the verifier and return `no-observable-change`. A post-action target mismatch skips verification and returns unknown without reselecting the target. Operations whose intended effect closes or changes the target cannot be confirmed through this same-target path. The helper does not poll, retry, infer denial from exception text, or persist snapshots and exception bodies. Async verifier callbacks retain the same-App busy guard until they finish.
+Identical before/after snapshots skip the verifier and return `no-observable-change`. A post-action target mismatch skips verification and returns unknown without reselecting the target. A binding that requires the original specific window cannot confirm its intentional closure or replacement through this path. The helper does not poll, retry, infer denial from exception text, or persist snapshots and exception bodies. Async verifier callbacks retain the same-App busy guard until they finish.
 
 Emit the fixed result summary when reporting a check; do not dump the supplied snapshots. Keep using `withTarget` for target-guarded reads and operations without an AX-verifiable postcondition, and report their outcome limits explicitly.
+
+## Verify dismissal of a modal
+
+For an authorized modal cancellation, use `ccuh.verifyModalDismissal({ before, after }, options)` as the verifier. Observe the modal's actual container role and unique AX ID, and the expected parent before acting. An input clear button is not evidence that its sheet closes. Do not invent IDs, roles or a parent from the current foreground app.
+
+```javascript
+var options = {
+  appName: observedAppName,
+  modal: { role: observedModalRole, id: observedModalId },
+  parent: { kind: 'root-id', role: observedParentRole, id: observedParentId },
+};
+```
+
+Pass `snapshots => ccuh.verifyModalDismissal(snapshots, options)` to `withVerifiedTarget`. Use a task-appropriate app-only binding when cancellation intentionally changes the observed window. Keep the unique modal and action checks inside the one-shot action callback; do not weaken a required specific window just to permit a mismatch. A known document parent can instead be specified as `{ kind: 'window-title', title: observedParentTitle }`.
+
+The verifier returns `false` while the same modal remains, even if its input changed. It returns `true` only when that modal is absent and the exact expected parent is the sole observed top-level container in the same app. Missing, malformed or ambiguous roots, another app and observation failures remain `'unknown'`. This confirms an observed transition, not destruction of every hidden window. It sends no input, polls nothing and grants no retry. Unsupported AX layouts must remain inconclusive.
 
 ## Replace a local draft with a bounded retry
 
