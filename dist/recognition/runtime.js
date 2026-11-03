@@ -717,12 +717,23 @@ async function prepare(target) {
         ? target.expected.window.value
         : undefined;
     const windowMismatch = observation.recognition.status === 'failed' && observation.recognition.reason === 'window-selector-mismatch';
-    const windowUnobserved = menuTitle !== undefined &&
+    const windowUnobserved = target.expected.window?.kind === 'window-title' &&
         observation.recognition.status === 'unknown' &&
         observation.recognition.reason === 'window-unobserved' &&
         observation.recognition.basis.length === 1 &&
         observation.recognition.basis[0] === 'app-name';
-    if ((windowMismatch || windowUnobserved) &&
+    if (executionMode === 'background' && (windowMismatch || windowUnobserved) && observation.state !== undefined) {
+        return {
+            summary: {
+                status: 'blocked',
+                recognition: observation.recognition,
+                recoveryAttempts,
+                recovered,
+                recoveryBlockedReason: 'background-reselection-unsupported',
+            },
+        };
+    }
+    if ((windowMismatch || (menuTitle !== undefined && windowUnobserved)) &&
         (target.reselect || menuTitle !== undefined) &&
         observation.state !== undefined) {
         if (!windowRaiseAllowed(target.allowWindowRaise)) {
@@ -1348,5 +1359,5 @@ async function observeBrowserTabWindow(browser, chromeTabId) {
     }
 }
   })(browserExports);
-  return Object.freeze({ ...guardExports, ...browserExports, sourceHash: 'c98936facbf9adcfc331036d706680f874fcdf4ea8bf55611696f35a02c99543' });
+  return Object.freeze({ ...guardExports, ...browserExports, sourceHash: '0c4f10df5f0df81e7d6badf3dea571b2d54df9eac37c21d50f83615e5eb0eaa3' });
 })();
