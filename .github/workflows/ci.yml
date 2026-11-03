@@ -26,7 +26,7 @@ concurrency:
 
 jobs:
   verify:
-    runs-on: macos-latest
+    runs-on: macos-15-intel
     timeout-minutes: 10
     outputs:
       commit: ${{ steps.revision.outputs.commit }}
