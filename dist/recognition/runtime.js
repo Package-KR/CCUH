@@ -860,10 +860,35 @@ async function prepareTarget(token) {
         activeOperations -= 1;
     }
 }
+// 자체 데이터 옵션에서 앱 종료 작업 구분
+function readActionEffect(options) {
+    if (options === undefined)
+        return 'ordinary';
+    if (options === null || typeof options !== 'object')
+        return;
+    try {
+        if (Array.isArray(options))
+            return;
+        const prototype = Object.getPrototypeOf(options);
+        const keys = Reflect.ownKeys(options);
+        const effect = Object.getOwnPropertyDescriptor(options, 'effect');
+        if ((prototype === Object.prototype || prototype === null) &&
+            keys.length === 1 &&
+            keys[0] === 'effect' &&
+            effect &&
+            Object.hasOwn(effect, 'value') &&
+            effect.value === 'app-exit')
+            return 'app-exit';
+    }
+    catch {
+        return;
+    }
+}
 // 최신 대상 확인 후 작업 한 번 실행
-async function withTarget(token, action) {
+async function withTarget(token, action, options) {
     const target = targets.get(token);
-    if (!target || typeof action !== 'function')
+    const effect = readActionEffect(options);
+    if (!target || typeof action !== 'function' || effect === undefined)
         return blocked('invalid-evidence');
     if (busyApps.has(target.app))
         return blocked('unclassified-error', 'operation-in-progress');
@@ -878,6 +903,14 @@ async function withTarget(token, action) {
             state,
             allowWindowRaise: windowRaiseAllowed(target.allowWindowRaise),
         });
+        if (effect === 'app-exit') {
+            return {
+                ...summary,
+                status: 'executed',
+                postObservation: 'skipped-app-exit',
+                ...(value === undefined ? {} : { value }),
+            };
+        }
         const observation = await observeTarget(target);
         return {
             ...summary,
@@ -1361,5 +1394,5 @@ async function observeBrowserTabWindow(browser, chromeTabId) {
     }
 }
   })(browserExports);
-  return Object.freeze({ ...guardExports, ...browserExports, sourceHash: '27fb51d3082c467f1657a8446beb01acdb792017799503dec4f7d1bf5f011592' });
+  return Object.freeze({ ...guardExports, ...browserExports, sourceHash: '0944def8f3d931831443dad87477f13212b6dd5ec7221248347f321b4f3c464c' });
 })();
