@@ -53,10 +53,12 @@ function readField(state: string, options: DraftValueOptions): DraftFrame['field
     /^(?:text field|text entry area|text entry|텍스트 필드|텍스트 엔트리 영역) \(([^()]*)\)(?:\s|,|$)/u.exec(
       rows[0].attributes,
     );
+  const fieldAttributes = field?.[1].split(',').map(attribute => attribute.trim()) ?? [];
   if (
     rows[0].ids.length !== 1 ||
     (rows[0].ids[0].index !== 0 && !rows[0].ids[0][0].startsWith(',')) ||
-    !field?.[1].split(',').some(attribute => attribute.trim() === 'settable') ||
+    !fieldAttributes.includes('settable') ||
+    fieldAttributes.includes('disabled') ||
     !Number.isSafeInteger(rows[0].index) ||
     entries.filter(entry => entry.index === rows[0].index).length !== 1
   )

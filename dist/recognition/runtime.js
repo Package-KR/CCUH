@@ -235,9 +235,11 @@ function readField(state, options) {
     if (rows.length !== 1)
         return;
     const field = /^(?:text field|text entry area|text entry|텍스트 필드|텍스트 엔트리 영역) \(([^()]*)\)(?:\s|,|$)/u.exec(rows[0].attributes);
+    const fieldAttributes = field?.[1].split(',').map(attribute => attribute.trim()) ?? [];
     if (rows[0].ids.length !== 1 ||
         (rows[0].ids[0].index !== 0 && !rows[0].ids[0][0].startsWith(',')) ||
-        !field?.[1].split(',').some(attribute => attribute.trim() === 'settable') ||
+        !fieldAttributes.includes('settable') ||
+        fieldAttributes.includes('disabled') ||
         !Number.isSafeInteger(rows[0].index) ||
         entries.filter(entry => entry.index === rows[0].index).length !== 1)
         return;
@@ -1359,5 +1361,5 @@ async function observeBrowserTabWindow(browser, chromeTabId) {
     }
 }
   })(browserExports);
-  return Object.freeze({ ...guardExports, ...browserExports, sourceHash: '0c4f10df5f0df81e7d6badf3dea571b2d54df9eac37c21d50f83615e5eb0eaa3' });
+  return Object.freeze({ ...guardExports, ...browserExports, sourceHash: '27fb51d3082c467f1657a8446beb01acdb792017799503dec4f7d1bf5f011592' });
 })();
