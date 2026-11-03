@@ -156,31 +156,31 @@ function contentTypeCounts(response: unknown) {
 }
 
 // 원문을 제외한 반환 관측 구성
-function createResult(event: CuaRuntimeEvent | undefined, inputBytes: number, receiverHash: string) {
-  const response = event && isRecord(event.response) ? event.response : undefined;
+function createResult(event: CuaRuntimeEvent, inputBytes: number, receiverHash: string) {
+  const response = isRecord(event.response) ? event.response : undefined;
   return {
     schemaVersion: 1,
     resultId: randomUUID(),
     receivedAt: new Date().toISOString(),
     eventName: 'PostToolUse',
-    toolName: event?.toolName ?? null,
-    sessionHash: event ? hash(event.sessionId) : null,
-    callHash: event ? hash(event.callId) : null,
-    codeHash: event?.code === undefined ? null : hash(event.code),
+    toolName: event.toolName,
+    sessionHash: hash(event.sessionId),
+    callHash: hash(event.callId),
+    codeHash: event.code === undefined ? null : hash(event.code),
     receiverHash,
     inputBytes,
     inputLimitBytes: POST_INPUT_LIMIT,
-    observation: event ? (event.responsePresent ? 'response_received' : 'response_missing') : 'input_limit_exceeded',
-    responsePresent: event?.responsePresent ?? null,
-    responseType: event ? responseType(event.response, event.responsePresent) : null,
-    isErrorPresent: event ? response !== undefined && Object.hasOwn(response, 'isError') : null,
+    observation: event.responsePresent ? 'response_received' : 'response_missing',
+    responsePresent: event.responsePresent,
+    responseType: responseType(event.response, event.responsePresent),
+    isErrorPresent: response !== undefined && Object.hasOwn(response, 'isError'),
     isError: typeof response?.isError === 'boolean' ? response.isError : null,
-    contentArrayPresent: event ? Array.isArray(response?.content) : null,
-    contentTypeCounts: event ? contentTypeCounts(event.response) : null,
+    contentArrayPresent: Array.isArray(response?.content),
+    contentTypeCounts: contentTypeCounts(event.response),
   };
 }
 
-// 입력 검사 전 실행 시작 표식 구성
+// 검증된 CUA 호출의 실행 시작 표식 구성
 function createStart(receiverHash: string) {
   return {
     schemaVersion: 1,
@@ -245,17 +245,14 @@ async function saveRecord(
 // 지정된 훅의 요청과 반환 관측 처리
 export async function receive(expectedEvent: HookEventName): Promise<void> {
   try {
-    const receiverHash = hash(await readFile(new URL(import.meta.url)));
-    if (expectedEvent === 'PreToolUse') await saveRecord('last-start.json', createStart(receiverHash));
-    const input = await readEvent(expectedEvent === 'PreToolUse' ? PRE_INPUT_LIMIT : POST_INPUT_LIMIT);
-    if (input.oversized) {
-      if (expectedEvent === 'PostToolUse') {
-        await saveRecord('last-result.json', createResult(undefined, input.inputBytes, receiverHash));
-      }
-      return;
-    }
+    const input = await readEvent(expectedEvent === 'PreToolUse' ? PRE_INPUT_LIMIT : POST_INPUT_LIMIT).catch(
+      () => undefined,
+    );
+    if (!input || input.oversized) return;
     const event = parseEvent(input.value, expectedEvent);
     if (!event) return;
+    const receiverHash = hash(await readFile(new URL(import.meta.url)));
+    if (expectedEvent === 'PreToolUse') await saveRecord('last-start.json', createStart(receiverHash));
     if (expectedEvent === 'PreToolUse') {
       const environment =
         event.toolName === 'mcp__cua_repl__js'
