@@ -5,8 +5,10 @@ import { isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { CUA_BOOTSTRAP_MARKER, prepareBootstrap } from './bootstrap.ts';
+import { captureEnvironment, environmentContext } from '../environment/collector.ts';
 
 import type { BootstrapPlan } from './bootstrap.ts';
+import type { EnvironmentObservation } from '../environment/collector.ts';
 
 const CUA_RUNTIME_TOOL_NAMES = new Set(['mcp__cua_repl__js', 'mcp__cua_repl__js_reset']);
 const PRE_INPUT_LIMIT = 256 * 1024;
@@ -85,11 +87,17 @@ function parseEvent(input: unknown, expectedEvent: HookEventName): CuaRuntimeEve
 }
 
 // 현재 Computer Use 작업에 대상 가드 지침 전달
-function emitGuidance(eventName: HookEventName, toolName: string, bootstrap?: BootstrapPlan): void {
+function emitGuidance(
+  eventName: HookEventName,
+  toolName: string,
+  bootstrap?: BootstrapPlan,
+  environment?: EnvironmentObservation,
+): void {
   const workflow = fileURLToPath(new URL('../../../skills/shared/workflow.md', import.meta.url));
   const runtime = fileURLToPath(new URL('../../../dist/recognition/runtime.js', import.meta.url));
   const additionalContext = [
     'CCUH_TARGET_GUIDANCE_V1: This is a bundled Computer Use invocation, not app access approval.',
+    ...(environment ? [environmentContext(environment)] : []),
     `For native app work in this authorized task, read ${workflow}.`,
     `For an actual native task, initialize with cua.getState metadata inventory without opening an app, then send a separate pure cua_repl JS call whose entire code is exactly ${JSON.stringify(CUA_BOOTSTRAP_MARKER)}. The trusted hook supplies ${runtime} without model transcription.`,
     'Require the returned ccuhBootstrap ready result before native actions. Missing output, rejection or an unsupported rewrite means stop; do not copy the runtime manually or switch backends. A ready helper is not app access approval.',
@@ -181,7 +189,12 @@ function createStart(receiverHash: string) {
 }
 
 // 원문을 제외한 수신 증거 구성
-function createReceipt(event: CuaRuntimeEvent, receiverHash: string, bootstrap: BootstrapPlan) {
+function createReceipt(
+  event: CuaRuntimeEvent,
+  receiverHash: string,
+  bootstrap: BootstrapPlan,
+  environment?: EnvironmentObservation,
+) {
   return {
     schemaVersion: 1,
     receiptId: randomUUID(),
@@ -194,6 +207,10 @@ function createReceipt(event: CuaRuntimeEvent, receiverHash: string, bootstrap: 
     intendedCodeHash: bootstrap.status === 'proposed' ? bootstrap.intendedCodeHash : null,
     runtimeHash: bootstrap.status === 'proposed' ? bootstrap.runtimeHash : null,
     receiverHash,
+    environmentStatus: environment?.status ?? 'not-requested',
+    environmentReason: environment?.status === 'unavailable' ? environment.reason : null,
+    environmentHash: environment?.status === 'captured' ? hash(JSON.stringify(environment.snapshot)) : null,
+    environmentCapturedAt: environment?.status === 'captured' ? environment.snapshot.capturedAt : null,
   };
 }
 
@@ -237,9 +254,18 @@ export async function receive(expectedEvent: HookEventName): Promise<void> {
     const event = parseEvent(input.value, expectedEvent);
     if (!event) return;
     if (expectedEvent === 'PreToolUse') {
+      const environment =
+        event.toolName === 'mcp__cua_repl__js'
+          ? await captureEnvironment({
+              hookEventName: 'PreToolUse',
+              toolName: event.toolName,
+              sessionId: event.sessionId,
+              callId: event.callId,
+            })
+          : undefined;
       const bootstrap = await prepareBootstrap(event.toolName, event.toolInput);
-      emitGuidance(expectedEvent, event.toolName, bootstrap);
-      await saveRecord('last-receipt.json', createReceipt(event, receiverHash, bootstrap));
+      emitGuidance(expectedEvent, event.toolName, bootstrap, environment);
+      await saveRecord('last-receipt.json', createReceipt(event, receiverHash, bootstrap, environment));
     } else {
       emitGuidance(expectedEvent, event.toolName);
       await saveRecord('last-result.json', createResult(event, input.inputBytes, receiverHash));
