@@ -48,7 +48,7 @@ export type TargetOptions = {
   app: AppApi;
   appName: string;
   windowTitle?: string;
-  maxAgeMs: number;
+  maxAgeMs?: number;
   reselect?: (context: ActionContext) => Promise<boolean>;
   windowMenu?: string;
   allowWindowRaise?: boolean;
@@ -128,6 +128,7 @@ type Header = { app: string; window?: string };
 type MenuRow = { index: number; depth: number; label: string; id?: string; contentMetadata: boolean };
 type AppInventoryEntry = { id: string; displayName?: string; isRunning?: boolean };
 
+const DEFAULT_TARGET_MAX_AGE_MS = 1000;
 const targets = new WeakMap<object, TargetRecord>();
 const busyApps = new WeakSet<AppApi>();
 let executionMode: ExecutionMode = 'background';
@@ -387,6 +388,10 @@ function blocked(reason: 'invalid-evidence' | 'unclassified-error'): TargetSumma
 
 // 호출자가 받은 공식 앱 핸들과 고정 대상 등록
 export function createTarget(options: TargetOptions): TargetToken {
+  const maxAgeMs =
+    options && (typeof options === 'object' || typeof options === 'function') && 'maxAgeMs' in options
+      ? options.maxAgeMs
+      : DEFAULT_TARGET_MAX_AGE_MS;
   if (
     !options ||
     typeof options.app !== 'object' ||
@@ -396,8 +401,9 @@ export function createTarget(options: TargetOptions): TargetToken {
     !validText(options.requestId) ||
     !validText(options.appName) ||
     (options.windowTitle !== undefined && !validText(options.windowTitle)) ||
-    !Number.isFinite(options.maxAgeMs) ||
-    options.maxAgeMs < 0 ||
+    typeof maxAgeMs !== 'number' ||
+    !Number.isFinite(maxAgeMs) ||
+    maxAgeMs < 0 ||
     (options.reselect !== undefined && typeof options.reselect !== 'function') ||
     (options.allowWindowRaise !== undefined && typeof options.allowWindowRaise !== 'boolean') ||
     (options.windowMenu !== undefined &&
@@ -417,7 +423,7 @@ export function createTarget(options: TargetOptions): TargetToken {
     Object.freeze({
       app: options.app,
       expected,
-      maxAgeMs: options.maxAgeMs,
+      maxAgeMs,
       reselect: options.reselect,
       windowMenu: options.windowMenu,
       allowWindowRaise: options.allowWindowRaise,

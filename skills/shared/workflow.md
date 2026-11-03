@@ -58,6 +58,8 @@ var target = ccuh.createTarget({
 });
 ```
 
+`maxAgeMs` is optional and defaults to 1000 milliseconds when the property is absent. A supplied value must be a finite nonnegative number; explicit `undefined`, `null` or other invalid values are rejected before app observation. A failed REPL cell may not retain its declarations, so do not assume newly declared variables exist during cleanup. For a REPL used only by the completed task, the normal `js_reset` clears its bindings without another app observation.
+
 The default background binding does not change windows. In explicitly selected visible mode, add `windowMenu: observedWindowMenuLabel` when an observed menu route is needed. The label must come from the same app's observed menu bar or exact menu popup. Supply `windowMenu` only with a required `windowTitle` and current evidence for that route. If there is no such route, omit it and report the blocked target. A title shared by several possible windows is insufficient; obtain a distinction before acting. Existing `reselect` callbacks also require visible mode and remain limited to an observed different title. Do not combine `reselect` and `windowMenu`.
 
 `selectWindowFromMenu` returning `true` means its selection call returned. The guard's subsequent fresh observation determines whether the target actually matches.
