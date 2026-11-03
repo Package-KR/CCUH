@@ -4,6 +4,10 @@ import { homedir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { CUA_BOOTSTRAP_MARKER, prepareBootstrap } from './bootstrap.ts';
+
+import type { BootstrapPlan } from './bootstrap.ts';
+
 const CUA_RUNTIME_TOOL_NAMES = new Set(['mcp__cua_repl__js', 'mcp__cua_repl__js_reset']);
 const PRE_INPUT_LIMIT = 256 * 1024;
 const POST_INPUT_LIMIT = 8 * 1024 * 1024;
@@ -16,6 +20,7 @@ type CuaRuntimeEvent = {
   sessionId: string;
   callId: string;
   code?: string;
+  toolInput: unknown;
   responsePresent: boolean;
   response: unknown;
 };
@@ -73,29 +78,41 @@ function parseEvent(input: unknown, expectedEvent: HookEventName): CuaRuntimeEve
     sessionId: input.session_id,
     callId: input.tool_use_id,
     ...(typeof code === 'string' ? { code } : {}),
+    toolInput: input.tool_input,
     responsePresent: Object.hasOwn(input, 'tool_response'),
     response: input.tool_response,
   };
 }
 
 // 현재 Computer Use 작업에 대상 가드 지침 전달
-function emitGuidance(eventName: HookEventName, toolName: string): void {
+function emitGuidance(eventName: HookEventName, toolName: string, bootstrap?: BootstrapPlan): void {
   const skill = fileURLToPath(new URL('../../../skills/ccuh/SKILL.md', import.meta.url));
   const runtime = fileURLToPath(new URL('../../../dist/recognition/runtime.js', import.meta.url));
   const additionalContext = [
     'CCUH_TARGET_GUIDANCE_V1: This is a bundled Computer Use invocation, not app access approval.',
     `For native app work in this authorized task, read ${skill}.`,
-    `Load ${runtime} as plain JavaScript in cua_repl once, then use ccuh.withTarget with the same official App handle and explicit intended app/window before native actions.`,
+    `After normal Computer Use initialization and app approval, send a separate pure cua_repl JS call whose entire code is exactly ${JSON.stringify(CUA_BOOTSTRAP_MARKER)}. The trusted hook supplies ${runtime} without model transcription.`,
+    'Require the returned ccuhBootstrap ready result before native actions. Missing output, rejection or an unsupported rewrite means stop; do not copy the runtime manually or switch backends. A ready helper is not app access approval.',
+    'Then use ccuh.withTarget with the same official App handle and explicit intended app/window. A loaded result requires new target bindings; a kept result preserves the same helper and existing bindings.',
     'For input or click work with a concrete AX-visible postcondition, use ccuh.withVerifiedTarget(target, action, verify). It attempts once and separates invocation return/throw from the observed effect. checked is not confirmed; inspect outcome.status. Never repeat an unconfirmed send or save.',
     'For an explicitly local draft field with a unique observed AX ID, ccuh.setDraftValue may replace its value and retry once only after a returned call, unchanged baseline and changed valid index. It never repeats a thrown call, send, save, submit, paste, append or toggle. Follow the skill; do not restart the helper to bypass a stop.',
     'Keep the intended target separate from the user foreground. Reconfirm fresh state, allow at most one official re-selection, and stop on uncertainty or access failure. Never retry a completed action automatically.',
     toolName === 'mcp__cua_repl__js_reset'
-      ? 'js_reset clears the helper and target bindings. Reload before the next native app action.'
-      : 'If the helper is absent or its source differs, reload it before the next native app action.',
+      ? 'js_reset clears the helper and target bindings. Follow the normal first-call initialization rule, then bootstrap before the next native app action.'
+      : 'Bootstrap once per REPL lifetime. After a plugin update, reset the REPL, perform normal first-call initialization and app approval, then bootstrap. Repeating the marker keeps an unchanged helper; it reloads missing, changed or overwritten helpers. Do not manually redeclare ccuh.',
     'Browser Tab tasks keep their documented browser bindings; do not open native apps just to activate CCUH. Other tools and unrelated tasks do not activate this workflow.',
-    'This context guides the agent; it does not rewrite the pending call or replace host approvals.',
+    'Only the exact pure bootstrap marker can be rewritten. Ordinary JS, app acquisition, js_reset and unrelated tools keep their original inputs and normal host approvals. This workflow does not force arbitrary native code through a guard.',
   ].join('\n');
-  process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: eventName, additionalContext } }) + '\n');
+  const hookSpecificOutput: Record<string, unknown> = { hookEventName: eventName, additionalContext };
+  if (eventName === 'PreToolUse' && bootstrap?.status === 'proposed') {
+    hookSpecificOutput.permissionDecision = 'allow';
+    hookSpecificOutput.updatedInput = bootstrap.input;
+  } else if (eventName === 'PreToolUse' && bootstrap?.status === 'unavailable') {
+    hookSpecificOutput.permissionDecision = 'deny';
+    hookSpecificOutput.permissionDecisionReason =
+      'CCUH could not prepare its pure runtime. Stop before native actions.';
+  }
+  process.stdout.write(JSON.stringify({ hookSpecificOutput }) + '\n');
 }
 
 // 반환 값의 JSON 유형 확인
@@ -163,7 +180,7 @@ function createStart(receiverHash: string) {
 }
 
 // 원문을 제외한 수신 증거 구성
-function createReceipt(event: CuaRuntimeEvent, receiverHash: string) {
+function createReceipt(event: CuaRuntimeEvent, receiverHash: string, bootstrap: BootstrapPlan) {
   return {
     schemaVersion: 1,
     receiptId: randomUUID(),
@@ -172,6 +189,9 @@ function createReceipt(event: CuaRuntimeEvent, receiverHash: string) {
     sessionHash: hash(event.sessionId),
     callHash: hash(event.callId),
     codeHash: event.code === undefined ? null : hash(event.code),
+    inputRewrite: bootstrap.status,
+    intendedCodeHash: bootstrap.status === 'proposed' ? bootstrap.intendedCodeHash : null,
+    runtimeHash: bootstrap.status === 'proposed' ? bootstrap.runtimeHash : null,
     receiverHash,
   };
 }
@@ -215,9 +235,14 @@ export async function receive(expectedEvent: HookEventName): Promise<void> {
     }
     const event = parseEvent(input.value, expectedEvent);
     if (!event) return;
-    emitGuidance(expectedEvent, event.toolName);
-    if (expectedEvent === 'PreToolUse') await saveRecord('last-receipt.json', createReceipt(event, receiverHash));
-    else await saveRecord('last-result.json', createResult(event, input.inputBytes, receiverHash));
+    if (expectedEvent === 'PreToolUse') {
+      const bootstrap = await prepareBootstrap(event.toolName, event.toolInput);
+      emitGuidance(expectedEvent, event.toolName, bootstrap);
+      await saveRecord('last-receipt.json', createReceipt(event, receiverHash, bootstrap));
+    } else {
+      emitGuidance(expectedEvent, event.toolName);
+      await saveRecord('last-result.json', createResult(event, input.inputBytes, receiverHash));
+    }
   } catch {
     process.stderr.write('CCUH: receiver could not record the invocation\n');
   }
