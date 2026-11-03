@@ -9,6 +9,7 @@ const sourcePaths = [
   'src/interaction/outcome.ts',
   'src/interaction/retry.ts',
   'src/interaction/draft.ts',
+  'src/interaction/transition.ts',
   'src/recognition/guard.ts',
 ];
 const outputPath = new URL('dist/recognition/runtime.js', root);
@@ -17,12 +18,17 @@ const outputPath = new URL('dist/recognition/runtime.js', root);
 function validateDependencies(source, path) {
   const file = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
   const allowed =
-    path === sourcePaths[4]
-      ? ['./classify.ts', '../interaction/outcome.ts', '../interaction/draft.ts']
-      : path === sourcePaths[3]
+    path === 'src/recognition/guard.ts'
+      ? ['./classify.ts', '../interaction/outcome.ts', '../interaction/draft.ts', '../interaction/transition.ts']
+      : path === 'src/interaction/draft.ts'
         ? ['./retry.ts']
         : [];
-  const allowedTypes = path === sourcePaths[3] ? ['../recognition/classify.ts'] : [];
+  const allowedTypes =
+    path === 'src/interaction/draft.ts'
+      ? ['../recognition/classify.ts']
+      : path === 'src/interaction/transition.ts'
+        ? ['./outcome.ts']
+        : [];
 
   // 허용한 정적 모듈 경로 검사
   function validateReference(node, typeOnly = false) {
@@ -91,7 +97,7 @@ async function createRuntime() {
     modules.push(transpile(bytes.toString('utf8'), path));
   }
   const sourceHash = hash.digest('hex');
-  return `// 대상 재확인 도우미 구성\nvar ccuh = (() => {\n  const classifyExports = {};\n  ((exports) => {\n${modules[0]}\n  })(classifyExports);\n  const outcomeExports = {};\n  ((exports) => {\n${modules[1]}\n  })(outcomeExports);\n  const retryExports = {};\n  ((exports) => {\n${modules[2]}\n  })(retryExports);\n  const draftExports = {};\n  // 초안 처리의 순수 재시도 모듈 제공\n  function requireDraftModule(name) {\n    if (name !== './retry.ts') throw new Error('Unsupported CCUH runtime module');\n    return retryExports;\n  }\n  ((exports, require) => {\n${modules[3]}\n  })(draftExports, requireDraftModule);\n  const localModules = Object.freeze({ './classify.ts': classifyExports, '../interaction/outcome.ts': outcomeExports, '../interaction/draft.ts': draftExports });\n  const guardExports = {};\n  // 허용된 순수 로컬 모듈 제공\n  function requireLocalModule(name) {\n    if (!Object.hasOwn(localModules, name)) throw new Error('Unsupported CCUH runtime module');\n    return localModules[name];\n  }\n  ((exports, require) => {\n${modules[4]}\n  })(guardExports, requireLocalModule);\n  return Object.freeze({ ...guardExports, sourceHash: '${sourceHash}' });\n})();\n`;
+  return `// 대상 재확인 도우미 구성\nvar ccuh = (() => {\n  const classifyExports = {};\n  ((exports) => {\n${modules[0]}\n  })(classifyExports);\n  const outcomeExports = {};\n  ((exports) => {\n${modules[1]}\n  })(outcomeExports);\n  const retryExports = {};\n  ((exports) => {\n${modules[2]}\n  })(retryExports);\n  const draftExports = {};\n  // 초안 처리의 순수 재시도 모듈 제공\n  function requireDraftModule(name) {\n    if (name !== './retry.ts') throw new Error('Unsupported CCUH runtime module');\n    return retryExports;\n  }\n  ((exports, require) => {\n${modules[3]}\n  })(draftExports, requireDraftModule);\n  const transitionExports = {};\n  ((exports) => {\n${modules[4]}\n  })(transitionExports);\n  const localModules = Object.freeze({ './classify.ts': classifyExports, '../interaction/outcome.ts': outcomeExports, '../interaction/draft.ts': draftExports, '../interaction/transition.ts': transitionExports });\n  const guardExports = {};\n  // 허용된 순수 로컬 모듈 제공\n  function requireLocalModule(name) {\n    if (!Object.hasOwn(localModules, name)) throw new Error('Unsupported CCUH runtime module');\n    return localModules[name];\n  }\n  ((exports, require) => {\n${modules[5]}\n  })(guardExports, requireLocalModule);\n  return Object.freeze({ ...guardExports, sourceHash: '${sourceHash}' });\n})();\n`;
 }
 
 // 생성물을 갱신하거나 현재 소스와 일치하는지 확인

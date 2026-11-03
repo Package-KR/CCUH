@@ -5,6 +5,9 @@ import type { ActionEvidence, ActionInvocation, ActionOutcome, VerificationVerdi
 import { runDraftValue } from '../interaction/draft.ts';
 import type { DraftValueOptions, DraftValueResult } from '../interaction/draft.ts';
 
+export { verifyModalDismissal } from '../interaction/transition.ts';
+export type { ModalContainerRole, ModalRootSelector, ModalDismissalOptions } from '../interaction/transition.ts';
+
 export type AppApi = {
   getAXState(options: { disableDiffing: true; emit: false }): Promise<string>;
   click(index: number): Promise<unknown>;
@@ -34,6 +37,43 @@ export type VerificationContext = { before: string; after: string };
 export type VerifiedTargetExecution<T> =
   | (Omit<TargetSummary, 'status'> & { status: 'blocked' })
   | (Omit<TargetSummary, 'status'> & { status: 'checked'; outcome: ActionOutcome; value?: T });
+export type WindowMenuTrace = Readonly<{
+  stage:
+    | 'validation'
+    | 'initial-observation'
+    | 'menu-bar'
+    | 'menu-open'
+    | 'popup-observation'
+    | 'popup-validation'
+    | 'target-click';
+  reason:
+    | 'invalid-input'
+    | 'initial-header-unconfirmed'
+    | 'menu-unconfirmed'
+    | 'popup-header-unconfirmed'
+    | 'app-mismatch'
+    | 'popup-unconfirmed'
+    | 'target-unconfirmed'
+    | 'selection-requested'
+    | 'menu-open-threw'
+    | 'observation-threw'
+    | 'target-click-threw'
+    | 'operation-threw';
+  menuOpenAttempted: boolean;
+  refreshCount: 0 | 1 | 2;
+  targetClickAttempted: boolean;
+  menuEntryCount: number;
+  menuRefUnique: boolean;
+  rootDepth: number | null;
+  rootCount: number;
+  hasMenuBar: boolean;
+  rootContentMetadata: boolean;
+  rootRefUnique: boolean;
+  expectedRoot: boolean;
+  targetCount: number;
+  matchingActionCount: number;
+  targetRefUnique: boolean;
+}>;
 
 type TargetRecord = Readonly<{
   app: AppApi;
@@ -44,7 +84,7 @@ type TargetRecord = Readonly<{
 type Observation = { recognition: RecognitionResult; state?: string };
 type Preparation = { summary: TargetSummary; state?: string };
 type Header = { app: string; window?: string };
-type MenuRow = { index: number; depth: number; label: string; id?: string };
+type MenuRow = { index: number; depth: number; label: string; id?: string; contentMetadata: boolean };
 
 const targets = new WeakMap<object, TargetRecord>();
 const busyApps = new WeakSet<AppApi>();
@@ -297,12 +337,25 @@ function readMenuRows(state: string): MenuRow[] {
     if (!row) return [];
     const metadata = /(?:,\s*|\s+)(?:ID|Secondary Actions|Value|Description|Help):/u.exec(row[3]);
     const id = /(?:,\s*|\s+)ID: ([^,]+)(?:,|$)/u.exec(row[3])?.[1]?.trim();
-    return [{ index: Number(row[2]), depth: row[1].length, label: row[3].slice(0, metadata?.index).trim(), id }];
+    return [
+      {
+        index: Number(row[2]),
+        depth: row[1].length,
+        label: row[3].slice(0, metadata?.index).trim(),
+        id,
+        contentMetadata: /(?:,\s*|\s+)(?:Value|Description|Help):/u.test(row[3]),
+      },
+    ];
   });
 }
 
-// 메뉴 모음의 유일한 직계 메뉴 항목 확인
-function menuEntry(rows: MenuRow[], name: string): MenuRow | undefined {
+// 전체 관측에서 고유한 안전 정수 메뉴 참조 확인
+function isUniqueMenuReference(rows: MenuRow[], index: number): boolean {
+  return Number.isSafeInteger(index) && index >= 0 && rows.filter(row => row.index === index).length === 1;
+}
+
+// 유일한 메뉴 모음의 직계 항목 조회
+function menuBarEntries(rows: MenuRow[]): MenuRow[] | undefined {
   const bars = rows.filter(row => row.label === 'menu bar');
   if (bars.length !== 1) return undefined;
   const start = rows.indexOf(bars[0]);
@@ -311,35 +364,166 @@ function menuEntry(rows: MenuRow[], name: string): MenuRow | undefined {
     const row = rows[index];
     if (index === start + 1 || row.depth <= children[0]?.depth) children.push(row);
   }
-  const matches = children.filter(row => equalText(row.label, name));
-  return matches.length === 1 ? matches[0] : undefined;
+  return children;
+}
+
+// 메뉴 모음의 유일한 직계 메뉴 항목 확인
+function menuEntry(rows: MenuRow[], name: string): MenuRow | undefined {
+  const matches = menuBarEntries(rows)?.filter(row => equalText(row.label, name)) ?? [];
+  return matches.length === 1 && isUniqueMenuReference(rows, matches[0].index) ? matches[0] : undefined;
+}
+
+// 단일 메뉴 팝업의 최상위 범위 확인
+function menuPopupRoot(rows: MenuRow[]): MenuRow | undefined {
+  const root = rows[0];
+  if (
+    !root ||
+    root.depth !== 0 ||
+    root.contentMetadata ||
+    rows.length < 2 ||
+    !isUniqueMenuReference(rows, root.index) ||
+    rows.slice(1).some(row => row.depth <= root.depth || row.label === 'menu bar')
+  )
+    return;
+  return root;
+}
+
+// 확인한 창 메뉴 안의 고유한 대상 참조 조회
+function windowMenuTarget(rows: MenuRow[], menuName: string, title: string): MenuRow | undefined {
+  const root = menuPopupRoot(rows);
+  if (!root || !equalText(root.label, menuName)) return;
+  const matches = rows.slice(1).filter(row => row.id === 'makeKeyAndOrderFront:' && equalText(row.label, title));
+  return matches.length === 1 && isUniqueMenuReference(rows, matches[0].index) ? matches[0] : undefined;
+}
+
+// 직전 메뉴 모음에 속한 다른 팝업인지 확인
+function isKnownOtherMenuPopup(rows: MenuRow[], originalRows: MenuRow[], menuName: string): boolean {
+  const root = menuPopupRoot(rows);
+  if (!root || equalText(root.label, menuName)) return false;
+  return menuBarEntries(originalRows)?.filter(row => equalText(row.label, root.label)).length === 1;
 }
 
 // 공식 창 메뉴에서 유일한 대상 선택 요청
 export async function selectWindowFromMenu(
-  { app, state }: ActionContext,
+  context: ActionContext,
   menuName: string,
   title: string,
+  observer?: (trace: WindowMenuTrace) => void,
 ): Promise<boolean> {
-  if (!validText(menuName) || !validText(title)) return false;
-  const initial = readHeader(state);
-  const menu = menuEntry(readMenuRows(state), menuName);
-  if (!initial || !menu) return false;
-  try {
-    await app.click(menu.index);
-    const popup = await app.getAXState({ disableDiffing: true, emit: false });
-    const header = readHeader(popup);
-    const rows = readMenuRows(popup);
+  const trace: { -readonly [Key in keyof WindowMenuTrace]: WindowMenuTrace[Key] } = {
+    stage: 'validation',
+    reason: 'invalid-input',
+    menuOpenAttempted: false,
+    refreshCount: 0,
+    targetClickAttempted: false,
+    menuEntryCount: 0,
+    menuRefUnique: false,
+    rootDepth: null,
+    rootCount: 0,
+    hasMenuBar: false,
+    rootContentMetadata: false,
+    rootRefUnique: false,
+    expectedRoot: false,
+    targetCount: 0,
+    matchingActionCount: 0,
+    targetRefUnique: false,
+  };
+
+  // 마지막 판정 사유와 반환값 설정
+  function complete(reason: WindowMenuTrace['reason'], result = false): boolean {
+    trace.reason = reason;
+    return result;
+  }
+
+  // 원문 없는 팝업 구조와 대상 개수 요약
+  function describeRows(rows: MenuRow[]): void {
     const root = rows[0];
-    if (!header || !equalText(initial.app, header.app) || !root || !equalText(root.label, menuName)) return false;
-    const end = rows.findIndex((row, index) => index > 0 && row.depth <= root.depth);
-    const matches = rows
-      .slice(1, end === -1 ? undefined : end)
-      .filter(row => row.id === 'makeKeyAndOrderFront:' && equalText(row.label, title));
-    if (matches.length !== 1) return false;
-    await app.click(matches[0].index);
-    return true;
+    const targets = rows.slice(1).filter(row => equalText(row.label, title));
+    const matching = targets.filter(row => row.id === 'makeKeyAndOrderFront:');
+    trace.rootDepth = root?.depth ?? null;
+    trace.rootCount = root ? rows.filter(row => row.depth <= root.depth).length : 0;
+    trace.hasMenuBar = rows.some(row => row.label === 'menu bar');
+    trace.rootContentMetadata = root?.contentMetadata ?? false;
+    trace.rootRefUnique = root ? isUniqueMenuReference(rows, root.index) : false;
+    trace.expectedRoot = root ? equalText(root.label, menuName) : false;
+    trace.targetCount = targets.length;
+    trace.matchingActionCount = matching.length;
+    trace.targetRefUnique = matching.length === 1 && isUniqueMenuReference(rows, matching[0].index);
+  }
+
+  // 고정 진단을 한 번 전달하고 관측자 예외 격리
+  function report(): void {
+    if (typeof observer !== 'function') return;
+    try {
+      Promise.resolve(observer(Object.freeze({ ...trace }))).catch(() => {});
+    } catch {
+      return;
+    }
+  }
+
+  try {
+    if (!validText(menuName) || !validText(title) || !context || typeof context.state !== 'string') {
+      return complete('invalid-input');
+    }
+    const { app, state } = context;
+    trace.stage = 'initial-observation';
+    const initial = readHeader(state);
+    if (!initial) return complete('initial-header-unconfirmed');
+    const originalRows = readMenuRows(state);
+    let rows = originalRows;
+    describeRows(rows);
+    if (!rows[0] || !equalText(rows[0].label, menuName)) {
+      trace.stage = 'menu-bar';
+      trace.menuEntryCount = menuBarEntries(originalRows)?.filter(row => equalText(row.label, menuName)).length ?? 0;
+      const menu = menuEntry(originalRows, menuName);
+      trace.menuRefUnique = menu !== undefined;
+      if (!menu) return complete('menu-unconfirmed');
+      trace.stage = 'menu-open';
+      trace.menuOpenAttempted = true;
+      await app.click(menu.index);
+      trace.stage = 'popup-observation';
+      trace.refreshCount = 1;
+      describeRows([]);
+      let popup = await app.getAXState({ disableDiffing: true, emit: false });
+      trace.stage = 'popup-validation';
+      rows = readMenuRows(popup);
+      describeRows(rows);
+      let header = readHeader(popup);
+      if (!header) return complete('popup-header-unconfirmed');
+      if (!equalText(initial.app, header.app)) return complete('app-mismatch');
+      if (isKnownOtherMenuPopup(rows, originalRows, menuName)) {
+        trace.stage = 'popup-observation';
+        trace.refreshCount = 2;
+        describeRows([]);
+        popup = await app.getAXState({ disableDiffing: true, emit: false });
+        trace.stage = 'popup-validation';
+        rows = readMenuRows(popup);
+        describeRows(rows);
+        header = readHeader(popup);
+        if (!header) return complete('popup-header-unconfirmed');
+        if (!equalText(initial.app, header.app)) return complete('app-mismatch');
+      }
+    }
+    trace.stage = 'popup-validation';
+    const root = menuPopupRoot(rows);
+    if (!root || !equalText(root.label, menuName)) return complete('popup-unconfirmed');
+    const target = windowMenuTarget(rows, menuName, title);
+    if (!target) return complete('target-unconfirmed');
+    trace.stage = 'target-click';
+    trace.targetClickAttempted = true;
+    await app.click(target.index);
+    return complete('selection-requested', true);
   } catch {
-    return false;
+    return complete(
+      trace.stage === 'menu-open'
+        ? 'menu-open-threw'
+        : trace.stage === 'popup-observation'
+          ? 'observation-threw'
+          : trace.stage === 'target-click'
+            ? 'target-click-threw'
+            : 'operation-threw',
+    );
+  } finally {
+    report();
   }
 }

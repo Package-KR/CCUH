@@ -288,7 +288,194 @@ async function runDraftValue(initial, runtime, options) {
     return summarize(frame, decision.reason, attempts, lastInvocation);
 }
   })(draftExports, requireDraftModule);
-  const localModules = Object.freeze({ './classify.ts': classifyExports, '../interaction/outcome.ts': outcomeExports, '../interaction/draft.ts': draftExports });
+  const transitionExports = {};
+  ((exports) => {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.verifyModalDismissal = verifyModalDismissal;
+const roles = ['standard window', '표준 윈도우', '대화상자', 'dialog', 'sheet', '시트', 'window', '윈도우'];
+const selectionNote = "Note: Pay special attention to the content selected by the user. If the user asks a question or refers to the content they are looking at on-screen, they might be referring to the selected content (but they might be referring to something else that's visible, too).";
+// 필수 자체 값 필드를 가진 일반 객체 검사
+function hasDataFields(value, keys) {
+    if (value === null || typeof value !== 'object' || Array.isArray(value))
+        return false;
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null)
+        return false;
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    return (Reflect.ownKeys(descriptors).length === keys.length &&
+        keys.every(key => Object.hasOwn(descriptors, key) && Object.hasOwn(descriptors[key], 'value')));
+}
+// 제어 문자가 없는 관측 조건 문자열 검사
+function validText(value) {
+    return (typeof value === 'string' &&
+        value.trim().length > 0 &&
+        value.length <= 1024 &&
+        !/[\u0000-\u001f\u007f]/u.test(value));
+}
+// 명시한 컨테이너 역할과 식별자 검사
+function validRoot(value) {
+    return (hasDataFields(value, ['role', 'id']) &&
+        typeof value.role === 'string' &&
+        roles.includes(value.role) &&
+        validText(value.id));
+}
+// 종료 전 모달과 기대 부모 조건 검사
+function validOptions(value) {
+    if (!hasDataFields(value, ['appName', 'modal', 'parent']) || !validText(value.appName) || !validRoot(value.modal)) {
+        return false;
+    }
+    const parent = value.parent;
+    if (hasDataFields(parent, ['kind', 'title']))
+        return parent.kind === 'window-title' && validText(parent.title);
+    return (hasDataFields(parent, ['kind', 'role', 'id']) &&
+        parent.kind === 'root-id' &&
+        typeof parent.role === 'string' &&
+        roles.includes(parent.role) &&
+        validText(parent.id) &&
+        parent.id !== value.modal.id);
+}
+// 관측한 표시 문자열의 정규화된 일치 확인
+function sameText(left, right) {
+    return left.normalize('NFC') === right.normalize('NFC');
+}
+// 본문 메타데이터를 제외한 컨테이너 행 판독
+function readContainer(row) {
+    const role = roles.find(value => row.body === value || row.body.startsWith(value + ' '));
+    if (!role)
+        return null;
+    const tail = row.body.slice(role.length).trimStart();
+    if (/(?:^|,\s*|\s+)(?:Value|Description|Help):/u.test(tail))
+        return;
+    const metadata = /(?:^|,\s*|\s+)(ID|URL|Secondary Actions):/u.exec(tail);
+    const ids = [...tail.matchAll(/(?:^|,\s*|\s+)ID: ([^,]+)(?=,|$)/gu)];
+    if (ids.length > 1 ||
+        (ids.length === 1 &&
+            (!metadata ||
+                metadata[1] !== 'ID' ||
+                ids[0].index !== metadata.index ||
+                (metadata.index !== 0 && !metadata[0].startsWith(',')) ||
+                !validText(ids[0][1].trim()))))
+        return;
+    return {
+        index: row.index,
+        depth: row.depth,
+        role: role,
+        name: tail.slice(0, metadata?.index).trim(),
+        ...(ids.length === 1 ? { id: ids[0][1].trim() } : {}),
+    };
+}
+// 편집 가능한 한 줄 텍스트 필드의 값 판독
+function readEditableValue(body) {
+    const field = /^(?:텍스트 필드|text field) \(([^()]*)\) (.+)$/u.exec(body);
+    if (!field || !field[1].split(/,\s*/u).includes('settable'))
+        return;
+    const metadata = field[2];
+    if (/(?:^|,\s*|\s+)(?:Description|Help|URL|Secondary Actions):/u.test(metadata))
+        return;
+    const values = [...metadata.matchAll(/(?:^|,\s*|\s+)Value:/gu)];
+    const ids = [...metadata.matchAll(/(?:^|,\s*|\s+)ID:/gu)];
+    if (values.length !== 1 || ids.length > 1)
+        return;
+    if (ids.length === 0)
+        return /^Value: (.+)$/u.exec(metadata)?.[1];
+    const valueFirst = /^Value: (.+), ID: ([^,]+)$/u.exec(metadata);
+    if (valueFirst && validText(valueFirst[2]))
+        return valueFirst[1];
+    const idFirst = /^ID: ([^,]+), Value: (.+)$/u.exec(metadata);
+    return idFirst && validText(idFirst[1]) ? idFirst[2] : undefined;
+}
+// 렌더러의 선택 요약과 정확한 안내 접미부 분리
+function splitSelection(lines) {
+    const sections = lines.flatMap((line, index) => line === 'Selected:' || line === 'Selected text: ```' ? [index] : []);
+    const prefix = sections.length === 1 ? lines.slice(0, sections[0]) : lines;
+    if (sections.length > 1 || prefix.some(line => /^(?:Selected(?: text)?|Note):/u.test(line)))
+        return;
+    if (sections.length === 0)
+        return { tree: lines };
+    const remainder = lines.slice(sections[0] + 1);
+    if (lines[sections[0]] === 'Selected text: ```') {
+        const notes = remainder.slice(2).filter(line => line.trim() !== '');
+        if (!remainder[0]?.trim() || remainder[1] !== '```' || notes.length !== 1 || notes[0] !== selectionNote)
+            return;
+        return { tree: prefix, selectedText: remainder[0] };
+    }
+    const suffix = remainder.filter(line => line.trim() !== '');
+    if (suffix.length < 1 || suffix.length > 2 || (suffix.length === 2 && suffix[1] !== selectionNote))
+        return;
+    const selected = /^[ \t]*(\d+) (.+)$/u.exec(suffix[0]);
+    if (!selected || !Number.isSafeInteger(Number(selected[1])))
+        return;
+    return { tree: prefix, selected: { index: Number(selected[1]), body: selected[2] } };
+}
+// 같은 앱의 유일한 최상위 컨테이너 관측 판독
+function readSnapshot(state) {
+    const lines = state.split(/\r?\n/u);
+    const header = /^Window: "(.*)", App: ([^\r\n]+)\.$/u.exec(lines[0] ?? '');
+    if (!header || !validText(header[2]) || (header[1] !== '' && !validText(header[1])))
+        return;
+    if (lines.slice(1).some(line => /^Window:/u.test(line)))
+        return;
+    const sections = splitSelection(lines.slice(1));
+    if (!sections)
+        return;
+    const content = sections.tree.filter(line => line.trim() !== '');
+    const rows = content.map(line => /^([ \t]*)(\d+) (.+)$/u.exec(line));
+    if (!rows[0] || rows.some((row, index) => !row && /^[ \t]*[-+]?\d/u.test(content[index])))
+        return;
+    const entries = rows.flatMap(row => (row ? [{ index: Number(row[2]), depth: row[1].length, body: row[3] }] : []));
+    if (entries.some(row => !Number.isSafeInteger(row.index)) ||
+        new Set(entries.map(row => row.index)).size !== entries.length)
+        return;
+    const selected = sections.selected;
+    if (selected && !entries.some(row => row.index === selected.index && row.body === selected.body))
+        return;
+    const selectedText = sections.selectedText;
+    if (selectedText !== undefined &&
+        entries.filter(row => readEditableValue(row.body)?.includes(selectedText)).length !== 1)
+        return;
+    const parsed = entries.map(readContainer);
+    if (parsed.some(row => row === undefined))
+        return;
+    const containers = parsed.filter((row) => row !== null && row !== undefined);
+    const roots = containers.filter(row => row.depth === 0);
+    const root = roots[0];
+    if (roots.length !== 1 || !root || root.index !== entries[0].index || !sameText(root.name, header[1]))
+        return;
+    return { app: header[2], title: header[1], root, containers };
+}
+// 모달 소멸과 명시한 부모 복귀의 관측 결과 확인
+function verifyModalDismissal(snapshots, options) {
+    try {
+        if (!hasDataFields(snapshots, ['before', 'after']) ||
+            typeof snapshots.before !== 'string' ||
+            typeof snapshots.after !== 'string' ||
+            !validOptions(options))
+            return 'unknown';
+        const before = readSnapshot(snapshots.before);
+        const after = readSnapshot(snapshots.after);
+        if (!before || !after || !sameText(before.app, options.appName) || !sameText(after.app, options.appName))
+            return 'unknown';
+        const original = before.containers.filter(row => row.id === options.modal.id);
+        if (original.length !== 1 || original[0] !== before.root || original[0].role !== options.modal.role)
+            return 'unknown';
+        const remaining = after.containers.filter(row => row.id === options.modal.id);
+        if (remaining.length > 1 || remaining.some(row => row.role !== options.modal.role))
+            return 'unknown';
+        if (remaining.length === 1)
+            return false;
+        const parent = options.parent;
+        if (parent.kind === 'window-title')
+            return sameText(after.title, parent.title) ? true : 'unknown';
+        const parents = after.containers.filter(row => row.id === parent.id);
+        return parents.length === 1 && parents[0] === after.root && parents[0].role === parent.role ? true : 'unknown';
+    }
+    catch {
+        return 'unknown';
+    }
+}
+  })(transitionExports);
+  const localModules = Object.freeze({ './classify.ts': classifyExports, '../interaction/outcome.ts': outcomeExports, '../interaction/draft.ts': draftExports, '../interaction/transition.ts': transitionExports });
   const guardExports = {};
   // 허용된 순수 로컬 모듈 제공
   function requireLocalModule(name) {
@@ -298,6 +485,7 @@ async function runDraftValue(initial, runtime, options) {
   ((exports, require) => {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.verifyModalDismissal = void 0;
 exports.createTarget = createTarget;
 exports.prepareTarget = prepareTarget;
 exports.withTarget = withTarget;
@@ -307,6 +495,8 @@ exports.selectWindowFromMenu = selectWindowFromMenu;
 const classify_ts_1 = require("./classify.ts");
 const outcome_ts_1 = require("../interaction/outcome.ts");
 const draft_ts_1 = require("../interaction/draft.ts");
+var transition_ts_1 = require("../interaction/transition.ts");
+Object.defineProperty(exports, "verifyModalDismissal", { enumerable: true, get: function () { return transition_ts_1.verifyModalDismissal; } });
 const targets = new WeakMap();
 const busyApps = new WeakSet();
 // 유효한 대상 식별 문자열 검사
@@ -541,11 +731,23 @@ function readMenuRows(state) {
             return [];
         const metadata = /(?:,\s*|\s+)(?:ID|Secondary Actions|Value|Description|Help):/u.exec(row[3]);
         const id = /(?:,\s*|\s+)ID: ([^,]+)(?:,|$)/u.exec(row[3])?.[1]?.trim();
-        return [{ index: Number(row[2]), depth: row[1].length, label: row[3].slice(0, metadata?.index).trim(), id }];
+        return [
+            {
+                index: Number(row[2]),
+                depth: row[1].length,
+                label: row[3].slice(0, metadata?.index).trim(),
+                id,
+                contentMetadata: /(?:,\s*|\s+)(?:Value|Description|Help):/u.test(row[3]),
+            },
+        ];
     });
 }
-// 메뉴 모음의 유일한 직계 메뉴 항목 확인
-function menuEntry(rows, name) {
+// 전체 관측에서 고유한 안전 정수 메뉴 참조 확인
+function isUniqueMenuReference(rows, index) {
+    return Number.isSafeInteger(index) && index >= 0 && rows.filter(row => row.index === index).length === 1;
+}
+// 유일한 메뉴 모음의 직계 항목 조회
+function menuBarEntries(rows) {
     const bars = rows.filter(row => row.label === 'menu bar');
     if (bars.length !== 1)
         return undefined;
@@ -556,38 +758,165 @@ function menuEntry(rows, name) {
         if (index === start + 1 || row.depth <= children[0]?.depth)
             children.push(row);
     }
-    const matches = children.filter(row => equalText(row.label, name));
-    return matches.length === 1 ? matches[0] : undefined;
+    return children;
+}
+// 메뉴 모음의 유일한 직계 메뉴 항목 확인
+function menuEntry(rows, name) {
+    const matches = menuBarEntries(rows)?.filter(row => equalText(row.label, name)) ?? [];
+    return matches.length === 1 && isUniqueMenuReference(rows, matches[0].index) ? matches[0] : undefined;
+}
+// 단일 메뉴 팝업의 최상위 범위 확인
+function menuPopupRoot(rows) {
+    const root = rows[0];
+    if (!root ||
+        root.depth !== 0 ||
+        root.contentMetadata ||
+        rows.length < 2 ||
+        !isUniqueMenuReference(rows, root.index) ||
+        rows.slice(1).some(row => row.depth <= root.depth || row.label === 'menu bar'))
+        return;
+    return root;
+}
+// 확인한 창 메뉴 안의 고유한 대상 참조 조회
+function windowMenuTarget(rows, menuName, title) {
+    const root = menuPopupRoot(rows);
+    if (!root || !equalText(root.label, menuName))
+        return;
+    const matches = rows.slice(1).filter(row => row.id === 'makeKeyAndOrderFront:' && equalText(row.label, title));
+    return matches.length === 1 && isUniqueMenuReference(rows, matches[0].index) ? matches[0] : undefined;
+}
+// 직전 메뉴 모음에 속한 다른 팝업인지 확인
+function isKnownOtherMenuPopup(rows, originalRows, menuName) {
+    const root = menuPopupRoot(rows);
+    if (!root || equalText(root.label, menuName))
+        return false;
+    return menuBarEntries(originalRows)?.filter(row => equalText(row.label, root.label)).length === 1;
 }
 // 공식 창 메뉴에서 유일한 대상 선택 요청
-async function selectWindowFromMenu({ app, state }, menuName, title) {
-    if (!validText(menuName) || !validText(title))
-        return false;
-    const initial = readHeader(state);
-    const menu = menuEntry(readMenuRows(state), menuName);
-    if (!initial || !menu)
-        return false;
-    try {
-        await app.click(menu.index);
-        const popup = await app.getAXState({ disableDiffing: true, emit: false });
-        const header = readHeader(popup);
-        const rows = readMenuRows(popup);
+async function selectWindowFromMenu(context, menuName, title, observer) {
+    const trace = {
+        stage: 'validation',
+        reason: 'invalid-input',
+        menuOpenAttempted: false,
+        refreshCount: 0,
+        targetClickAttempted: false,
+        menuEntryCount: 0,
+        menuRefUnique: false,
+        rootDepth: null,
+        rootCount: 0,
+        hasMenuBar: false,
+        rootContentMetadata: false,
+        rootRefUnique: false,
+        expectedRoot: false,
+        targetCount: 0,
+        matchingActionCount: 0,
+        targetRefUnique: false,
+    };
+    // 마지막 판정 사유와 반환값 설정
+    function complete(reason, result = false) {
+        trace.reason = reason;
+        return result;
+    }
+    // 원문 없는 팝업 구조와 대상 개수 요약
+    function describeRows(rows) {
         const root = rows[0];
-        if (!header || !equalText(initial.app, header.app) || !root || !equalText(root.label, menuName))
-            return false;
-        const end = rows.findIndex((row, index) => index > 0 && row.depth <= root.depth);
-        const matches = rows
-            .slice(1, end === -1 ? undefined : end)
-            .filter(row => row.id === 'makeKeyAndOrderFront:' && equalText(row.label, title));
-        if (matches.length !== 1)
-            return false;
-        await app.click(matches[0].index);
-        return true;
+        const targets = rows.slice(1).filter(row => equalText(row.label, title));
+        const matching = targets.filter(row => row.id === 'makeKeyAndOrderFront:');
+        trace.rootDepth = root?.depth ?? null;
+        trace.rootCount = root ? rows.filter(row => row.depth <= root.depth).length : 0;
+        trace.hasMenuBar = rows.some(row => row.label === 'menu bar');
+        trace.rootContentMetadata = root?.contentMetadata ?? false;
+        trace.rootRefUnique = root ? isUniqueMenuReference(rows, root.index) : false;
+        trace.expectedRoot = root ? equalText(root.label, menuName) : false;
+        trace.targetCount = targets.length;
+        trace.matchingActionCount = matching.length;
+        trace.targetRefUnique = matching.length === 1 && isUniqueMenuReference(rows, matching[0].index);
+    }
+    // 고정 진단을 한 번 전달하고 관측자 예외 격리
+    function report() {
+        if (typeof observer !== 'function')
+            return;
+        try {
+            Promise.resolve(observer(Object.freeze({ ...trace }))).catch(() => { });
+        }
+        catch {
+            return;
+        }
+    }
+    try {
+        if (!validText(menuName) || !validText(title) || !context || typeof context.state !== 'string') {
+            return complete('invalid-input');
+        }
+        const { app, state } = context;
+        trace.stage = 'initial-observation';
+        const initial = readHeader(state);
+        if (!initial)
+            return complete('initial-header-unconfirmed');
+        const originalRows = readMenuRows(state);
+        let rows = originalRows;
+        describeRows(rows);
+        if (!rows[0] || !equalText(rows[0].label, menuName)) {
+            trace.stage = 'menu-bar';
+            trace.menuEntryCount = menuBarEntries(originalRows)?.filter(row => equalText(row.label, menuName)).length ?? 0;
+            const menu = menuEntry(originalRows, menuName);
+            trace.menuRefUnique = menu !== undefined;
+            if (!menu)
+                return complete('menu-unconfirmed');
+            trace.stage = 'menu-open';
+            trace.menuOpenAttempted = true;
+            await app.click(menu.index);
+            trace.stage = 'popup-observation';
+            trace.refreshCount = 1;
+            describeRows([]);
+            let popup = await app.getAXState({ disableDiffing: true, emit: false });
+            trace.stage = 'popup-validation';
+            rows = readMenuRows(popup);
+            describeRows(rows);
+            let header = readHeader(popup);
+            if (!header)
+                return complete('popup-header-unconfirmed');
+            if (!equalText(initial.app, header.app))
+                return complete('app-mismatch');
+            if (isKnownOtherMenuPopup(rows, originalRows, menuName)) {
+                trace.stage = 'popup-observation';
+                trace.refreshCount = 2;
+                describeRows([]);
+                popup = await app.getAXState({ disableDiffing: true, emit: false });
+                trace.stage = 'popup-validation';
+                rows = readMenuRows(popup);
+                describeRows(rows);
+                header = readHeader(popup);
+                if (!header)
+                    return complete('popup-header-unconfirmed');
+                if (!equalText(initial.app, header.app))
+                    return complete('app-mismatch');
+            }
+        }
+        trace.stage = 'popup-validation';
+        const root = menuPopupRoot(rows);
+        if (!root || !equalText(root.label, menuName))
+            return complete('popup-unconfirmed');
+        const target = windowMenuTarget(rows, menuName, title);
+        if (!target)
+            return complete('target-unconfirmed');
+        trace.stage = 'target-click';
+        trace.targetClickAttempted = true;
+        await app.click(target.index);
+        return complete('selection-requested', true);
     }
     catch {
-        return false;
+        return complete(trace.stage === 'menu-open'
+            ? 'menu-open-threw'
+            : trace.stage === 'popup-observation'
+                ? 'observation-threw'
+                : trace.stage === 'target-click'
+                    ? 'target-click-threw'
+                    : 'operation-threw');
+    }
+    finally {
+        report();
     }
 }
   })(guardExports, requireLocalModule);
-  return Object.freeze({ ...guardExports, sourceHash: 'e13e7a48f5b823e5ce8f957295b3edad9562bdf4cea4cd52949ee4eceaefccf0' });
+  return Object.freeze({ ...guardExports, sourceHash: '7840ea244059ae53a7d77a057f5b6aaaa93e169adfd51f16d0010470f5f60672' });
 })();
