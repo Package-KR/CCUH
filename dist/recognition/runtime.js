@@ -522,6 +522,7 @@ const outcome_ts_1 = require("../interaction/outcome.ts");
 const draft_ts_1 = require("../interaction/draft.ts");
 var transition_ts_1 = require("../interaction/transition.ts");
 Object.defineProperty(exports, "verifyModalDismissal", { enumerable: true, get: function () { return transition_ts_1.verifyModalDismissal; } });
+const DEFAULT_TARGET_MAX_AGE_MS = 1000;
 const targets = new WeakMap();
 const busyApps = new WeakSet();
 let executionMode = 'background';
@@ -760,6 +761,9 @@ function blocked(reason) {
 }
 // 호출자가 받은 공식 앱 핸들과 고정 대상 등록
 function createTarget(options) {
+    const maxAgeMs = options && (typeof options === 'object' || typeof options === 'function') && 'maxAgeMs' in options
+        ? options.maxAgeMs
+        : DEFAULT_TARGET_MAX_AGE_MS;
     if (!options ||
         typeof options.app !== 'object' ||
         options.app === null ||
@@ -768,8 +772,9 @@ function createTarget(options) {
         !validText(options.requestId) ||
         !validText(options.appName) ||
         (options.windowTitle !== undefined && !validText(options.windowTitle)) ||
-        !Number.isFinite(options.maxAgeMs) ||
-        options.maxAgeMs < 0 ||
+        typeof maxAgeMs !== 'number' ||
+        !Number.isFinite(maxAgeMs) ||
+        maxAgeMs < 0 ||
         (options.reselect !== undefined && typeof options.reselect !== 'function') ||
         (options.allowWindowRaise !== undefined && typeof options.allowWindowRaise !== 'boolean') ||
         (options.windowMenu !== undefined &&
@@ -786,7 +791,7 @@ function createTarget(options) {
     targets.set(token, Object.freeze({
         app: options.app,
         expected,
-        maxAgeMs: options.maxAgeMs,
+        maxAgeMs,
         reselect: options.reselect,
         windowMenu: options.windowMenu,
         allowWindowRaise: options.allowWindowRaise,
@@ -1162,5 +1167,5 @@ async function selectWindowFromMenu(context, menuName, title, observer) {
     }
 }
   })(guardExports, requireLocalModule);
-  return Object.freeze({ ...guardExports, sourceHash: 'efb063e060eb9965400a59a15d4a1d2c113df5ec1cfb0fc9f77368c5055a92a0' });
+  return Object.freeze({ ...guardExports, sourceHash: '9a4798614888cc9fc212360914e68cf0aaafc82b83fb03fa1061f81166026dc9' });
 })();
