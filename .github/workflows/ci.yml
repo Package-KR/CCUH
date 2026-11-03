@@ -57,6 +57,11 @@ jobs:
           node scripts/build-runtime.mjs --check
           node --check dist/recognition/runtime.js
 
+      - name: Prepare read-only environment collector
+        run: |
+          node --check scripts/build-environment.mjs
+          node scripts/build-environment.mjs
+
       - name: Check formatting
         run: npx --yes prettier@3.7.4 --check .
 
