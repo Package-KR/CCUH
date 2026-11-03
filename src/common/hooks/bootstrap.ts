@@ -12,6 +12,7 @@ const MAX_RUNTIME_BYTES = 256 * 1024;
 const REQUIRED_FUNCTIONS = [
   'getMode',
   'setMode',
+  'acquireApp',
   'createTarget',
   'prepareTarget',
   'withTarget',
