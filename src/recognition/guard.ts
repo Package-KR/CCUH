@@ -28,6 +28,7 @@ export type AppAcquisitionReason =
   | 'app-not-running'
   | 'running-state-unavailable'
   | 'acquisition-unavailable'
+  | 'app-handle-retired'
   | 'invalid-app-handle';
 type AppAcquisitionFailure = Readonly<{
   status: 'blocked' | 'unavailable';
@@ -86,6 +87,7 @@ export type WindowMenuTrace = Readonly<{
     | 'target-click';
   reason:
     | 'invalid-input'
+    | 'app-exit-requested'
     | 'window-raise-not-authorized'
     | 'initial-header-unconfirmed'
     | 'menu-unconfirmed'
@@ -136,6 +138,7 @@ type AppInventoryEntry = { id: string; displayName?: string; isRunning?: boolean
 const DEFAULT_TARGET_MAX_AGE_MS = 1000;
 const targets = new WeakMap<object, TargetRecord>();
 const busyApps = new WeakSet<AppApi>();
+const retiredApps = new WeakSet<AppApi>();
 let executionMode: ExecutionMode = 'background';
 let activeOperations = 0;
 
@@ -273,6 +276,7 @@ export async function acquireApp(api: AppAcquisitionApi, target: string): Promis
       return acquisitionFailure(mode, 'unavailable', 'acquisition-unavailable', 1);
     }
     if (!validAcquiredApp(app)) return acquisitionFailure(mode, 'unavailable', 'invalid-app-handle', 1);
+    if (retiredApps.has(app)) return acquisitionFailure(mode, 'blocked', 'app-handle-retired', 1);
     return Object.freeze({ status: 'acquired', mode, acquisitionAttempts: 1, app });
   } finally {
     activeOperations -= 1;
@@ -306,9 +310,11 @@ function equalText(left: string, right: string): boolean {
 
 // 같은 공식 앱 핸들의 최신 대상 분류
 async function observeTarget(target: TargetRecord): Promise<Observation> {
+  if (retiredApps.has(target.app)) return { recognition: unknown('invalid-evidence', 'app-exit-requested') };
   let failureStage: RecognitionFailureStage = 'ax-read';
   try {
     const state = await target.app.getAXState({ disableDiffing: true, emit: false });
+    if (retiredApps.has(target.app)) return { recognition: unknown('invalid-evidence', 'app-exit-requested') };
     failureStage = 'classification';
     const observedAtMs = Date.now();
     failureStage = 'header';
@@ -539,6 +545,7 @@ export async function withTarget<T>(
   try {
     const { summary, state } = await prepare(target);
     if (summary.status !== 'ready' || state === undefined) return { ...summary, status: 'blocked' };
+    if (effect === 'app-exit') retiredApps.add(target.app);
     const value = await action({
       app: target.app,
       state,
@@ -800,6 +807,7 @@ export async function selectWindowFromMenu(
 
   activeOperations += 1;
   try {
+    if (retiredApps.has(context?.app)) return complete('app-exit-requested');
     if (executionMode !== 'visible' || context?.allowWindowRaise !== true) {
       return complete('window-raise-not-authorized');
     }
@@ -821,6 +829,7 @@ export async function selectWindowFromMenu(
       trace.menuRefUnique = initialMenu !== undefined;
       if (!initialMenu) return complete('menu-unconfirmed');
       trace.stage = 'menu-confirmation';
+      if (retiredApps.has(app)) return complete('app-exit-requested');
       trace.confirmationReadCount = 1;
       const confirmation = await app.getAXState({ disableDiffing: true, emit: false });
       const confirmedHeader = typeof confirmation === 'string' ? readHeader(confirmation) : undefined;
@@ -841,9 +850,11 @@ export async function selectWindowFromMenu(
       if (executionMode !== 'visible' || context.allowWindowRaise !== true) {
         return complete('window-raise-not-authorized');
       }
+      if (retiredApps.has(app)) return complete('app-exit-requested');
       trace.menuOpenAttempted = true;
       await app.click(menu.index);
       trace.stage = 'popup-observation';
+      if (retiredApps.has(app)) return complete('app-exit-requested');
       trace.refreshCount = 1;
       describeRows([]);
       let popup = await app.getAXState({ disableDiffing: true, emit: false });
@@ -855,6 +866,7 @@ export async function selectWindowFromMenu(
       if (!equalText(initial.app, header.app)) return complete('app-mismatch');
       if (isKnownOtherMenuPopup(rows, menuRows, menuName)) {
         trace.stage = 'popup-observation';
+        if (retiredApps.has(app)) return complete('app-exit-requested');
         trace.refreshCount = 2;
         describeRows([]);
         popup = await app.getAXState({ disableDiffing: true, emit: false });
@@ -875,6 +887,7 @@ export async function selectWindowFromMenu(
     if (executionMode !== 'visible' || context.allowWindowRaise !== true) {
       return complete('window-raise-not-authorized');
     }
+    if (retiredApps.has(app)) return complete('app-exit-requested');
     trace.targetClickAttempted = true;
     await app.click(target.index);
     return complete('selection-requested', true);
