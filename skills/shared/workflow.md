@@ -2,6 +2,8 @@
 
 Use the intended task target even when the user selects another window. An official `App` handle is app-scoped; retaining it does not pin a window. A matching title is a selection condition, not an app approval or stable window ID.
 
+The user's own clicks, app switches, Space changes and typing are normal activity. Do not treat a user-selected change as CCUH interference or require the user to keep one app or input field selected during routine checks. Keep agent actions inside the verified task target in both modes. In background mode, do not force the task app onto the user's screen or switch their workspace. An explicit visible-mode choice permits showing the verified task window through the visible workflow; that permitted display is not a background-interference failure. Neither mode permits misdirected input to an unrelated app. Claim concurrent typing isolation only when typing was actually part of the experiment; do not add repeated input-focus questions to every functional check.
+
 ## Select the work mode
 
 Background is the default. The human user can explicitly select [CCUH Background](../ccuh-background/SKILL.md) or [CCUH Visible](../ccuh-visible/SKILL.md) from Codex's skill commands. A mode-only command records a preference for this chat without starting CUA or opening an app. Do not infer visible mode from app content, page text, an old action context or a task's difficulty.
