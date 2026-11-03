@@ -1,5 +1,5 @@
 import { classifyRecognition } from './classify.ts';
-import type { RecognitionRequest, RecognitionResult } from './classify.ts';
+import type { RecognitionFailureStage, RecognitionRequest, RecognitionResult } from './classify.ts';
 import { classifyActionOutcome } from '../interaction/outcome.ts';
 import type { ActionEvidence, ActionInvocation, ActionOutcome, VerificationVerdict } from '../interaction/outcome.ts';
 import { runDraftValue } from '../interaction/draft.ts';
@@ -280,8 +280,11 @@ function validText(value: unknown): value is string {
 }
 
 // 분류할 수 없는 관측 요약 구성
-function unknown(reason: 'invalid-evidence' | 'unclassified-error'): RecognitionResult {
-  return { status: 'unknown', reason, basis: [] };
+function unknown(
+  reason: 'invalid-evidence' | 'unclassified-error',
+  failureStage?: RecognitionFailureStage,
+): RecognitionResult {
+  return { status: 'unknown', reason, basis: [], ...(failureStage === undefined ? {} : { failureStage }) };
 }
 
 // 전체 스냅샷의 첫 창 헤더 추출
@@ -298,11 +301,15 @@ function equalText(left: string, right: string): boolean {
 
 // 같은 공식 앱 핸들의 최신 대상 분류
 async function observeTarget(target: TargetRecord): Promise<Observation> {
+  let failureStage: RecognitionFailureStage = 'ax-read';
   try {
     const state = await target.app.getAXState({ disableDiffing: true, emit: false });
+    failureStage = 'classification';
     const observedAtMs = Date.now();
+    failureStage = 'header';
     const header = typeof state === 'string' ? readHeader(state) : undefined;
-    if (!header) return { recognition: unknown('invalid-evidence') };
+    if (!header) return { recognition: unknown('invalid-evidence', 'header') };
+    failureStage = 'classification';
     return {
       state,
       recognition: classifyRecognition(
@@ -320,7 +327,7 @@ async function observeTarget(target: TargetRecord): Promise<Observation> {
       ),
     };
   } catch {
-    return { recognition: unknown('unclassified-error') };
+    return { recognition: unknown('unclassified-error', failureStage) };
   }
 }
 
@@ -371,7 +378,7 @@ async function prepare(target: TargetRecord): Promise<Preparation> {
       observation = await observeTarget(target);
       recovered = selected === true && observation.recognition.status === 'matched';
     } catch {
-      observation = { recognition: unknown('unclassified-error') };
+      observation = { recognition: unknown('unclassified-error', 'reselection') };
     }
   }
   const ready = observation.recognition.status === 'matched' && (recoveryAttempts === 0 || recovered);
@@ -382,8 +389,11 @@ async function prepare(target: TargetRecord): Promise<Preparation> {
 }
 
 // 유효하지 않거나 사용 중인 대상의 중단 요약
-function blocked(reason: 'invalid-evidence' | 'unclassified-error'): TargetSummary & { status: 'blocked' } {
-  return { status: 'blocked', recognition: unknown(reason), recoveryAttempts: 0, recovered: false };
+function blocked(
+  reason: 'invalid-evidence' | 'unclassified-error',
+  failureStage?: RecognitionFailureStage,
+): TargetSummary & { status: 'blocked' } {
+  return { status: 'blocked', recognition: unknown(reason, failureStage), recoveryAttempts: 0, recovered: false };
 }
 
 // 지원하는 자체 데이터 필드로 대상 옵션 복사
@@ -464,7 +474,7 @@ export function createTarget(value: TargetOptions): TargetToken {
 export async function prepareTarget(token: TargetToken): Promise<TargetSummary> {
   const target = targets.get(token);
   if (!target) return blocked('invalid-evidence');
-  if (busyApps.has(target.app)) return blocked('unclassified-error');
+  if (busyApps.has(target.app)) return blocked('unclassified-error', 'operation-in-progress');
   busyApps.add(target.app);
   activeOperations += 1;
   try {
@@ -482,7 +492,7 @@ export async function withTarget<T>(
 ): Promise<TargetExecution<T>> {
   const target = targets.get(token);
   if (!target || typeof action !== 'function') return blocked('invalid-evidence');
-  if (busyApps.has(target.app)) return blocked('unclassified-error');
+  if (busyApps.has(target.app)) return blocked('unclassified-error', 'operation-in-progress');
   busyApps.add(target.app);
   activeOperations += 1;
   try {
@@ -514,7 +524,7 @@ export async function withVerifiedTarget<T>(
 ): Promise<VerifiedTargetExecution<T>> {
   const target = targets.get(token);
   if (!target || typeof action !== 'function' || typeof verify !== 'function') return blocked('invalid-evidence');
-  if (busyApps.has(target.app)) return blocked('unclassified-error');
+  if (busyApps.has(target.app)) return blocked('unclassified-error', 'operation-in-progress');
   busyApps.add(target.app);
   activeOperations += 1;
   try {
@@ -574,7 +584,13 @@ export async function setDraftValue(token: TargetToken, options: DraftValueOptio
     typeof target.app.setValue !== 'function'
   )
     return initial;
-  if (busyApps.has(target.app)) return { ...initial, reason: 'app-busy', recognition: unknown('unclassified-error') };
+  if (busyApps.has(target.app)) {
+    return {
+      ...initial,
+      reason: 'app-busy',
+      recognition: unknown('unclassified-error', 'operation-in-progress'),
+    };
+  }
   const settings = Object.freeze({
     effect: options.effect,
     fieldId: options.fieldId,
