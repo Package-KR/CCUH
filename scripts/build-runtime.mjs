@@ -15,6 +15,7 @@ const sourcePaths = [
   'src/recognition/browser.ts',
 ];
 const outputPath = new URL('dist/recognition/runtime.js', root);
+const browserOutputPath = new URL('dist/recognition/browser-window.js', root);
 
 // 허용된 순수 로컬 모듈만 참조하는지 검사
 function validateDependencies(source, path) {
@@ -157,25 +158,50 @@ ${modules[7]}
 `;
 }
 
+// 브라우저 읽기만 포함하는 지역 실행 함수 생성
+async function createBrowserRuntime() {
+  const path = 'src/recognition/browser.ts';
+  const bytes = await readFile(new URL(path, root));
+  const sourceHash = createHash('sha256').update(`${path}\0${bytes.length}\0`).update(bytes).digest('hex');
+  const module = transpile(bytes.toString('utf8'), path);
+  return `// 브라우저 창의 한 번 읽기 관측
+(async (browser, chromeTabId, runtimeHash) => {
+  const browserExports = {};
+  ((exports) => {
+${module}
+  })(browserExports);
+  const observation = await browserExports.observeBrowserTabWindow(browser, chromeTabId);
+  nodeRepl.write({ ccuhBrowserWindow: 'result', runtimeHash, sourceHash: '${sourceHash}', observation });
+})
+`;
+}
+
 // 생성물을 갱신하거나 현재 소스와 일치하는지 확인
 async function main() {
   const args = process.argv.slice(2);
   if (args.length > 1 || (args.length === 1 && args[0] !== '--check')) {
     throw new Error('Usage: node scripts/build-runtime.mjs [--check]');
   }
-  const expected = await createRuntime();
+  const outputs = [
+    { path: outputPath, code: await createRuntime() },
+    { path: browserOutputPath, code: await createBrowserRuntime() },
+  ];
   if (args[0] === '--check') {
-    const actual = await readFile(outputPath, 'utf8').catch(error => {
-      if (error.code === 'ENOENT') return undefined;
-      throw error;
-    });
-    if (actual !== expected) throw new Error('CCUH runtime is stale. Run node scripts/build-runtime.mjs');
+    for (const output of outputs) {
+      const actual = await readFile(output.path, 'utf8').catch(error => {
+        if (error.code === 'ENOENT') return undefined;
+        throw error;
+      });
+      if (actual !== output.code) throw new Error('CCUH runtime is stale. Run node scripts/build-runtime.mjs');
+    }
     console.log('CCUH runtime is current');
     return;
   }
   await mkdir(new URL('./', outputPath), { recursive: true });
-  await writeFile(outputPath, expected);
-  console.log(`CCUH runtime written: ${fileURLToPath(outputPath)}`);
+  for (const output of outputs) {
+    await writeFile(output.path, output.code);
+    console.log(`CCUH runtime written: ${fileURLToPath(output.path)}`);
+  }
 }
 
 main().catch(error => {
