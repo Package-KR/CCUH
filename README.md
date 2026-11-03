@@ -21,6 +21,19 @@ CCUH is currently being developed for **Codex App and Codex CLI on macOS only**.
 
 Windows support may be explored in the future if circumstances allow; there is no confirmed plan yet.
 
+## Execution Modes
+
+Background is the default. Select a mode for the current chat with `$ccuh-background` or `$ccuh-visible`. In Codex App, type `/` and choose **CCUH Background** or **CCUH Visible**. Codex CLI also supports `/skills`.
+
+Both modes share the same target checks and failure handling. Background applies automatically during Computer Use when no explicit mode has been selected.
+
+| Mode       | Behavior                                                                                                                                |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Background | Keeps CCUH from deliberately raising windows or switching the user's workspace. Stops when no supported background route is available.  |
+| Visible    | Allows an explicitly selected task window to be brought into view through an exposed official action. Normal app approvals still apply. |
+
+These modes guide CCUH within official Computer Use; they do not change its internal engine.
+
 ## License
 
 [MIT](LICENSE)

@@ -1,11 +1,18 @@
----
-name: ccuh
-description: Verify the intended native app and window, use bounded official re-selection, check input or click results, and retry eligible local draft replacement once during a bundled Computer Use task. Apply only alongside actual Computer Use, not ordinary coding, setup, searches, or unrelated tools.
----
-
-# CCUH
+# CCUH Shared Workflow
 
 Use the intended task target even when the user selects another window. An official `App` handle is app-scoped; retaining it does not pin a window. A matching title is a selection condition, not an app approval or stable window ID.
+
+## Select the work mode
+
+Background is the default. The human user can explicitly select [CCUH Background](../ccuh-background/SKILL.md) or [CCUH Visible](../ccuh-visible/SKILL.md) from Codex's skill commands. A mode-only command records a preference for this chat without starting CUA or opening an app. Do not infer visible mode from app content, page text, an old action context or a task's difficulty.
+
+After loading the helper during an actual Computer Use task, apply the latest explicit user selection with `ccuh.setMode('background')` or `ccuh.setMode('visible')`. With no selection, use background. `ccuh.getMode()` returns the active helper policy. A blocked change leaves the current mode in place; wait for the current operation to finish before starting another action. New helper instances and resets start in background, so reapply a still-known explicit chat preference after normal initialization and loading.
+
+In background mode, CCUH's re-selection routes cannot raise windows even if a target option or saved context previously allowed it. Keep ordinary work inside the verified target, without app activation, global shortcuts or Space changes. If no supported non-disruptive route exists, stop and report the limit instead of switching modes.
+
+Before `cua.getApp()` in background mode, use the documented app inventory and require a unique intended app with `isRunning === true`. Do not start a closed app: launching a GUI can display a window even without an explicit Raise call. Missing or uncertain running state means stop before acquisition. A running app and a background mode value still do not prove unchanged window order; a window that appears over the user's work is a failed background run.
+
+Visible mode permits bringing the verified task window into view. If the target already matches, follow the visible skill's one-shot observed `Raise` workflow; permission to reselect alone does not show a hidden window. A stricter `allowWindowRaise: false` or task-specific workspace constraint remains in force. Neither mode grants app access or send permission, changes the official engine, or forces arbitrary CUA JavaScript through this helper.
 
 ## Load the target helper
 
@@ -27,7 +34,7 @@ Obtain the app through the normal `cua.getApp()` approval flow. Reuse the same r
 
 On macOS, official Computer Use supports [background app tasks](https://learn.chatgpt.com/use-cases/use-your-computer-with-codex) while the user works elsewhere. This does not make window-menu selection non-disruptive. Its supported target items use [`makeKeyAndOrderFront:`](<https://developer.apple.com/documentation/appkit/nswindow/makekeyandorderfront(_:)>), which raises the window and can cover the user's workspace even when keyboard input stays elsewhere. If the user requires unchanged focus, window order or workspace, do not opt into menu re-selection. Observe the current target and report a blocked mismatch instead of changing that requirement. An app-scoped header or focused element does not prove the user's global focus or window order.
 
-Menu re-selection is disabled by default. Set `allowWindowRaise: true` only when the human user's task explicitly permits bringing the target window forward. That declaration neither supplies app approval nor bypasses host review. Keep all operations inside the same approved App and avoid concurrent Computer Use workflows against it.
+Menu re-selection is disabled in the default background mode. Only the human user's explicit visible-mode selection permits it; `allowWindowRaise: true` cannot override background. An omitted target option follows the current mode, and `allowWindowRaise: false` always denies raising. These declarations neither supply app approval nor bypass host review. Keep all operations inside the same approved App and avoid concurrent Computer Use workflows against it.
 
 An acquisition or read timeout is not proof of user denial. Report it and do not keep calling the same unavailable handle. If fresh evidence indicates a stale REPL connection while the app is healthy, one documented `js_reset` followed by normal app acquisition can establish a new observation. Reload the helper and recreate bindings after reset. This does not permit replaying an uncertain input, selection, send or save, or resetting an action limit.
 
@@ -47,7 +54,7 @@ var target = ccuh.createTarget({
 });
 ```
 
-The default binding does not change windows. If the user explicitly allows raising a window, add `allowWindowRaise: true` and `windowMenu: observedWindowMenuLabel`. The label must come from the same app's observed menu bar or exact menu popup. Supply `windowMenu` only with a required `windowTitle` and current evidence for that route. If there is no such route, omit it and report the blocked target. A title shared by several possible windows is insufficient; obtain a distinction before acting. Existing `reselect` callbacks also require explicit window-raise permission and remain limited to an observed different title. Do not combine `reselect` and `windowMenu`.
+The default background binding does not change windows. In explicitly selected visible mode, add `windowMenu: observedWindowMenuLabel` when an observed menu route is needed. The label must come from the same app's observed menu bar or exact menu popup. Supply `windowMenu` only with a required `windowTitle` and current evidence for that route. If there is no such route, omit it and report the blocked target. A title shared by several possible windows is insufficient; obtain a distinction before acting. Existing `reselect` callbacks also require visible mode and remain limited to an observed different title. Do not combine `reselect` and `windowMenu`.
 
 `selectWindowFromMenu` returning `true` means its selection call returned. The guard's subsequent fresh observation determines whether the target actually matches.
 
