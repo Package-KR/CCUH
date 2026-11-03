@@ -60,7 +60,7 @@ export type TargetSummary = {
   recognition: RecognitionResult;
   recoveryAttempts: 0 | 1;
   recovered: boolean;
-  recoveryBlockedReason?: 'window-raise-not-authorized';
+  recoveryBlockedReason?: 'background-reselection-unsupported' | 'window-raise-not-authorized';
 };
 export type TargetExecution<T> =
   | (Omit<TargetSummary, 'status'> & { status: 'blocked' })
@@ -343,13 +343,24 @@ async function prepare(target: TargetRecord): Promise<Preparation> {
   const windowMismatch =
     observation.recognition.status === 'failed' && observation.recognition.reason === 'window-selector-mismatch';
   const windowUnobserved =
-    menuTitle !== undefined &&
+    target.expected.window?.kind === 'window-title' &&
     observation.recognition.status === 'unknown' &&
     observation.recognition.reason === 'window-unobserved' &&
     observation.recognition.basis.length === 1 &&
     observation.recognition.basis[0] === 'app-name';
+  if (executionMode === 'background' && (windowMismatch || windowUnobserved) && observation.state !== undefined) {
+    return {
+      summary: {
+        status: 'blocked',
+        recognition: observation.recognition,
+        recoveryAttempts,
+        recovered,
+        recoveryBlockedReason: 'background-reselection-unsupported',
+      },
+    };
+  }
   if (
-    (windowMismatch || windowUnobserved) &&
+    (windowMismatch || (menuTitle !== undefined && windowUnobserved)) &&
     (target.reselect || menuTitle !== undefined) &&
     observation.state !== undefined
   ) {
