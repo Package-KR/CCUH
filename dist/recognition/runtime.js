@@ -527,6 +527,7 @@ Object.defineProperty(exports, "verifyModalDismissal", { enumerable: true, get: 
 const DEFAULT_TARGET_MAX_AGE_MS = 1000;
 const targets = new WeakMap();
 const busyApps = new WeakSet();
+const retiredApps = new WeakSet();
 let executionMode = 'background';
 let activeOperations = 0;
 // 현재 REPL의 실행 모드 조회
@@ -656,6 +657,8 @@ async function acquireApp(api, target) {
         }
         if (!validAcquiredApp(app))
             return acquisitionFailure(mode, 'unavailable', 'invalid-app-handle', 1);
+        if (retiredApps.has(app))
+            return acquisitionFailure(mode, 'blocked', 'app-handle-retired', 1);
         return Object.freeze({ status: 'acquired', mode, acquisitionAttempts: 1, app });
     }
     finally {
@@ -683,9 +686,13 @@ function equalText(left, right) {
 }
 // 같은 공식 앱 핸들의 최신 대상 분류
 async function observeTarget(target) {
+    if (retiredApps.has(target.app))
+        return { recognition: unknown('invalid-evidence', 'app-exit-requested') };
     let failureStage = 'ax-read';
     try {
         const state = await target.app.getAXState({ disableDiffing: true, emit: false });
+        if (retiredApps.has(target.app))
+            return { recognition: unknown('invalid-evidence', 'app-exit-requested') };
         failureStage = 'classification';
         const observedAtMs = Date.now();
         failureStage = 'header';
@@ -898,6 +905,8 @@ async function withTarget(token, action, options) {
         const { summary, state } = await prepare(target);
         if (summary.status !== 'ready' || state === undefined)
             return { ...summary, status: 'blocked' };
+        if (effect === 'app-exit')
+            retiredApps.add(target.app);
         const value = await action({
             app: target.app,
             state,
@@ -1143,6 +1152,8 @@ async function selectWindowFromMenu(context, menuName, title, observer) {
     }
     activeOperations += 1;
     try {
+        if (retiredApps.has(context?.app))
+            return complete('app-exit-requested');
         if (executionMode !== 'visible' || context?.allowWindowRaise !== true) {
             return complete('window-raise-not-authorized');
         }
@@ -1166,6 +1177,8 @@ async function selectWindowFromMenu(context, menuName, title, observer) {
             if (!initialMenu)
                 return complete('menu-unconfirmed');
             trace.stage = 'menu-confirmation';
+            if (retiredApps.has(app))
+                return complete('app-exit-requested');
             trace.confirmationReadCount = 1;
             const confirmation = await app.getAXState({ disableDiffing: true, emit: false });
             const confirmedHeader = typeof confirmation === 'string' ? readHeader(confirmation) : undefined;
@@ -1189,9 +1202,13 @@ async function selectWindowFromMenu(context, menuName, title, observer) {
             if (executionMode !== 'visible' || context.allowWindowRaise !== true) {
                 return complete('window-raise-not-authorized');
             }
+            if (retiredApps.has(app))
+                return complete('app-exit-requested');
             trace.menuOpenAttempted = true;
             await app.click(menu.index);
             trace.stage = 'popup-observation';
+            if (retiredApps.has(app))
+                return complete('app-exit-requested');
             trace.refreshCount = 1;
             describeRows([]);
             let popup = await app.getAXState({ disableDiffing: true, emit: false });
@@ -1205,6 +1222,8 @@ async function selectWindowFromMenu(context, menuName, title, observer) {
                 return complete('app-mismatch');
             if (isKnownOtherMenuPopup(rows, menuRows, menuName)) {
                 trace.stage = 'popup-observation';
+                if (retiredApps.has(app))
+                    return complete('app-exit-requested');
                 trace.refreshCount = 2;
                 describeRows([]);
                 popup = await app.getAXState({ disableDiffing: true, emit: false });
@@ -1229,6 +1248,8 @@ async function selectWindowFromMenu(context, menuName, title, observer) {
         if (executionMode !== 'visible' || context.allowWindowRaise !== true) {
             return complete('window-raise-not-authorized');
         }
+        if (retiredApps.has(app))
+            return complete('app-exit-requested');
         trace.targetClickAttempted = true;
         await app.click(target.index);
         return complete('selection-requested', true);
@@ -1394,5 +1415,5 @@ async function observeBrowserTabWindow(browser, chromeTabId) {
     }
 }
   })(browserExports);
-  return Object.freeze({ ...guardExports, ...browserExports, sourceHash: '0944def8f3d931831443dad87477f13212b6dd5ec7221248347f321b4f3c464c' });
+  return Object.freeze({ ...guardExports, ...browserExports, sourceHash: '692bd63dd0747a67a24a66ab50a1cd4b2f82129554491c25ca513441e7943c9e' });
 })();
