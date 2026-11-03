@@ -9,9 +9,17 @@ Use the intended task target even when the user selects another window. An offic
 
 ## Load the target helper
 
-Read [the runtime](../../dist/recognition/runtime.js) as text and execute its contents unchanged through `mcp__cua_repl.js`. It declares `var ccuh` and performs no UI action when loaded. Inspect `ccuh.sourceHash` to identify the loaded source. Do not import filesystem modules, execute the helper through another UI engine, or modify the supplied `cua` API.
+Follow Computer Use's normal first-call initialization and app approval requirements first. Then send a separate `mcp__cua_repl.js` call whose entire `code` is exactly:
 
-Load once per REPL lifetime, again after `js_reset`, and when the installed helper changes. The normal first-call requirements of Computer Use still apply. A first app acquisition may be necessary before bootstrapping; perform no typing, clicking, or sending through that handle until the guard is ready. Browser-only tasks retain their documented Tab binding and do not need a native app helper.
+```javascript
+// CCUH_BOOTSTRAP_V1
+```
+
+Do not append output, an app call or whitespace to the marker. The trusted PreToolUse hook supplies the exact installed [runtime](../../dist/recognition/runtime.js) through Codex's supported input rewrite. It declares `var ccuh` and performs no UI action during loading. Require a returned object with `ccuhBootstrap: 'ready'`, its runtime byte hash and source hash before native actions. Missing output, a rejected marker or an unsupported host means stop. Do not fall back to copying the file, filesystem imports inside CUA, another engine or modifications to the supplied `cua` API.
+
+Bootstrap once per REPL lifetime. After a plugin update, use `js_reset` before loading so declarations from an older helper cannot shadow the new binding. Following any reset, perform the normal first-call initialization and app approval before the separate marker. An unchanged helper returns `state: 'kept'` and preserves existing bindings. Missing, changed or overwritten helpers return `state: 'loaded'`; recreate bindings after loading. The record checks both exact runtime bytes and the helper object reference, rather than trusting a copied source hash literal. Do not manually redeclare `ccuh` or replace the loader's own global properties.
+
+A ready helper is neither app access approval nor proof that an app operation succeeded. Only the exact pure marker is rewritten. Ordinary JS, app acquisition, `js_reset` and unrelated tools retain their original input and host permissions. Perform no typing, clicking or sending until the helper and intended target are ready. Browser-only tasks retain their documented Tab binding and do not need a native app helper.
 
 ## Bind the intended target
 
