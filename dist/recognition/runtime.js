@@ -665,8 +665,8 @@ function validText(value) {
     return typeof value === 'string' && value.trim().length > 0 && value.length <= 1024;
 }
 // 분류할 수 없는 관측 요약 구성
-function unknown(reason) {
-    return { status: 'unknown', reason, basis: [] };
+function unknown(reason, failureStage) {
+    return { status: 'unknown', reason, basis: [], ...(failureStage === undefined ? {} : { failureStage }) };
 }
 // 전체 스냅샷의 첫 창 헤더 추출
 function readHeader(state) {
@@ -681,12 +681,16 @@ function equalText(left, right) {
 }
 // 같은 공식 앱 핸들의 최신 대상 분류
 async function observeTarget(target) {
+    let failureStage = 'ax-read';
     try {
         const state = await target.app.getAXState({ disableDiffing: true, emit: false });
+        failureStage = 'classification';
         const observedAtMs = Date.now();
+        failureStage = 'header';
         const header = typeof state === 'string' ? readHeader(state) : undefined;
         if (!header)
-            return { recognition: unknown('invalid-evidence') };
+            return { recognition: unknown('invalid-evidence', 'header') };
+        failureStage = 'classification';
         return {
             state,
             recognition: (0, classify_ts_1.classifyRecognition)(target.expected, {
@@ -701,7 +705,7 @@ async function observeTarget(target) {
         };
     }
     catch {
-        return { recognition: unknown('unclassified-error') };
+        return { recognition: unknown('unclassified-error', failureStage) };
     }
 }
 // 확인한 앱의 창 조건에 한정한 한 번의 재선택
@@ -746,7 +750,7 @@ async function prepare(target) {
             recovered = selected === true && observation.recognition.status === 'matched';
         }
         catch {
-            observation = { recognition: unknown('unclassified-error') };
+            observation = { recognition: unknown('unclassified-error', 'reselection') };
         }
     }
     const ready = observation.recognition.status === 'matched' && (recoveryAttempts === 0 || recovered);
@@ -756,8 +760,8 @@ async function prepare(target) {
     };
 }
 // 유효하지 않거나 사용 중인 대상의 중단 요약
-function blocked(reason) {
-    return { status: 'blocked', recognition: unknown(reason), recoveryAttempts: 0, recovered: false };
+function blocked(reason, failureStage) {
+    return { status: 'blocked', recognition: unknown(reason, failureStage), recoveryAttempts: 0, recovered: false };
 }
 // 지원하는 자체 데이터 필드로 대상 옵션 복사
 function readTargetOptions(value) {
@@ -832,7 +836,7 @@ async function prepareTarget(token) {
     if (!target)
         return blocked('invalid-evidence');
     if (busyApps.has(target.app))
-        return blocked('unclassified-error');
+        return blocked('unclassified-error', 'operation-in-progress');
     busyApps.add(target.app);
     activeOperations += 1;
     try {
@@ -849,7 +853,7 @@ async function withTarget(token, action) {
     if (!target || typeof action !== 'function')
         return blocked('invalid-evidence');
     if (busyApps.has(target.app))
-        return blocked('unclassified-error');
+        return blocked('unclassified-error', 'operation-in-progress');
     busyApps.add(target.app);
     activeOperations += 1;
     try {
@@ -880,7 +884,7 @@ async function withVerifiedTarget(token, action, verify) {
     if (!target || typeof action !== 'function' || typeof verify !== 'function')
         return blocked('invalid-evidence');
     if (busyApps.has(target.app))
-        return blocked('unclassified-error');
+        return blocked('unclassified-error', 'operation-in-progress');
     busyApps.add(target.app);
     activeOperations += 1;
     try {
@@ -941,8 +945,13 @@ async function setDraftValue(token, options) {
         typeof options.readValue !== 'function' ||
         typeof target.app.setValue !== 'function')
         return initial;
-    if (busyApps.has(target.app))
-        return { ...initial, reason: 'app-busy', recognition: unknown('unclassified-error') };
+    if (busyApps.has(target.app)) {
+        return {
+            ...initial,
+            reason: 'app-busy',
+            recognition: unknown('unclassified-error', 'operation-in-progress'),
+        };
+    }
     const settings = Object.freeze({
         effect: options.effect,
         fieldId: options.fieldId,
@@ -1339,5 +1348,5 @@ async function observeBrowserTabWindow(browser, chromeTabId) {
     }
 }
   })(browserExports);
-  return Object.freeze({ ...guardExports, ...browserExports, sourceHash: '3077e78e4fbb2528cc89ddbec555b93d3fa494ac07ed6b9047b11726294c00d9' });
+  return Object.freeze({ ...guardExports, ...browserExports, sourceHash: 'c98936facbf9adcfc331036d706680f874fcdf4ea8bf55611696f35a02c99543' });
 })();
