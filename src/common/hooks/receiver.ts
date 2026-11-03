@@ -5,6 +5,7 @@ import { isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { CUA_BOOTSTRAP_MARKER, prepareBootstrap } from './bootstrap.ts';
+import { CUA_BROWSER_WINDOW_MARKER, prepareBrowserObservation } from './browser-observation.ts';
 import { captureEnvironment, environmentContext } from '../environment/collector.ts';
 
 import type { BootstrapPlan } from './bootstrap.ts';
@@ -110,8 +111,9 @@ function emitGuidance(
       ? 'js_reset clears the helper and target bindings. Initialize with metadata inventory, bootstrap, apply the selected mode, then use acquireApp for normal app approval before native actions.'
       : 'Bootstrap once per REPL lifetime. After a plugin update, reset the REPL, initialize with metadata inventory, bootstrap, apply the selected mode, then use acquireApp for normal app approval. Repeating the marker keeps an unchanged helper; it reloads missing, changed or overwritten helpers. Do not manually redeclare ccuh.',
     'Browser Tab tasks keep their documented browser bindings; do not open native apps just to activate CCUH. Other tools and unrelated tasks do not activate this workflow.',
-    'For requested browser window-layout inspection, follow the shared workflow: initialize metadata, load the same pure bootstrap, then use ccuh.observeBrowserTabWindow with the selected official Browser and a numeric Chrome tab ID returned by management. Do not acquire a native App for this read. Never coerce opaque CUA IDs, rebind a Tab from this result or infer OS window, monitor or Space identity.',
-    'Only the exact pure bootstrap marker can be rewritten. Ordinary JS, app acquisition, js_reset and unrelated tools keep their original inputs and normal host approvals. This workflow does not force arbitrary native code through a guard.',
+    `For requested browser window-layout inspection, use the small read-only route from the start: keep the existing selected Browser binding, obtain a fresh numeric Chrome tab ID from documented management, then send exactly ${JSON.stringify(CUA_BROWSER_WINDOW_MARKER + ' selectedBrowser 123')} with that binding's identifier and actual number substituted. The trusted hook supplies a local one-shot observer, prints ccuhBrowserWindow/result and ends without global registration or native code. Do not load the native bootstrap, acquire an App or copy runtime code for this read.`,
+    'A browser result is metadata only, not native guard readiness or app access approval. Missing output, unavailable or host rejection means stop without another loader, direct-call fallback or wider access. Never coerce opaque CUA IDs, rebind a Tab from this result or infer OS window, monitor or Space identity.',
+    'Only the exact native bootstrap marker and strict browser observation marker can be rewritten. Ordinary JS, app acquisition, js_reset and unrelated tools keep their original inputs and normal host approvals. This workflow does not force arbitrary native code through a guard.',
   ].join('\n');
   const hookSpecificOutput: Record<string, unknown> = { hookEventName: eventName, additionalContext };
   if (eventName === 'PreToolUse' && bootstrap?.status === 'proposed') {
@@ -120,7 +122,7 @@ function emitGuidance(
   } else if (eventName === 'PreToolUse' && bootstrap?.status === 'unavailable') {
     hookSpecificOutput.permissionDecision = 'deny';
     hookSpecificOutput.permissionDecisionReason =
-      'CCUH could not prepare its pure runtime. Stop before native actions.';
+      'CCUH could not prepare the requested execution source. Stop without fallback.';
   }
   process.stdout.write(JSON.stringify({ hookSpecificOutput }) + '\n');
 }
@@ -264,7 +266,9 @@ export async function receive(expectedEvent: HookEventName): Promise<void> {
               callId: event.callId,
             })
           : undefined;
-      const bootstrap = await prepareBootstrap(event.toolName, event.toolInput);
+      const browser = await prepareBrowserObservation(event.toolName, event.toolInput);
+      const bootstrap =
+        browser.status === 'not-requested' ? await prepareBootstrap(event.toolName, event.toolInput) : browser;
       emitGuidance(expectedEvent, event.toolName, bootstrap, environment);
       await saveRecord('last-receipt.json', createReceipt(event, receiverHash, bootstrap, environment));
     } else {
