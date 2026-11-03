@@ -619,9 +619,30 @@ export async function withVerifiedTarget<T>(
   }
 }
 
+// 초안 옵션의 자체 데이터 필드를 한 번만 복사
+function readDraftOptions(value: unknown): Readonly<DraftValueOptions> | undefined {
+  if (value === null || typeof value !== 'object') return;
+  try {
+    if (Array.isArray(value)) return;
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) return;
+    const fields = Object.getOwnPropertyDescriptors(value);
+    const required = ['effect', 'fieldId', 'value', 'readValue'];
+    if (
+      Reflect.ownKeys(fields).length !== required.length ||
+      required.some(key => !Object.hasOwn(fields, key) || !Object.hasOwn(fields[key], 'value'))
+    )
+      return;
+    return Object.freeze(Object.create(null, fields) as DraftValueOptions);
+  } catch {
+    return;
+  }
+}
+
 // 명시한 로컬 초안 필드의 교체와 제한된 재시도
 export async function setDraftValue(token: TargetToken, options: DraftValueOptions): Promise<DraftValueResult> {
   const target = targets.get(token);
+  const settings = target ? readDraftOptions(options) : undefined;
   const initial: DraftValueResult = {
     status: 'blocked',
     reason: 'invalid-options',
@@ -632,11 +653,11 @@ export async function setDraftValue(token: TargetToken, options: DraftValueOptio
   };
   if (
     !target ||
-    !options ||
-    options.effect !== 'local-draft' ||
-    !validText(options.fieldId) ||
-    typeof options.value !== 'string' ||
-    typeof options.readValue !== 'function' ||
+    !settings ||
+    settings.effect !== 'local-draft' ||
+    !validText(settings.fieldId) ||
+    typeof settings.value !== 'string' ||
+    typeof settings.readValue !== 'function' ||
     typeof target.app.setValue !== 'function'
   )
     return initial;
@@ -647,12 +668,6 @@ export async function setDraftValue(token: TargetToken, options: DraftValueOptio
       recognition: unknown('unclassified-error', 'operation-in-progress'),
     };
   }
-  const settings = Object.freeze({
-    effect: options.effect,
-    fieldId: options.fieldId,
-    value: options.value,
-    readValue: options.readValue,
-  });
   const setValue = target.app.setValue.bind(target.app);
   busyApps.add(target.app);
   activeOperations += 1;

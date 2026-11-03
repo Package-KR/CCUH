@@ -16,6 +16,7 @@ const sourcePaths = [
 ];
 const outputPath = new URL('dist/recognition/runtime.js', root);
 const browserOutputPath = new URL('dist/recognition/browser-window.js', root);
+const MAX_NATIVE_RUNTIME_BYTES = 60_000;
 
 // 허용된 순수 로컬 모듈만 참조하는지 검사
 function validateDependencies(source, path) {
@@ -80,7 +81,7 @@ function transpile(source, path) {
       target: ts.ScriptTarget.ES2022,
       module: ts.ModuleKind.CommonJS,
       newLine: ts.NewLineKind.LineFeed,
-      removeComments: false,
+      removeComments: true,
     },
   });
   const errors = result.diagnostics?.filter(item => item.category === ts.DiagnosticCategory.Error) ?? [];
@@ -186,6 +187,9 @@ async function main() {
     { path: outputPath, code: await createRuntime() },
     { path: browserOutputPath, code: await createBrowserRuntime() },
   ];
+  if (Buffer.byteLength(outputs[0].code, 'utf8') > MAX_NATIVE_RUNTIME_BYTES) {
+    throw new Error('CCUH native runtime exceeds the 60000-byte build budget.');
+  }
   if (args[0] === '--check') {
     for (const output of outputs) {
       const actual = await readFile(output.path, 'utf8').catch(error => {
