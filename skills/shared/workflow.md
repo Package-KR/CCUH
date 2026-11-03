@@ -119,6 +119,8 @@ For a blocked menu route, an optional fourth observer receives one frozen summar
 
 Read the returned `recognition`, `recoveryAttempts`, and `recovered` fields. `blocked` means the action callback did not run. `executed` means the callback returned, and its `recognition` describes the subsequent target observation; it does not prove that a save, send, or other app operation succeeded. Confirm the requested outcome from official fresh state. A callback exception is not retried, and an uncertain send or save must not be repeated automatically.
 
+An unknown recognition may also contain `failureStage`: `ax-read`, `header`, `classification`, `reselection` or `operation-in-progress`. Report that fixed stage alongside the existing reason. It identifies where this guard stopped, not why an app failed or whether access was denied. `header` also covers a missing or invalid Window header, preserving `invalid-evidence`. `reselection` identifies an exception reaching the guard's re-selection catch; a built-in menu route may instead return its own trace and false. Missing `failureStage` means no stage was established. Do not inspect or print exception messages, infer permissions, retry a completed action or switch modes based on this field. It does not add a retry or change the app-access checks.
+
 ## Verify an input or click result
 
 Use `ccuh.withVerifiedTarget(target, action, verify)` when the requested result can be checked in full AX snapshots. Keep the same approved App handle and derive action indexes from the supplied fresh `state`. The action callback runs at most once. The verifier receives only `{ before, after }` strings and must compare the specific requested effect without sending input or making more app calls.
