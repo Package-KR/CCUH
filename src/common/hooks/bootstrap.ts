@@ -10,6 +10,8 @@ export type BootstrapPlan =
 
 const MAX_RUNTIME_BYTES = 256 * 1024;
 const REQUIRED_FUNCTIONS = [
+  'getMode',
+  'setMode',
   'createTarget',
   'prepareTarget',
   'withTarget',
