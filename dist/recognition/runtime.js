@@ -6,7 +6,6 @@ var ccuh = (() => {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.classifyRecognition = classifyRecognition;
 const FAILURE_REASONS = new Set(['access-denied', 'app-not-found', 'window-not-found', 'reference-invalid']);
-// 필수 자체 데이터 필드를 가진 일반 객체 판별
 function hasFields(value, keys, required = keys) {
     if (value === null || typeof value !== 'object' || Array.isArray(value))
         return false;
@@ -16,17 +15,14 @@ function hasFields(value, keys, required = keys) {
     const fields = Object.getOwnPropertyDescriptors(value);
     return (Reflect.ownKeys(fields).every(key => typeof key === 'string' && keys.includes(key) && Object.hasOwn(fields[key], 'value')) && required.every(key => Object.hasOwn(fields, key)));
 }
-// 비어 있지 않은 식별 문자열 검사
 function validText(value) {
     return typeof value === 'string' && value.trim().length > 0 && value.length <= 1024;
 }
-// 앱 선택 조건 검사
 function isAppSelector(value) {
     return (hasFields(value, ['kind', 'value']) &&
         (value.kind === 'bundle-id' || value.kind === 'app-name') &&
         validText(value.value));
 }
-// 창 선택 조건과 식별자 범위 검사
 function isWindowSelector(value) {
     if (!hasFields(value, ['kind', 'value', 'namespace'], ['kind', 'value']) || !validText(value.value))
         return false;
@@ -34,7 +30,6 @@ function isWindowSelector(value) {
         ? validText(value.namespace)
         : value.kind === 'window-title' && !Object.hasOwn(value, 'namespace');
 }
-// 대상 요청과 비교 정책 검사
 function validRequestPolicy(request, policy) {
     return (hasFields(request, ['requestId', 'app', 'window'], ['requestId', 'app']) &&
         validText(request.requestId) &&
@@ -48,7 +43,6 @@ function validRequestPolicy(request, policy) {
         Number.isFinite(policy.maxAgeMs) &&
         policy.maxAgeMs >= 0);
 }
-// 요청에 연결된 관측 형식 검사
 function isObservation(value) {
     if (!hasFields(value, ['requestId', 'observedAtMs', 'result']) ||
         !validText(value.requestId) ||
@@ -68,17 +62,14 @@ function isObservation(value) {
         (!Object.hasOwn(result, 'window') || isWindowSelector(result.window)) &&
         (!Object.hasOwn(result, 'ambiguous') || typeof result.ambiguous === 'boolean'));
 }
-// 비교할 수 없는 관측 결과 구성
 function unknown(reason, basis = []) {
     return { status: 'unknown', reason, basis };
 }
-// 선택 조건의 종류에 맞춰 값 비교
 function equalSelector(expected, observed) {
     return expected.kind === 'app-name' || expected.kind === 'window-title'
         ? expected.value.normalize('NFC') === observed.value.normalize('NFC')
         : expected.value === observed.value;
 }
-// 현재 요청의 관측 근거로 인식 실패 구분
 function classifyRecognition(request, observation, policy) {
     if (!validRequestPolicy(request, policy) || !isObservation(observation))
         return unknown('invalid-evidence');
@@ -126,7 +117,6 @@ function classifyRecognition(request, observation, policy) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.classifyActionOutcome = classifyActionOutcome;
-// 호출 결과와 관측 증거를 분리한 동작 결과 분류
 function classifyActionOutcome(invocation, evidence) {
     if (evidence.kind === 'unavailable') {
         return { invocation, status: 'unknown', reason: evidence.reason };
@@ -148,7 +138,6 @@ function classifyActionOutcome(invocation, evidence) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.decideDraftReplace = decideDraftReplace;
-// 새 관측과 참조에 따른 초안 값 교체 시도 판단
 function decideDraftReplace(attempts, evidence) {
     if (evidence.kind === 'unavailable') {
         return { decision: 'stop', reason: evidence.reason };
@@ -177,7 +166,6 @@ function decideDraftReplace(attempts, evidence) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.splitAXSelection = splitAXSelection;
 const selectionNote = "Note: Pay special attention to the content selected by the user. If the user asks a question or refers to the content they are looking at on-screen, they might be referring to the selected content (but they might be referring to something else that's visible, too).";
-// 렌더러의 선택 요약과 정확한 안내 접미부 분리
 function splitAXSelection(lines) {
     const sections = lines.flatMap((line, index) => line === 'Selected:' || line === 'Selected text: ```' ? [index] : []);
     const prefix = sections.length === 1 ? lines.slice(0, sections[0]) : lines;
@@ -214,7 +202,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.runDraftValue = runDraftValue;
 const retry_ts_1 = require("./retry.ts");
 const snapshot_ts_1 = require("../common/snapshot.ts");
-// 최신 스냅샷의 유일한 편집 가능 필드 확인
 function readField(state, options) {
     const sections = (0, snapshot_ts_1.splitAXSelection)(state.split(/\r?\n/u));
     if (!sections)
@@ -252,7 +239,6 @@ function readField(state, options) {
         return;
     }
 }
-// 현재 값과 참조를 원래 초안에 대조
 function inspectFrame(observation, options, baseline, firstIndex) {
     if (observation.recognition.status !== 'matched' || observation.state === undefined) {
         return { observation, evidence: { kind: 'unavailable', reason: 'target-unconfirmed' } };
@@ -274,7 +260,6 @@ function inspectFrame(observation, options, baseline, firstIndex) {
         },
     };
 }
-// UI 원문을 제외한 초안 처리 결과 구성
 function summarize(frame, reason, attempts, lastInvocation) {
     return {
         status: reason === 'already-desired' ? 'observed' : attempts === 0 ? 'blocked' : 'stopped',
@@ -285,11 +270,9 @@ function summarize(frame, reason, attempts, lastInvocation) {
         recognition: frame.observation.recognition,
     };
 }
-// 예외가 있었던 입력의 자동 반복 차단
 function decideNext(frame, attempts, lastInvocation) {
     return (0, retry_ts_1.decideDraftReplace)(attempts, lastInvocation === 'threw' ? { kind: 'unavailable', reason: 'invocation-error' } : frame.evidence);
 }
-// 같은 공식 앱에서 로컬 초안 교체를 최대 두 번 수행
 async function runDraftValue(initial, runtime, options) {
     let frame = inspectFrame(initial, options);
     const baseline = frame.field?.value;
@@ -297,7 +280,6 @@ async function runDraftValue(initial, runtime, options) {
     let attempts = 0;
     let lastInvocation = 'not-attempted';
     let decision = decideNext(frame, attempts, lastInvocation);
-    // 같은 공식 앱의 재관측 실패를 미확인으로 변환
     async function observe() {
         try {
             return await runtime.observe();
@@ -342,7 +324,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.verifyModalDismissal = verifyModalDismissal;
 const snapshot_ts_1 = require("../common/snapshot.ts");
 const roles = ['standard window', '표준 윈도우', '대화상자', 'dialog', 'sheet', '시트', 'window', '윈도우'];
-// 필수 자체 값 필드를 가진 일반 객체 검사
 function hasDataFields(value, keys) {
     if (value === null || typeof value !== 'object' || Array.isArray(value))
         return false;
@@ -353,21 +334,18 @@ function hasDataFields(value, keys) {
     return (Reflect.ownKeys(descriptors).length === keys.length &&
         keys.every(key => Object.hasOwn(descriptors, key) && Object.hasOwn(descriptors[key], 'value')));
 }
-// 제어 문자가 없는 관측 조건 문자열 검사
 function validText(value) {
     return (typeof value === 'string' &&
         value.trim().length > 0 &&
         value.length <= 1024 &&
         !/[\u0000-\u001f\u007f]/u.test(value));
 }
-// 명시한 컨테이너 역할과 식별자 검사
 function validRoot(value) {
     return (hasDataFields(value, ['role', 'id']) &&
         typeof value.role === 'string' &&
         roles.includes(value.role) &&
         validText(value.id));
 }
-// 종료 전 모달과 기대 부모 조건 검사
 function validOptions(value) {
     if (!hasDataFields(value, ['appName', 'modal', 'parent']) || !validText(value.appName) || !validRoot(value.modal)) {
         return false;
@@ -382,11 +360,9 @@ function validOptions(value) {
         validText(parent.id) &&
         parent.id !== value.modal.id);
 }
-// 관측한 표시 문자열의 정규화된 일치 확인
 function sameText(left, right) {
     return left.normalize('NFC') === right.normalize('NFC');
 }
-// 본문 메타데이터를 제외한 컨테이너 행 판독
 function readContainer(row) {
     const role = roles.find(value => row.body === value || row.body.startsWith(value + ' '));
     if (!role)
@@ -412,7 +388,6 @@ function readContainer(row) {
         ...(ids.length === 1 ? { id: ids[0][1].trim() } : {}),
     };
 }
-// 편집 가능한 한 줄 텍스트 필드의 값 판독
 function readEditableValue(body) {
     const field = /^(?:텍스트 필드|text field) \(([^()]*)\) (.+)$/u.exec(body);
     if (!field || !field[1].split(/,\s*/u).includes('settable'))
@@ -432,7 +407,6 @@ function readEditableValue(body) {
     const idFirst = /^ID: ([^,]+), Value: (.+)$/u.exec(metadata);
     return idFirst && validText(idFirst[1]) ? idFirst[2] : undefined;
 }
-// 같은 앱의 유일한 최상위 컨테이너 관측 판독
 function readSnapshot(state) {
     const lines = state.split(/\r?\n/u);
     const header = /^Window: "(.*)", App: ([^\r\n]+)\.$/u.exec(lines[0] ?? '');
@@ -468,7 +442,6 @@ function readSnapshot(state) {
         return;
     return { app: header[2], title: header[1], root, containers };
 }
-// 모달 소멸과 명시한 부모 복귀의 관측 결과 확인
 function verifyModalDismissal(snapshots, options) {
     try {
         if (!hasDataFields(snapshots, ['before', 'after']) ||
@@ -530,11 +503,9 @@ const busyApps = new WeakSet();
 const retiredApps = new WeakSet();
 let executionMode = 'background';
 let activeOperations = 0;
-// 현재 REPL의 실행 모드 조회
 function getMode() {
     return executionMode;
 }
-// 진행 중인 작업을 보존하며 실행 모드 변경
 function setMode(mode) {
     if (mode !== 'background' && mode !== 'visible') {
         throw new TypeError('A background or visible execution mode is required.');
@@ -547,15 +518,12 @@ function setMode(mode) {
     executionMode = mode;
     return Object.freeze({ status: 'changed', mode: executionMode });
 }
-// 현재 모드와 대상별 창 올림 제한 확인
 function windowRaiseAllowed(permission) {
     return executionMode === 'visible' && permission !== false;
 }
-// 제어 문자가 없는 앱 선택 문자열 검사
 function validAppSelector(value) {
     return validText(value) && !/[\u0000-\u001f\u007f]/u.test(value);
 }
-// 공식 앱 목록의 자체 데이터 필드 판독
 function readAppInventory(value) {
     if (!Array.isArray(value))
         return;
@@ -591,7 +559,6 @@ function readAppInventory(value) {
     }
     return entries;
 }
-// 승인 경로가 반환한 앱 객체의 최소 메서드 확인
 function validAcquiredApp(value) {
     try {
         return (value !== null &&
@@ -603,11 +570,9 @@ function validAcquiredApp(value) {
         return false;
     }
 }
-// 원문을 제외한 앱 획득 중단 요약 구성
 function acquisitionFailure(mode, status, reason, acquisitionAttempts = 0) {
     return Object.freeze({ status, mode, reason, acquisitionAttempts });
 }
-// 현재 모드의 실행 상태 조건을 확인한 뒤 공식 앱 획득
 async function acquireApp(api, target) {
     try {
         if (api === null ||
@@ -665,26 +630,21 @@ async function acquireApp(api, target) {
         activeOperations -= 1;
     }
 }
-// 유효한 대상 식별 문자열 검사
 function validText(value) {
     return typeof value === 'string' && value.trim().length > 0 && value.length <= 1024;
 }
-// 분류할 수 없는 관측 요약 구성
 function unknown(reason, failureStage) {
     return { status: 'unknown', reason, basis: [], ...(failureStage === undefined ? {} : { failureStage }) };
 }
-// 전체 스냅샷의 첫 창 헤더 추출
 function readHeader(state) {
     const match = /^Window: "(.*)", App: ([^\r\n]+)\.$/u.exec(state.split(/\r?\n/u, 1)[0] ?? '');
     if (!match || !validText(match[2]) || (match[1] !== '' && !validText(match[1])))
         return;
     return { app: match[2], ...(match[1] === '' ? {} : { window: match[1] }) };
 }
-// 정규화된 표시 이름 비교
 function equalText(left, right) {
     return left.normalize('NFC') === right.normalize('NFC');
 }
-// 같은 공식 앱 핸들의 최신 대상 분류
 async function observeTarget(target) {
     if (retiredApps.has(target.app))
         return { recognition: unknown('invalid-evidence', 'app-exit-requested') };
@@ -717,7 +677,6 @@ async function observeTarget(target) {
         return { recognition: unknown('unclassified-error', failureStage) };
     }
 }
-// 확인한 앱의 창 조건에 한정한 한 번의 재선택
 async function prepare(target) {
     let observation = await observeTarget(target);
     let recoveryAttempts = 0;
@@ -779,11 +738,9 @@ async function prepare(target) {
         ...(ready ? { state: observation.state } : {}),
     };
 }
-// 유효하지 않거나 사용 중인 대상의 중단 요약
 function blocked(reason, failureStage) {
     return { status: 'blocked', recognition: unknown(reason, failureStage), recoveryAttempts: 0, recovered: false };
 }
-// 지원하는 자체 데이터 필드로 대상 옵션 복사
 function readTargetOptions(value) {
     if (value === null || typeof value !== 'object' || Array.isArray(value))
         return;
@@ -811,7 +768,6 @@ function readTargetOptions(value) {
         return;
     }
 }
-// 호출자가 받은 공식 앱 핸들과 고정 대상 등록
 function createTarget(value) {
     const options = readTargetOptions(value);
     if (!options)
@@ -850,7 +806,6 @@ function createTarget(value) {
     }));
     return token;
 }
-// 대상 재확인과 제한된 복구 결과 조회
 async function prepareTarget(token) {
     const target = targets.get(token);
     if (!target)
@@ -867,7 +822,6 @@ async function prepareTarget(token) {
         activeOperations -= 1;
     }
 }
-// 자체 데이터 옵션에서 앱 종료 작업 구분
 function readActionEffect(options) {
     if (options === undefined)
         return 'ordinary';
@@ -891,7 +845,6 @@ function readActionEffect(options) {
         return;
     }
 }
-// 최신 대상 확인 후 작업 한 번 실행
 async function withTarget(token, action, options) {
     const target = targets.get(token);
     const effect = readActionEffect(options);
@@ -933,7 +886,6 @@ async function withTarget(token, action, options) {
         activeOperations -= 1;
     }
 }
-// 작업 한 번 실행 후 같은 대상의 실제 변화 확인
 async function withVerifiedTarget(token, action, verify) {
     const target = targets.get(token);
     if (!target || typeof action !== 'function' || typeof verify !== 'function')
@@ -981,9 +933,29 @@ async function withVerifiedTarget(token, action, verify) {
         activeOperations -= 1;
     }
 }
-// 명시한 로컬 초안 필드의 교체와 제한된 재시도
+function readDraftOptions(value) {
+    if (value === null || typeof value !== 'object')
+        return;
+    try {
+        if (Array.isArray(value))
+            return;
+        const prototype = Object.getPrototypeOf(value);
+        if (prototype !== Object.prototype && prototype !== null)
+            return;
+        const fields = Object.getOwnPropertyDescriptors(value);
+        const required = ['effect', 'fieldId', 'value', 'readValue'];
+        if (Reflect.ownKeys(fields).length !== required.length ||
+            required.some(key => !Object.hasOwn(fields, key) || !Object.hasOwn(fields[key], 'value')))
+            return;
+        return Object.freeze(Object.create(null, fields));
+    }
+    catch {
+        return;
+    }
+}
 async function setDraftValue(token, options) {
     const target = targets.get(token);
+    const settings = target ? readDraftOptions(options) : undefined;
     const initial = {
         status: 'blocked',
         reason: 'invalid-options',
@@ -993,11 +965,11 @@ async function setDraftValue(token, options) {
         recognition: unknown('invalid-evidence'),
     };
     if (!target ||
-        !options ||
-        options.effect !== 'local-draft' ||
-        !validText(options.fieldId) ||
-        typeof options.value !== 'string' ||
-        typeof options.readValue !== 'function' ||
+        !settings ||
+        settings.effect !== 'local-draft' ||
+        !validText(settings.fieldId) ||
+        typeof settings.value !== 'string' ||
+        typeof settings.readValue !== 'function' ||
         typeof target.app.setValue !== 'function')
         return initial;
     if (busyApps.has(target.app)) {
@@ -1007,12 +979,6 @@ async function setDraftValue(token, options) {
             recognition: unknown('unclassified-error', 'operation-in-progress'),
         };
     }
-    const settings = Object.freeze({
-        effect: options.effect,
-        fieldId: options.fieldId,
-        value: options.value,
-        readValue: options.readValue,
-    });
     const setValue = target.app.setValue.bind(target.app);
     busyApps.add(target.app);
     activeOperations += 1;
@@ -1028,7 +994,6 @@ async function setDraftValue(token, options) {
         activeOperations -= 1;
     }
 }
-// 전체 접근성 스냅샷의 메뉴 행 추출
 function readMenuRows(state) {
     return state.split(/\r?\n/u).flatMap(line => {
         const row = /^(\s*)(\d+)\s+(.+)$/u.exec(line);
@@ -1047,11 +1012,9 @@ function readMenuRows(state) {
         ];
     });
 }
-// 전체 관측에서 고유한 안전 정수 메뉴 참조 확인
 function isUniqueMenuReference(rows, index) {
     return Number.isSafeInteger(index) && index >= 0 && rows.filter(row => row.index === index).length === 1;
 }
-// 유일한 메뉴 모음의 직계 항목 조회
 function menuBarEntries(rows) {
     const bars = rows.filter(row => row.label === 'menu bar');
     if (bars.length !== 1)
@@ -1065,12 +1028,10 @@ function menuBarEntries(rows) {
     }
     return children;
 }
-// 메뉴 모음의 유일한 직계 메뉴 항목 확인
 function menuEntry(rows, name) {
     const matches = menuBarEntries(rows)?.filter(row => equalText(row.label, name)) ?? [];
     return matches.length === 1 && isUniqueMenuReference(rows, matches[0].index) ? matches[0] : undefined;
 }
-// 단일 메뉴 팝업의 최상위 범위 확인
 function menuPopupRoot(rows) {
     const root = rows[0];
     if (!root ||
@@ -1082,7 +1043,6 @@ function menuPopupRoot(rows) {
         return;
     return root;
 }
-// 확인한 창 메뉴 안의 고유한 대상 참조 조회
 function windowMenuTarget(rows, menuName, title) {
     const root = menuPopupRoot(rows);
     if (!root || !equalText(root.label, menuName))
@@ -1090,14 +1050,12 @@ function windowMenuTarget(rows, menuName, title) {
     const matches = rows.slice(1).filter(row => row.id === 'makeKeyAndOrderFront:' && equalText(row.label, title));
     return matches.length === 1 && isUniqueMenuReference(rows, matches[0].index) ? matches[0] : undefined;
 }
-// 직전 메뉴 모음에 속한 다른 팝업인지 확인
 function isKnownOtherMenuPopup(rows, originalRows, menuName) {
     const root = menuPopupRoot(rows);
     if (!root || equalText(root.label, menuName))
         return false;
     return menuBarEntries(originalRows)?.filter(row => equalText(row.label, root.label)).length === 1;
 }
-// 공식 창 메뉴에서 유일한 대상 선택 요청
 async function selectWindowFromMenu(context, menuName, title, observer) {
     const trace = {
         stage: 'validation',
@@ -1119,12 +1077,10 @@ async function selectWindowFromMenu(context, menuName, title, observer) {
         matchingActionCount: 0,
         targetRefUnique: false,
     };
-    // 마지막 판정 사유와 반환값 설정
     function complete(reason, result = false) {
         trace.reason = reason;
         return result;
     }
-    // 원문 없는 팝업 구조와 대상 개수 요약
     function describeRows(rows) {
         const root = rows[0];
         const targets = rows.slice(1).filter(row => equalText(row.label, title));
@@ -1139,7 +1095,6 @@ async function selectWindowFromMenu(context, menuName, title, observer) {
         trace.matchingActionCount = matching.length;
         trace.targetRefUnique = matching.length === 1 && isUniqueMenuReference(rows, matching[0].index);
     }
-    // 고정 진단을 한 번 전달하고 관측자 예외 격리
     function report() {
         if (typeof observer !== 'function')
             return;
@@ -1284,11 +1239,9 @@ const UNSUPPORTED = Object.freeze([
     'spaces',
 ]);
 const WINDOW_STATES = ['normal', 'minimized', 'maximized', 'fullscreen', 'locked-fullscreen'];
-// 임의 형 변환 없이 브라우저 식별 숫자 검사
 function validId(value) {
     return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
 }
-// 필요한 자체 데이터 필드만 읽기
 function readFields(value, keys) {
     if (value === null || typeof value !== 'object' || Array.isArray(value))
         return;
@@ -1308,14 +1261,12 @@ function readFields(value, keys) {
         return;
     }
 }
-// 브라우저 탭의 자체 식별자 판독
 function readTab(value) {
     const fields = readFields(value, ['id', 'windowId']);
     if (!fields || !validId(fields.id) || !validId(fields.windowId))
         return;
     return { id: fields.id, windowId: fields.windowId };
 }
-// 브라우저 창의 상태와 제공된 좌표 검사
 function readWindow(value) {
     const coordinates = ['left', 'top', 'width', 'height'];
     const fields = readFields(value, ['id', 'state', ...coordinates]);
@@ -1341,7 +1292,6 @@ function readWindow(value) {
         : null;
     return { id: fields.id, state: fields.state, bounds };
 }
-// 선택한 브라우저의 식별자 유지 확인
 function sameBrowser(browser, browserId) {
     try {
         return browser.browserId === browserId;
@@ -1350,11 +1300,9 @@ function sameBrowser(browser, browserId) {
         return false;
     }
 }
-// 원문을 제외한 브라우저 관측 중단 결과 구성
 function unavailable(reason) {
     return Object.freeze({ status: 'unavailable', reason });
 }
-// 같은 브라우저 탭의 창 연결과 창 상태를 읽기 전용 관측
 async function observeBrowserTabWindow(browser, chromeTabId) {
     let reason = 'invalid-input';
     try {
@@ -1415,5 +1363,5 @@ async function observeBrowserTabWindow(browser, chromeTabId) {
     }
 }
   })(browserExports);
-  return Object.freeze({ ...guardExports, ...browserExports, sourceHash: '692bd63dd0747a67a24a66ab50a1cd4b2f82129554491c25ca513441e7943c9e' });
+  return Object.freeze({ ...guardExports, ...browserExports, sourceHash: 'bc796cbfa604db88a0f9c901fc39b70e6013b7cc7eeac8f934d25833ca2109b4' });
 })();
