@@ -13,6 +13,11 @@ export type AppApi = {
   click(index: number): Promise<unknown>;
   setValue?(index: number, value: string): Promise<unknown>;
 };
+export type ExecutionMode = 'background' | 'visible';
+export type ModeChangeResult = Readonly<
+  | { status: 'changed' | 'kept'; mode: ExecutionMode }
+  | { status: 'blocked'; mode: ExecutionMode; reason: 'operation-in-progress' }
+>;
 export type ActionContext = { app: AppApi; state: string; allowWindowRaise?: boolean };
 export type TargetOptions = {
   requestId: string;
@@ -100,6 +105,31 @@ type MenuRow = { index: number; depth: number; label: string; id?: string; conte
 
 const targets = new WeakMap<object, TargetRecord>();
 const busyApps = new WeakSet<AppApi>();
+let executionMode: ExecutionMode = 'background';
+let activeOperations = 0;
+
+// 현재 REPL의 실행 모드 조회
+export function getMode(): ExecutionMode {
+  return executionMode;
+}
+
+// 진행 중인 작업을 보존하며 실행 모드 변경
+export function setMode(mode: ExecutionMode): ModeChangeResult {
+  if (mode !== 'background' && mode !== 'visible') {
+    throw new TypeError('A background or visible execution mode is required.');
+  }
+  if (mode === executionMode) return Object.freeze({ status: 'kept', mode: executionMode });
+  if (activeOperations > 0) {
+    return Object.freeze({ status: 'blocked', mode: executionMode, reason: 'operation-in-progress' });
+  }
+  executionMode = mode;
+  return Object.freeze({ status: 'changed', mode: executionMode });
+}
+
+// 현재 모드와 대상별 창 올림 제한 확인
+function windowRaiseAllowed(permission: boolean | undefined): boolean {
+  return executionMode === 'visible' && permission !== false;
+}
 
 // 유효한 대상 식별 문자열 검사
 function validText(value: unknown): value is string {
@@ -173,7 +203,7 @@ async function prepare(target: TargetRecord): Promise<Preparation> {
     (target.reselect || menuTitle !== undefined) &&
     observation.state !== undefined
   ) {
-    if (target.allowWindowRaise !== true) {
+    if (!windowRaiseAllowed(target.allowWindowRaise)) {
       return {
         summary: {
           status: 'blocked',
@@ -186,7 +216,11 @@ async function prepare(target: TargetRecord): Promise<Preparation> {
     }
     recoveryAttempts = 1;
     try {
-      const context = { app: target.app, state: observation.state, allowWindowRaise: target.allowWindowRaise === true };
+      const context = {
+        app: target.app,
+        state: observation.state,
+        allowWindowRaise: windowRaiseAllowed(target.allowWindowRaise),
+      };
       const selected =
         target.windowMenu !== undefined && menuTitle !== undefined
           ? await selectWindowFromMenu(context, target.windowMenu, menuTitle)
@@ -244,7 +278,7 @@ export function createTarget(options: TargetOptions): TargetToken {
       maxAgeMs: options.maxAgeMs,
       reselect: options.reselect,
       windowMenu: options.windowMenu,
-      allowWindowRaise: options.allowWindowRaise === true,
+      allowWindowRaise: options.allowWindowRaise,
     }),
   );
   return token;
@@ -256,10 +290,12 @@ export async function prepareTarget(token: TargetToken): Promise<TargetSummary> 
   if (!target) return blocked('invalid-evidence');
   if (busyApps.has(target.app)) return blocked('unclassified-error');
   busyApps.add(target.app);
+  activeOperations += 1;
   try {
     return (await prepare(target)).summary;
   } finally {
     busyApps.delete(target.app);
+    activeOperations -= 1;
   }
 }
 
@@ -272,10 +308,15 @@ export async function withTarget<T>(
   if (!target || typeof action !== 'function') return blocked('invalid-evidence');
   if (busyApps.has(target.app)) return blocked('unclassified-error');
   busyApps.add(target.app);
+  activeOperations += 1;
   try {
     const { summary, state } = await prepare(target);
     if (summary.status !== 'ready' || state === undefined) return { ...summary, status: 'blocked' };
-    const value = await action({ app: target.app, state, allowWindowRaise: target.allowWindowRaise === true });
+    const value = await action({
+      app: target.app,
+      state,
+      allowWindowRaise: windowRaiseAllowed(target.allowWindowRaise),
+    });
     const observation = await observeTarget(target);
     return {
       ...summary,
@@ -285,6 +326,7 @@ export async function withTarget<T>(
     };
   } finally {
     busyApps.delete(target.app);
+    activeOperations -= 1;
   }
 }
 
@@ -298,13 +340,14 @@ export async function withVerifiedTarget<T>(
   if (!target || typeof action !== 'function' || typeof verify !== 'function') return blocked('invalid-evidence');
   if (busyApps.has(target.app)) return blocked('unclassified-error');
   busyApps.add(target.app);
+  activeOperations += 1;
   try {
     const { summary, state } = await prepare(target);
     if (summary.status !== 'ready' || state === undefined) return { ...summary, status: 'blocked' };
     let invocation: ActionInvocation = 'returned';
     let value: T | undefined;
     try {
-      value = await action({ app: target.app, state, allowWindowRaise: target.allowWindowRaise === true });
+      value = await action({ app: target.app, state, allowWindowRaise: windowRaiseAllowed(target.allowWindowRaise) });
     } catch {
       invocation = 'threw';
     }
@@ -330,6 +373,7 @@ export async function withVerifiedTarget<T>(
     };
   } finally {
     busyApps.delete(target.app);
+    activeOperations -= 1;
   }
 }
 
@@ -363,6 +407,7 @@ export async function setDraftValue(token: TargetToken, options: DraftValueOptio
   });
   const setValue = target.app.setValue.bind(target.app);
   busyApps.add(target.app);
+  activeOperations += 1;
   try {
     const { summary, state } = await prepare(target);
     if (summary.status !== 'ready' || state === undefined) {
@@ -375,6 +420,7 @@ export async function setDraftValue(token: TargetToken, options: DraftValueOptio
     );
   } finally {
     busyApps.delete(target.app);
+    activeOperations -= 1;
   }
 }
 
@@ -511,8 +557,11 @@ export async function selectWindowFromMenu(
     }
   }
 
+  activeOperations += 1;
   try {
-    if (context?.allowWindowRaise !== true) return complete('window-raise-not-authorized');
+    if (executionMode !== 'visible' || context?.allowWindowRaise !== true) {
+      return complete('window-raise-not-authorized');
+    }
     if (!validText(menuName) || !validText(title) || !context || typeof context.state !== 'string') {
       return complete('invalid-input');
     }
@@ -548,6 +597,9 @@ export async function selectWindowFromMenu(
       if (!menu) return complete('menu-unconfirmed');
       trace.menuReferenceChanged = menu.index !== initialMenu.index;
       trace.stage = 'menu-open';
+      if (executionMode !== 'visible' || context.allowWindowRaise !== true) {
+        return complete('window-raise-not-authorized');
+      }
       trace.menuOpenAttempted = true;
       await app.click(menu.index);
       trace.stage = 'popup-observation';
@@ -579,6 +631,9 @@ export async function selectWindowFromMenu(
     const target = windowMenuTarget(rows, menuName, title);
     if (!target) return complete('target-unconfirmed');
     trace.stage = 'target-click';
+    if (executionMode !== 'visible' || context.allowWindowRaise !== true) {
+      return complete('window-raise-not-authorized');
+    }
     trace.targetClickAttempted = true;
     await app.click(target.index);
     return complete('selection-requested', true);
@@ -596,5 +651,6 @@ export async function selectWindowFromMenu(
     );
   } finally {
     report();
+    activeOperations -= 1;
   }
 }
