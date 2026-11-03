@@ -13,7 +13,7 @@ export type AppApi = {
   click(index: number): Promise<unknown>;
   setValue?(index: number, value: string): Promise<unknown>;
 };
-export type ActionContext = { app: AppApi; state: string };
+export type ActionContext = { app: AppApi; state: string; allowWindowRaise?: boolean };
 export type TargetOptions = {
   requestId: string;
   app: AppApi;
@@ -21,6 +21,8 @@ export type TargetOptions = {
   windowTitle?: string;
   maxAgeMs: number;
   reselect?: (context: ActionContext) => Promise<boolean>;
+  windowMenu?: string;
+  allowWindowRaise?: boolean;
 };
 declare const targetIdentity: unique symbol;
 export type TargetToken = { readonly [targetIdentity]: true };
@@ -29,6 +31,7 @@ export type TargetSummary = {
   recognition: RecognitionResult;
   recoveryAttempts: 0 | 1;
   recovered: boolean;
+  recoveryBlockedReason?: 'window-raise-not-authorized';
 };
 export type TargetExecution<T> =
   | (Omit<TargetSummary, 'status'> & { status: 'blocked' })
@@ -42,24 +45,31 @@ export type WindowMenuTrace = Readonly<{
     | 'validation'
     | 'initial-observation'
     | 'menu-bar'
+    | 'menu-confirmation'
     | 'menu-open'
     | 'popup-observation'
     | 'popup-validation'
     | 'target-click';
   reason:
     | 'invalid-input'
+    | 'window-raise-not-authorized'
     | 'initial-header-unconfirmed'
     | 'menu-unconfirmed'
+    | 'menu-confirmation-header-unconfirmed'
+    | 'menu-confirmation-window-mismatch'
     | 'popup-header-unconfirmed'
     | 'app-mismatch'
     | 'popup-unconfirmed'
     | 'target-unconfirmed'
     | 'selection-requested'
+    | 'menu-confirmation-threw'
     | 'menu-open-threw'
     | 'observation-threw'
     | 'target-click-threw'
     | 'operation-threw';
   menuOpenAttempted: boolean;
+  confirmationReadCount: 0 | 1;
+  menuReferenceChanged: boolean;
   refreshCount: 0 | 1 | 2;
   targetClickAttempted: boolean;
   menuEntryCount: number;
@@ -80,6 +90,8 @@ type TargetRecord = Readonly<{
   expected: RecognitionRequest;
   maxAgeMs: number;
   reselect?: TargetOptions['reselect'];
+  windowMenu?: string;
+  allowWindowRaise?: boolean;
 }>;
 type Observation = { recognition: RecognitionResult; state?: string };
 type Preparation = { summary: TargetSummary; state?: string };
@@ -139,20 +151,46 @@ async function observeTarget(target: TargetRecord): Promise<Observation> {
   }
 }
 
-// 창 불일치에 한정한 한 번의 재선택
+// 확인한 앱의 창 조건에 한정한 한 번의 재선택
 async function prepare(target: TargetRecord): Promise<Preparation> {
   let observation = await observeTarget(target);
   let recoveryAttempts: 0 | 1 = 0;
   let recovered = false;
+  const menuTitle =
+    target.windowMenu !== undefined && target.expected.window?.kind === 'window-title'
+      ? target.expected.window.value
+      : undefined;
+  const windowMismatch =
+    observation.recognition.status === 'failed' && observation.recognition.reason === 'window-selector-mismatch';
+  const windowUnobserved =
+    menuTitle !== undefined &&
+    observation.recognition.status === 'unknown' &&
+    observation.recognition.reason === 'window-unobserved' &&
+    observation.recognition.basis.length === 1 &&
+    observation.recognition.basis[0] === 'app-name';
   if (
-    observation.recognition.status === 'failed' &&
-    observation.recognition.reason === 'window-selector-mismatch' &&
-    target.reselect &&
+    (windowMismatch || windowUnobserved) &&
+    (target.reselect || menuTitle !== undefined) &&
     observation.state !== undefined
   ) {
+    if (target.allowWindowRaise !== true) {
+      return {
+        summary: {
+          status: 'blocked',
+          recognition: observation.recognition,
+          recoveryAttempts,
+          recovered,
+          recoveryBlockedReason: 'window-raise-not-authorized',
+        },
+      };
+    }
     recoveryAttempts = 1;
     try {
-      const selected = await target.reselect({ app: target.app, state: observation.state });
+      const context = { app: target.app, state: observation.state, allowWindowRaise: target.allowWindowRaise === true };
+      const selected =
+        target.windowMenu !== undefined && menuTitle !== undefined
+          ? await selectWindowFromMenu(context, target.windowMenu, menuTitle)
+          : await target.reselect?.(context);
       observation = await observeTarget(target);
       recovered = selected === true && observation.recognition.status === 'matched';
     } catch {
@@ -184,7 +222,10 @@ export function createTarget(options: TargetOptions): TargetToken {
     (options.windowTitle !== undefined && !validText(options.windowTitle)) ||
     !Number.isFinite(options.maxAgeMs) ||
     options.maxAgeMs < 0 ||
-    (options.reselect !== undefined && typeof options.reselect !== 'function')
+    (options.reselect !== undefined && typeof options.reselect !== 'function') ||
+    (options.allowWindowRaise !== undefined && typeof options.allowWindowRaise !== 'boolean') ||
+    (options.windowMenu !== undefined &&
+      (!validText(options.windowMenu) || options.windowTitle === undefined || options.reselect !== undefined))
   )
     throw new TypeError('A valid official App handle and target options are required.');
   const token = Object.freeze({}) as TargetToken;
@@ -197,7 +238,14 @@ export function createTarget(options: TargetOptions): TargetToken {
   });
   targets.set(
     token,
-    Object.freeze({ app: options.app, expected, maxAgeMs: options.maxAgeMs, reselect: options.reselect }),
+    Object.freeze({
+      app: options.app,
+      expected,
+      maxAgeMs: options.maxAgeMs,
+      reselect: options.reselect,
+      windowMenu: options.windowMenu,
+      allowWindowRaise: options.allowWindowRaise === true,
+    }),
   );
   return token;
 }
@@ -221,13 +269,13 @@ export async function withTarget<T>(
   action: (context: ActionContext) => Promise<T>,
 ): Promise<TargetExecution<T>> {
   const target = targets.get(token);
-  if (!target) return blocked('invalid-evidence');
+  if (!target || typeof action !== 'function') return blocked('invalid-evidence');
   if (busyApps.has(target.app)) return blocked('unclassified-error');
   busyApps.add(target.app);
   try {
     const { summary, state } = await prepare(target);
     if (summary.status !== 'ready' || state === undefined) return { ...summary, status: 'blocked' };
-    const value = await action({ app: target.app, state });
+    const value = await action({ app: target.app, state, allowWindowRaise: target.allowWindowRaise === true });
     const observation = await observeTarget(target);
     return {
       ...summary,
@@ -256,7 +304,7 @@ export async function withVerifiedTarget<T>(
     let invocation: ActionInvocation = 'returned';
     let value: T | undefined;
     try {
-      value = await action({ app: target.app, state });
+      value = await action({ app: target.app, state, allowWindowRaise: target.allowWindowRaise === true });
     } catch {
       invocation = 'threw';
     }
@@ -414,6 +462,8 @@ export async function selectWindowFromMenu(
     stage: 'validation',
     reason: 'invalid-input',
     menuOpenAttempted: false,
+    confirmationReadCount: 0,
+    menuReferenceChanged: false,
     refreshCount: 0,
     targetClickAttempted: false,
     menuEntryCount: 0,
@@ -462,6 +512,7 @@ export async function selectWindowFromMenu(
   }
 
   try {
+    if (context?.allowWindowRaise !== true) return complete('window-raise-not-authorized');
     if (!validText(menuName) || !validText(title) || !context || typeof context.state !== 'string') {
       return complete('invalid-input');
     }
@@ -470,14 +521,32 @@ export async function selectWindowFromMenu(
     const initial = readHeader(state);
     if (!initial) return complete('initial-header-unconfirmed');
     const originalRows = readMenuRows(state);
+    let menuRows = originalRows;
     let rows = originalRows;
     describeRows(rows);
     if (!rows[0] || !equalText(rows[0].label, menuName)) {
       trace.stage = 'menu-bar';
       trace.menuEntryCount = menuBarEntries(originalRows)?.filter(row => equalText(row.label, menuName)).length ?? 0;
-      const menu = menuEntry(originalRows, menuName);
+      const initialMenu = menuEntry(originalRows, menuName);
+      trace.menuRefUnique = initialMenu !== undefined;
+      if (!initialMenu) return complete('menu-unconfirmed');
+      trace.stage = 'menu-confirmation';
+      trace.confirmationReadCount = 1;
+      const confirmation = await app.getAXState({ disableDiffing: true, emit: false });
+      const confirmedHeader = typeof confirmation === 'string' ? readHeader(confirmation) : undefined;
+      if (!confirmedHeader) return complete('menu-confirmation-header-unconfirmed');
+      if (!equalText(initial.app, confirmedHeader.app)) return complete('app-mismatch');
+      if (!equalText(initial.window ?? '', confirmedHeader.window ?? '')) {
+        return complete('menu-confirmation-window-mismatch');
+      }
+      menuRows = readMenuRows(confirmation);
+      rows = menuRows;
+      describeRows(rows);
+      trace.menuEntryCount = menuBarEntries(menuRows)?.filter(row => equalText(row.label, menuName)).length ?? 0;
+      const menu = menuEntry(menuRows, menuName);
       trace.menuRefUnique = menu !== undefined;
       if (!menu) return complete('menu-unconfirmed');
+      trace.menuReferenceChanged = menu.index !== initialMenu.index;
       trace.stage = 'menu-open';
       trace.menuOpenAttempted = true;
       await app.click(menu.index);
@@ -491,7 +560,7 @@ export async function selectWindowFromMenu(
       let header = readHeader(popup);
       if (!header) return complete('popup-header-unconfirmed');
       if (!equalText(initial.app, header.app)) return complete('app-mismatch');
-      if (isKnownOtherMenuPopup(rows, originalRows, menuName)) {
+      if (isKnownOtherMenuPopup(rows, menuRows, menuName)) {
         trace.stage = 'popup-observation';
         trace.refreshCount = 2;
         describeRows([]);
@@ -515,13 +584,15 @@ export async function selectWindowFromMenu(
     return complete('selection-requested', true);
   } catch {
     return complete(
-      trace.stage === 'menu-open'
-        ? 'menu-open-threw'
-        : trace.stage === 'popup-observation'
-          ? 'observation-threw'
-          : trace.stage === 'target-click'
-            ? 'target-click-threw'
-            : 'operation-threw',
+      trace.stage === 'menu-confirmation'
+        ? 'menu-confirmation-threw'
+        : trace.stage === 'menu-open'
+          ? 'menu-open-threw'
+          : trace.stage === 'popup-observation'
+            ? 'observation-threw'
+            : trace.stage === 'target-click'
+              ? 'target-click-threw'
+              : 'operation-threw',
     );
   } finally {
     report();

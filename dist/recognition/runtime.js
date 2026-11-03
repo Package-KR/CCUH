@@ -171,33 +171,73 @@ function decideDraftReplace(attempts, evidence) {
     return { decision: 'set', attempt: attempts === 0 ? 1 : 2 };
 }
   })(retryExports);
+  const snapshotExports = {};
+  ((exports) => {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.splitAXSelection = splitAXSelection;
+const selectionNote = "Note: Pay special attention to the content selected by the user. If the user asks a question or refers to the content they are looking at on-screen, they might be referring to the selected content (but they might be referring to something else that's visible, too).";
+// 렌더러의 선택 요약과 정확한 안내 접미부 분리
+function splitAXSelection(lines) {
+    const sections = lines.flatMap((line, index) => line === 'Selected:' || line === 'Selected text: ```' ? [index] : []);
+    const prefix = sections.length === 1 ? lines.slice(0, sections[0]) : lines;
+    if (sections.length > 1 || prefix.some(line => /^(?:Selected(?: text)?|Note):/u.test(line)))
+        return;
+    if (sections.length === 0)
+        return { tree: lines };
+    const remainder = lines.slice(sections[0] + 1);
+    if (lines[sections[0]] === 'Selected text: ```') {
+        const notes = remainder.slice(2).filter(line => line.trim() !== '');
+        if (!remainder[0]?.trim() || remainder[1] !== '```' || notes.length !== 1 || notes[0] !== selectionNote)
+            return;
+        return { tree: prefix, selectedText: remainder[0] };
+    }
+    const suffix = remainder.filter(line => line.trim() !== '');
+    if (suffix.length < 1 || suffix.length > 2 || (suffix.length === 2 && suffix[1] !== selectionNote))
+        return;
+    const selected = /^[ \t]*(\d+) (.+)$/u.exec(suffix[0]);
+    if (!selected || !Number.isSafeInteger(Number(selected[1])))
+        return;
+    return { tree: prefix, selected: { index: Number(selected[1]), body: selected[2] } };
+}
+  })(snapshotExports);
   const draftExports = {};
-  // 초안 처리의 순수 재시도 모듈 제공
+  // 초안 처리의 순수 로컬 모듈 제공
   function requireDraftModule(name) {
-    if (name !== './retry.ts') throw new Error('Unsupported CCUH runtime module');
-    return retryExports;
+    if (name === './retry.ts') return retryExports;
+    if (name === '../common/snapshot.ts') return snapshotExports;
+    throw new Error('Unsupported CCUH runtime module');
   }
   ((exports, require) => {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.runDraftValue = runDraftValue;
 const retry_ts_1 = require("./retry.ts");
+const snapshot_ts_1 = require("../common/snapshot.ts");
 // 최신 스냅샷의 유일한 편집 가능 필드 확인
 function readField(state, options) {
-    const entries = state.split(/\r?\n/u).flatMap(row => {
+    const sections = (0, snapshot_ts_1.splitAXSelection)(state.split(/\r?\n/u));
+    if (!sections)
+        return;
+    const entries = sections.tree.flatMap(row => {
         const entry = /^\s*(\d+)\s+(.+)$/u.exec(row);
         if (!entry)
             return [];
         const ids = [...entry[2].matchAll(/(?:^|,\s*|\s+)ID: ([^,]+)(?=,|$)/gu)];
         const metadata = /(?:^|,\s*|\s+)(?:Value|Description|Help|ID|Secondary Actions):/u.exec(entry[2]);
         const attributes = entry[2].slice(0, metadata?.index);
-        return [{ index: Number(entry[1]), row, ids, attributes }];
+        return [{ index: Number(entry[1]), body: entry[2], row, ids, attributes }];
     });
-    const rows = entries.filter(entry => entry.ids.length === 1 &&
-        (entry.ids[0].index === 0 || entry.ids[0][0].startsWith(',')) &&
-        entry.ids[0][1].trim() === options.fieldId);
-    if (rows.length !== 1 ||
-        !rows[0].attributes.includes('(settable)') ||
+    const selected = sections.selected;
+    if (selected && !entries.some(entry => entry.index === selected.index && entry.body === selected.body))
+        return;
+    const rows = entries.filter(entry => entry.ids.some(id => id[1].trim() === options.fieldId));
+    if (rows.length !== 1)
+        return;
+    const field = /^(?:text field|text entry area|text entry|텍스트 필드|텍스트 엔트리 영역) \(([^()]*)\)(?:\s|,|$)/u.exec(rows[0].attributes);
+    if (rows[0].ids.length !== 1 ||
+        (rows[0].ids[0].index !== 0 && !rows[0].ids[0][0].startsWith(',')) ||
+        !field?.[1].split(',').some(attribute => attribute.trim() === 'settable') ||
         !Number.isSafeInteger(rows[0].index) ||
         entries.filter(entry => entry.index === rows[0].index).length !== 1)
         return;
@@ -289,12 +329,17 @@ async function runDraftValue(initial, runtime, options) {
 }
   })(draftExports, requireDraftModule);
   const transitionExports = {};
-  ((exports) => {
+  // 모달 판정의 순수 스냅샷 모듈 제공
+  function requireTransitionModule(name) {
+    if (name !== '../common/snapshot.ts') throw new Error('Unsupported CCUH runtime module');
+    return snapshotExports;
+  }
+  ((exports, require) => {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.verifyModalDismissal = verifyModalDismissal;
+const snapshot_ts_1 = require("../common/snapshot.ts");
 const roles = ['standard window', '표준 윈도우', '대화상자', 'dialog', 'sheet', '시트', 'window', '윈도우'];
-const selectionNote = "Note: Pay special attention to the content selected by the user. If the user asks a question or refers to the content they are looking at on-screen, they might be referring to the selected content (but they might be referring to something else that's visible, too).";
 // 필수 자체 값 필드를 가진 일반 객체 검사
 function hasDataFields(value, keys) {
     if (value === null || typeof value !== 'object' || Array.isArray(value))
@@ -385,29 +430,6 @@ function readEditableValue(body) {
     const idFirst = /^ID: ([^,]+), Value: (.+)$/u.exec(metadata);
     return idFirst && validText(idFirst[1]) ? idFirst[2] : undefined;
 }
-// 렌더러의 선택 요약과 정확한 안내 접미부 분리
-function splitSelection(lines) {
-    const sections = lines.flatMap((line, index) => line === 'Selected:' || line === 'Selected text: ```' ? [index] : []);
-    const prefix = sections.length === 1 ? lines.slice(0, sections[0]) : lines;
-    if (sections.length > 1 || prefix.some(line => /^(?:Selected(?: text)?|Note):/u.test(line)))
-        return;
-    if (sections.length === 0)
-        return { tree: lines };
-    const remainder = lines.slice(sections[0] + 1);
-    if (lines[sections[0]] === 'Selected text: ```') {
-        const notes = remainder.slice(2).filter(line => line.trim() !== '');
-        if (!remainder[0]?.trim() || remainder[1] !== '```' || notes.length !== 1 || notes[0] !== selectionNote)
-            return;
-        return { tree: prefix, selectedText: remainder[0] };
-    }
-    const suffix = remainder.filter(line => line.trim() !== '');
-    if (suffix.length < 1 || suffix.length > 2 || (suffix.length === 2 && suffix[1] !== selectionNote))
-        return;
-    const selected = /^[ \t]*(\d+) (.+)$/u.exec(suffix[0]);
-    if (!selected || !Number.isSafeInteger(Number(selected[1])))
-        return;
-    return { tree: prefix, selected: { index: Number(selected[1]), body: selected[2] } };
-}
 // 같은 앱의 유일한 최상위 컨테이너 관측 판독
 function readSnapshot(state) {
     const lines = state.split(/\r?\n/u);
@@ -416,7 +438,7 @@ function readSnapshot(state) {
         return;
     if (lines.slice(1).some(line => /^Window:/u.test(line)))
         return;
-    const sections = splitSelection(lines.slice(1));
+    const sections = (0, snapshot_ts_1.splitAXSelection)(lines.slice(1));
     if (!sections)
         return;
     const content = sections.tree.filter(line => line.trim() !== '');
@@ -474,7 +496,7 @@ function verifyModalDismissal(snapshots, options) {
         return 'unknown';
     }
 }
-  })(transitionExports);
+  })(transitionExports, requireTransitionModule);
   const localModules = Object.freeze({ './classify.ts': classifyExports, '../interaction/outcome.ts': outcomeExports, '../interaction/draft.ts': draftExports, '../interaction/transition.ts': transitionExports });
   const guardExports = {};
   // 허용된 순수 로컬 모듈 제공
@@ -543,18 +565,40 @@ async function observeTarget(target) {
         return { recognition: unknown('unclassified-error') };
     }
 }
-// 창 불일치에 한정한 한 번의 재선택
+// 확인한 앱의 창 조건에 한정한 한 번의 재선택
 async function prepare(target) {
     let observation = await observeTarget(target);
     let recoveryAttempts = 0;
     let recovered = false;
-    if (observation.recognition.status === 'failed' &&
-        observation.recognition.reason === 'window-selector-mismatch' &&
-        target.reselect &&
+    const menuTitle = target.windowMenu !== undefined && target.expected.window?.kind === 'window-title'
+        ? target.expected.window.value
+        : undefined;
+    const windowMismatch = observation.recognition.status === 'failed' && observation.recognition.reason === 'window-selector-mismatch';
+    const windowUnobserved = menuTitle !== undefined &&
+        observation.recognition.status === 'unknown' &&
+        observation.recognition.reason === 'window-unobserved' &&
+        observation.recognition.basis.length === 1 &&
+        observation.recognition.basis[0] === 'app-name';
+    if ((windowMismatch || windowUnobserved) &&
+        (target.reselect || menuTitle !== undefined) &&
         observation.state !== undefined) {
+        if (target.allowWindowRaise !== true) {
+            return {
+                summary: {
+                    status: 'blocked',
+                    recognition: observation.recognition,
+                    recoveryAttempts,
+                    recovered,
+                    recoveryBlockedReason: 'window-raise-not-authorized',
+                },
+            };
+        }
         recoveryAttempts = 1;
         try {
-            const selected = await target.reselect({ app: target.app, state: observation.state });
+            const context = { app: target.app, state: observation.state, allowWindowRaise: target.allowWindowRaise === true };
+            const selected = target.windowMenu !== undefined && menuTitle !== undefined
+                ? await selectWindowFromMenu(context, target.windowMenu, menuTitle)
+                : await target.reselect?.(context);
             observation = await observeTarget(target);
             recovered = selected === true && observation.recognition.status === 'matched';
         }
@@ -584,7 +628,10 @@ function createTarget(options) {
         (options.windowTitle !== undefined && !validText(options.windowTitle)) ||
         !Number.isFinite(options.maxAgeMs) ||
         options.maxAgeMs < 0 ||
-        (options.reselect !== undefined && typeof options.reselect !== 'function'))
+        (options.reselect !== undefined && typeof options.reselect !== 'function') ||
+        (options.allowWindowRaise !== undefined && typeof options.allowWindowRaise !== 'boolean') ||
+        (options.windowMenu !== undefined &&
+            (!validText(options.windowMenu) || options.windowTitle === undefined || options.reselect !== undefined)))
         throw new TypeError('A valid official App handle and target options are required.');
     const token = Object.freeze({});
     const expected = Object.freeze({
@@ -594,7 +641,14 @@ function createTarget(options) {
             ? {}
             : { window: Object.freeze({ kind: 'window-title', value: options.windowTitle }) }),
     });
-    targets.set(token, Object.freeze({ app: options.app, expected, maxAgeMs: options.maxAgeMs, reselect: options.reselect }));
+    targets.set(token, Object.freeze({
+        app: options.app,
+        expected,
+        maxAgeMs: options.maxAgeMs,
+        reselect: options.reselect,
+        windowMenu: options.windowMenu,
+        allowWindowRaise: options.allowWindowRaise === true,
+    }));
     return token;
 }
 // 대상 재확인과 제한된 복구 결과 조회
@@ -615,7 +669,7 @@ async function prepareTarget(token) {
 // 최신 대상 확인 후 작업 한 번 실행
 async function withTarget(token, action) {
     const target = targets.get(token);
-    if (!target)
+    if (!target || typeof action !== 'function')
         return blocked('invalid-evidence');
     if (busyApps.has(target.app))
         return blocked('unclassified-error');
@@ -624,7 +678,7 @@ async function withTarget(token, action) {
         const { summary, state } = await prepare(target);
         if (summary.status !== 'ready' || state === undefined)
             return { ...summary, status: 'blocked' };
-        const value = await action({ app: target.app, state });
+        const value = await action({ app: target.app, state, allowWindowRaise: target.allowWindowRaise === true });
         const observation = await observeTarget(target);
         return {
             ...summary,
@@ -652,7 +706,7 @@ async function withVerifiedTarget(token, action, verify) {
         let invocation = 'returned';
         let value;
         try {
-            value = await action({ app: target.app, state });
+            value = await action({ app: target.app, state, allowWindowRaise: target.allowWindowRaise === true });
         }
         catch {
             invocation = 'threw';
@@ -798,6 +852,8 @@ async function selectWindowFromMenu(context, menuName, title, observer) {
         stage: 'validation',
         reason: 'invalid-input',
         menuOpenAttempted: false,
+        confirmationReadCount: 0,
+        menuReferenceChanged: false,
         refreshCount: 0,
         targetClickAttempted: false,
         menuEntryCount: 0,
@@ -844,6 +900,8 @@ async function selectWindowFromMenu(context, menuName, title, observer) {
         }
     }
     try {
+        if (context?.allowWindowRaise !== true)
+            return complete('window-raise-not-authorized');
         if (!validText(menuName) || !validText(title) || !context || typeof context.state !== 'string') {
             return complete('invalid-input');
         }
@@ -853,15 +911,36 @@ async function selectWindowFromMenu(context, menuName, title, observer) {
         if (!initial)
             return complete('initial-header-unconfirmed');
         const originalRows = readMenuRows(state);
+        let menuRows = originalRows;
         let rows = originalRows;
         describeRows(rows);
         if (!rows[0] || !equalText(rows[0].label, menuName)) {
             trace.stage = 'menu-bar';
             trace.menuEntryCount = menuBarEntries(originalRows)?.filter(row => equalText(row.label, menuName)).length ?? 0;
-            const menu = menuEntry(originalRows, menuName);
+            const initialMenu = menuEntry(originalRows, menuName);
+            trace.menuRefUnique = initialMenu !== undefined;
+            if (!initialMenu)
+                return complete('menu-unconfirmed');
+            trace.stage = 'menu-confirmation';
+            trace.confirmationReadCount = 1;
+            const confirmation = await app.getAXState({ disableDiffing: true, emit: false });
+            const confirmedHeader = typeof confirmation === 'string' ? readHeader(confirmation) : undefined;
+            if (!confirmedHeader)
+                return complete('menu-confirmation-header-unconfirmed');
+            if (!equalText(initial.app, confirmedHeader.app))
+                return complete('app-mismatch');
+            if (!equalText(initial.window ?? '', confirmedHeader.window ?? '')) {
+                return complete('menu-confirmation-window-mismatch');
+            }
+            menuRows = readMenuRows(confirmation);
+            rows = menuRows;
+            describeRows(rows);
+            trace.menuEntryCount = menuBarEntries(menuRows)?.filter(row => equalText(row.label, menuName)).length ?? 0;
+            const menu = menuEntry(menuRows, menuName);
             trace.menuRefUnique = menu !== undefined;
             if (!menu)
                 return complete('menu-unconfirmed');
+            trace.menuReferenceChanged = menu.index !== initialMenu.index;
             trace.stage = 'menu-open';
             trace.menuOpenAttempted = true;
             await app.click(menu.index);
@@ -877,7 +956,7 @@ async function selectWindowFromMenu(context, menuName, title, observer) {
                 return complete('popup-header-unconfirmed');
             if (!equalText(initial.app, header.app))
                 return complete('app-mismatch');
-            if (isKnownOtherMenuPopup(rows, originalRows, menuName)) {
+            if (isKnownOtherMenuPopup(rows, menuRows, menuName)) {
                 trace.stage = 'popup-observation';
                 trace.refreshCount = 2;
                 describeRows([]);
@@ -905,18 +984,20 @@ async function selectWindowFromMenu(context, menuName, title, observer) {
         return complete('selection-requested', true);
     }
     catch {
-        return complete(trace.stage === 'menu-open'
-            ? 'menu-open-threw'
-            : trace.stage === 'popup-observation'
-                ? 'observation-threw'
-                : trace.stage === 'target-click'
-                    ? 'target-click-threw'
-                    : 'operation-threw');
+        return complete(trace.stage === 'menu-confirmation'
+            ? 'menu-confirmation-threw'
+            : trace.stage === 'menu-open'
+                ? 'menu-open-threw'
+                : trace.stage === 'popup-observation'
+                    ? 'observation-threw'
+                    : trace.stage === 'target-click'
+                        ? 'target-click-threw'
+                        : 'operation-threw');
     }
     finally {
         report();
     }
 }
   })(guardExports, requireLocalModule);
-  return Object.freeze({ ...guardExports, sourceHash: '7840ea244059ae53a7d77a057f5b6aaaa93e169adfd51f16d0010470f5f60672' });
+  return Object.freeze({ ...guardExports, sourceHash: 'ebc73c0a2c387346187bb0ecfc57fbd9826e1e8015cb1e0348c0d1c7690f4995' });
 })();
