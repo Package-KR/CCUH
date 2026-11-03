@@ -1,4 +1,6 @@
 import { decideDraftReplace } from './retry.ts';
+import { splitAXSelection } from '../common/snapshot.ts';
+
 import type { DraftReplaceDecision, DraftReplaceEvidence } from './retry.ts';
 import type { RecognitionResult } from '../recognition/classify.ts';
 
@@ -33,23 +35,28 @@ type DraftFrame = {
 
 // 최신 스냅샷의 유일한 편집 가능 필드 확인
 function readField(state: string, options: DraftValueOptions): DraftFrame['field'] {
-  const entries = state.split(/\r?\n/u).flatMap(row => {
+  const sections = splitAXSelection(state.split(/\r?\n/u));
+  if (!sections) return;
+  const entries = sections.tree.flatMap(row => {
     const entry = /^\s*(\d+)\s+(.+)$/u.exec(row);
     if (!entry) return [];
     const ids = [...entry[2].matchAll(/(?:^|,\s*|\s+)ID: ([^,]+)(?=,|$)/gu)];
     const metadata = /(?:^|,\s*|\s+)(?:Value|Description|Help|ID|Secondary Actions):/u.exec(entry[2]);
     const attributes = entry[2].slice(0, metadata?.index);
-    return [{ index: Number(entry[1]), row, ids, attributes }];
+    return [{ index: Number(entry[1]), body: entry[2], row, ids, attributes }];
   });
-  const rows = entries.filter(
-    entry =>
-      entry.ids.length === 1 &&
-      (entry.ids[0].index === 0 || entry.ids[0][0].startsWith(',')) &&
-      entry.ids[0][1].trim() === options.fieldId,
-  );
+  const selected = sections.selected;
+  if (selected && !entries.some(entry => entry.index === selected.index && entry.body === selected.body)) return;
+  const rows = entries.filter(entry => entry.ids.some(id => id[1].trim() === options.fieldId));
+  if (rows.length !== 1) return;
+  const field =
+    /^(?:text field|text entry area|text entry|텍스트 필드|텍스트 엔트리 영역) \(([^()]*)\)(?:\s|,|$)/u.exec(
+      rows[0].attributes,
+    );
   if (
-    rows.length !== 1 ||
-    !rows[0].attributes.includes('(settable)') ||
+    rows[0].ids.length !== 1 ||
+    (rows[0].ids[0].index !== 0 && !rows[0].ids[0][0].startsWith(',')) ||
+    !field?.[1].split(',').some(attribute => attribute.trim() === 'settable') ||
     !Number.isSafeInteger(rows[0].index) ||
     entries.filter(entry => entry.index === rows[0].index).length !== 1
   )

@@ -1,3 +1,5 @@
+import { splitAXSelection } from '../common/snapshot.ts';
+
 import type { VerificationVerdict } from './outcome.ts';
 
 export type ModalContainerRole =
@@ -19,8 +21,6 @@ type ContainerRow = { index: number; depth: number; role: ModalContainerRole; na
 type Snapshot = { app: string; title: string; root: ContainerRow; containers: ContainerRow[] };
 
 const roles = ['standard window', '표준 윈도우', '대화상자', 'dialog', 'sheet', '시트', 'window', '윈도우'];
-const selectionNote =
-  "Note: Pay special attention to the content selected by the user. If the user asks a question or refers to the content they are looking at on-screen, they might be referring to the selected content (but they might be referring to something else that's visible, too).";
 
 // 필수 자체 값 필드를 가진 일반 객체 검사
 function hasDataFields(value: unknown, keys: string[]): value is Record<string, unknown> {
@@ -119,40 +119,13 @@ function readEditableValue(body: string): string | undefined {
   return idFirst && validText(idFirst[1]) ? idFirst[2] : undefined;
 }
 
-// 렌더러의 선택 요약과 정확한 안내 접미부 분리
-function splitSelection(lines: string[]):
-  | {
-      tree: string[];
-      selected?: { index: number; body: string };
-      selectedText?: string;
-    }
-  | undefined {
-  const sections = lines.flatMap((line, index) =>
-    line === 'Selected:' || line === 'Selected text: ```' ? [index] : [],
-  );
-  const prefix = sections.length === 1 ? lines.slice(0, sections[0]) : lines;
-  if (sections.length > 1 || prefix.some(line => /^(?:Selected(?: text)?|Note):/u.test(line))) return;
-  if (sections.length === 0) return { tree: lines };
-  const remainder = lines.slice(sections[0] + 1);
-  if (lines[sections[0]] === 'Selected text: ```') {
-    const notes = remainder.slice(2).filter(line => line.trim() !== '');
-    if (!remainder[0]?.trim() || remainder[1] !== '```' || notes.length !== 1 || notes[0] !== selectionNote) return;
-    return { tree: prefix, selectedText: remainder[0] };
-  }
-  const suffix = remainder.filter(line => line.trim() !== '');
-  if (suffix.length < 1 || suffix.length > 2 || (suffix.length === 2 && suffix[1] !== selectionNote)) return;
-  const selected = /^[ \t]*(\d+) (.+)$/u.exec(suffix[0]);
-  if (!selected || !Number.isSafeInteger(Number(selected[1]))) return;
-  return { tree: prefix, selected: { index: Number(selected[1]), body: selected[2] } };
-}
-
 // 같은 앱의 유일한 최상위 컨테이너 관측 판독
 function readSnapshot(state: string): Snapshot | undefined {
   const lines = state.split(/\r?\n/u);
   const header = /^Window: "(.*)", App: ([^\r\n]+)\.$/u.exec(lines[0] ?? '');
   if (!header || !validText(header[2]) || (header[1] !== '' && !validText(header[1]))) return;
   if (lines.slice(1).some(line => /^Window:/u.test(line))) return;
-  const sections = splitSelection(lines.slice(1));
+  const sections = splitAXSelection(lines.slice(1));
   if (!sections) return;
   const content = sections.tree.filter(line => line.trim() !== '');
   const rows = content.map(line => /^([ \t]*)(\d+) (.+)$/u.exec(line));
