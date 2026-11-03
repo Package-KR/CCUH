@@ -1,7 +1,0 @@
-interface:
-  display_name: 'CCUH Visible'
-  short_description: 'Bring the intended Computer Use target into view'
-  default_prompt: 'Use $ccuh-visible to bring intended Computer Use targets into view in this chat.'
-
-policy:
-  allow_implicit_invocation: false
