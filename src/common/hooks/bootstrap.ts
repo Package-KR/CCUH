@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
-import { open } from 'node:fs/promises';
 import { Script } from 'node:vm';
+
+import { runtimeSource, toolArguments } from './runtime-source.ts';
 
 export const CUA_BOOTSTRAP_MARKER = '// CCUH_BOOTSTRAP_V1';
 export type BootstrapPlan =
@@ -25,33 +26,8 @@ const REQUIRED_FUNCTIONS = [
 
 // 정확한 표식과 자체 데이터 필드로 된 도구 인수 복제
 function markerArguments(input: unknown): Record<string, unknown> | undefined {
-  if (input === null || typeof input !== 'object' || Array.isArray(input)) return;
-  const prototype = Object.getPrototypeOf(input);
-  if (prototype !== Object.prototype && prototype !== null) return;
-  const fields = Object.getOwnPropertyDescriptors(input);
-  if (
-    Reflect.ownKeys(fields).some(
-      key => typeof key !== 'string' || !Object.hasOwn(fields[key], 'value') || !fields[key].enumerable,
-    ) ||
-    !Object.hasOwn(fields, 'code') ||
-    fields.code.value !== CUA_BOOTSTRAP_MARKER
-  )
-    return;
-  return { ...input };
-}
-
-// 고정 런타임 파일을 상한 안에서 한 번 읽기
-async function runtimeBytes(): Promise<Buffer | undefined> {
-  const file = await open(new URL('../../../dist/recognition/runtime.js', import.meta.url), 'r');
-  try {
-    const stat = await file.stat();
-    if (!stat.isFile() || !Number.isSafeInteger(stat.size) || stat.size === 0 || stat.size > MAX_RUNTIME_BYTES) return;
-    const buffer = Buffer.alloc(stat.size + 1);
-    const { bytesRead } = await file.read(buffer, 0, buffer.length, 0);
-    return bytesRead === stat.size ? buffer.subarray(0, stat.size) : undefined;
-  } finally {
-    await file.close();
-  }
+  const args = toolArguments(input);
+  return args?.code === CUA_BOOTSTRAP_MARKER ? args : undefined;
 }
 
 // 원본 런타임을 보존하는 멱등 로드 셀 구성
@@ -111,15 +87,13 @@ export async function prepareBootstrap(toolName: string, input: unknown): Promis
   }
   if (!args) return { status: 'not-requested' };
   try {
-    const bytes = await runtimeBytes();
-    if (!bytes || (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf)) return { status: 'unavailable' };
-    const runtime = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
-    if (!Buffer.from(runtime, 'utf8').equals(bytes)) return { status: 'unavailable' };
-    const hashes = [...runtime.matchAll(/\bsourceHash:\s*(['"])([a-f0-9]{64})\1/gu)];
-    if (hashes.length !== 1) return { status: 'unavailable' };
-    new Script(runtime);
-    const runtimeHash = createHash('sha256').update(bytes).digest('hex');
-    const code = bootstrapCode(runtime, runtimeHash, hashes[0][2]);
+    const runtime = await runtimeSource(
+      new URL('../../../dist/recognition/runtime.js', import.meta.url),
+      MAX_RUNTIME_BYTES,
+    );
+    if (!runtime) return { status: 'unavailable' };
+    const { runtimeHash } = runtime;
+    const code = bootstrapCode(runtime.code, runtimeHash, runtime.sourceHash);
     new Script(code);
     return {
       status: 'proposed',

@@ -20,7 +20,15 @@ Snapshots are not atomic. The observer does not cache or reuse a snapshot across
 
 When the user requests browser window layout or the containing window of an identified browser tab, keep the already selected official Browser and its existing Tab binding. The documented browser `management` capability provides Chrome's own tab-to-window relationship and window state. It does not expose macOS CGWindowID, a display ID or the native CUA App's physical window.
 
-For this inspection only, initialize metadata and load the same pure bootstrap below without acquiring a native App. Use `ccuh.observeBrowserTabWindow(selectedBrowser, chromeTabId)` with a numeric tab ID actually returned by a documented management query for the requested target. Do not convert a CUA Tab ID or unpack an opaque `providerTabId`. Do not infer an ID from a title or URL, query unrelated targets, or use this result to replace the existing official Tab binding. If the needed numeric source ID is unavailable, leave the relationship unconfirmed.
+For this inspection, initialize metadata without acquiring a native App. Keep the already selected official Browser in a named top-level binding and obtain a numeric tab ID actually returned by a documented management query for the requested target. Then send a separate CUA JS call with exactly this form, substituting the existing binding's identifier and the actual number:
+
+```javascript
+// CCUH_BROWSER_WINDOW_V1 selectedBrowser 123
+```
+
+The binding must be a single ASCII JavaScript identifier, at most 64 characters; the number must be a canonical nonnegative safe integer. The entire code must be that one line, without extra whitespace or code. Never convert a CUA Tab ID or unpack an opaque `providerTabId`, infer an ID from a title or URL, query unrelated targets or use this result to replace the existing official Tab binding. If the needed numeric source ID is unavailable, leave the relationship unconfirmed.
+
+The trusted CUA hook replaces only this strict request with the installed browser-only observer. Its local async cell defines the read-only module, reads the existing Browser binding, performs the observation and prints `{ ccuhBrowserWindow: 'result', runtimeHash, sourceHash, observation }`. It does not register `ccuh` or a bootstrap record, mutate global properties, load native guards or acquire an app. Do not load `CCUH_BOOTSTRAP_V1` or request separate runtime-execution permission for this browser read. Host review remains effective: missing output, `unavailable` or rejection means stop without copying code, direct-call fallback, another loader or wider permissions. This route is selected from the beginning, never as a fallback after a rejected native bootstrap.
 
 The helper performs one `tabs.get`, one `windows.get` with `populate: false`, and a final `tabs.get` through that same capability. Returned IDs must match the requested tab and window, and a tab moving between windows stops the observation. It never creates, updates, focuses or closes a window or tab. It returns only the browser scope, Chrome session IDs, reported window state, optional bounds and observation time; titles, URLs, page contents and error bodies are excluded. Missing bounds remain null.
 
@@ -40,7 +48,7 @@ Visible mode permits bringing the verified task window into view. If the target 
 
 ## Load the target helper
 
-For an actual native Computer Use task or requested browser window inspection, initialize with the documented `cua.getState()` metadata inventory rather than acquiring or launching an app. Then send a separate `mcp__cua_repl.js` call whose entire `code` is exactly:
+For an actual native Computer Use task, initialize with the documented `cua.getState()` metadata inventory rather than acquiring or launching an app. Browser window inspection instead uses the separate local observation route above. For native work, send a separate `mcp__cua_repl.js` call whose entire `code` is exactly:
 
 ```javascript
 // CCUH_BOOTSTRAP_V1
@@ -50,7 +58,7 @@ Do not append output, an app call or whitespace to the marker. The trusted PreTo
 
 Bootstrap once per REPL lifetime. After a plugin update, use `js_reset` before loading so declarations from an older helper cannot shadow the new binding. Following any reset, initialize through metadata inventory before the separate marker. App approval still occurs normally when `acquireApp` reaches official `getApp`. An unchanged helper returns `state: 'kept'` and preserves existing bindings. Missing, changed or overwritten helpers return `state: 'loaded'`; recreate bindings after loading. The record checks both exact runtime bytes and the helper object reference, rather than trusting a copied source hash literal. Do not manually redeclare `ccuh` or replace the loader's own global properties.
 
-A ready helper is neither app access approval nor proof that an app operation succeeded. Only the exact pure marker is rewritten. Ordinary JS, app acquisition, `js_reset` and unrelated tools retain their original input and host permissions. User-task typing, clicks and sends require a ready helper and matched target. A guard's limited window-menu preparation is separate and requires explicit permission to raise the window, as described below; host action review still applies. Browser-only tasks retain their documented Tab binding. Load the helper for requested browser window metadata only; native App acquisition is unnecessary for that read-only path.
+A ready helper is neither app access approval nor proof that an app operation succeeded. Only the exact native marker and strict browser observation marker are rewritten. Ordinary JS, app acquisition, `js_reset` and unrelated tools retain their original input and host permissions. User-task typing, clicks and sends require a ready helper and matched target. A guard's limited window-menu preparation is separate and requires explicit permission to raise the window, as described below; host action review still applies. Browser-only tasks retain their documented Tab binding; the local browser observation result is not native helper readiness. The older `ccuh.observeBrowserTabWindow` export remains compatible for existing loaded sessions but is not the browser-only workflow.
 
 ## Bind the intended target
 
