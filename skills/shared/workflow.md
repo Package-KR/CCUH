@@ -36,6 +36,15 @@ After ready loading and applying the selected mode, call `ccuh.acquireApp(cua, o
 
 Read the fixed status, reason and `acquisitionAttempts`; the count records `getApp` calls, not app launches or approval. `blocked` and `unavailable` mean stop. Do not retry an uncertain acquisition, infer user denial from an exception, call `getApp` directly as a fallback or switch modes to continue. The helper emits no raw inventory, window content or exception text. Its operation lock prevents a concurrent mode change, but it cannot prevent an external app from exiting after inventory was read.
 
+Keep acquisition results, App handles and targets in top-level declarations when another REPL call will use them. A declaration inside an `if`, `try`, loop or callback may exist in that call but disappear from the next call, even when it uses `var`. Declare it at top level first, then assign inside a branch if needed. Do not infer a lost binding means app access was denied or reacquire an app merely to repair the variable.
+
+```javascript
+var acquisition = await ccuh.acquireApp(cua, observedAppIdOrExactName);
+nodeRepl.write({ status: acquisition.status, reason: acquisition.reason });
+```
+
+Inspect that result before a later call declares a target from `acquisition.app`. An unsuccessful acquisition supplies no usable App. The target example below also uses a top-level declaration.
+
 On macOS, official Computer Use supports [background app tasks](https://learn.chatgpt.com/use-cases/use-your-computer-with-codex) while the user works elsewhere. This does not make window-menu selection non-disruptive. Its supported target items use [`makeKeyAndOrderFront:`](<https://developer.apple.com/documentation/appkit/nswindow/makekeyandorderfront(_:)>), which raises the window and can cover the user's workspace even when keyboard input stays elsewhere. If the user requires unchanged focus, window order or workspace, do not opt into menu re-selection. Observe the current target and report a blocked mismatch instead of changing that requirement. An app-scoped header or focused element does not prove the user's global focus or window order.
 
 Menu re-selection is disabled in the default background mode. Only the human user's explicit visible-mode selection permits it; `allowWindowRaise: true` cannot override background. An omitted target option follows the current mode, and `allowWindowRaise: false` always denies raising. These declarations neither supply app approval nor bypass host review. Keep all operations inside the same approved App and avoid concurrent Computer Use workflows against it.
