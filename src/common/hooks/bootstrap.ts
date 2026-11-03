@@ -10,6 +10,7 @@ export type BootstrapPlan =
   | { status: 'proposed'; input: Record<string, unknown>; intendedCodeHash: string; runtimeHash: string };
 
 const MAX_RUNTIME_BYTES = 256 * 1024;
+const MAX_BOOTSTRAP_BYTES = 64_000;
 const REQUIRED_FUNCTIONS = [
   'getMode',
   'setMode',
@@ -94,6 +95,7 @@ export async function prepareBootstrap(toolName: string, input: unknown): Promis
     if (!runtime) return { status: 'unavailable' };
     const { runtimeHash } = runtime;
     const code = bootstrapCode(runtime.code, runtimeHash, runtime.sourceHash);
+    if (Buffer.byteLength(code, 'utf8') > MAX_BOOTSTRAP_BYTES) return { status: 'unavailable' };
     new Script(code);
     return {
       status: 'proposed',
