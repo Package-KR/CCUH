@@ -508,6 +508,8 @@ function verifyModalDismissal(snapshots, options) {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.verifyModalDismissal = void 0;
+exports.getMode = getMode;
+exports.setMode = setMode;
 exports.createTarget = createTarget;
 exports.prepareTarget = prepareTarget;
 exports.withTarget = withTarget;
@@ -521,6 +523,29 @@ var transition_ts_1 = require("../interaction/transition.ts");
 Object.defineProperty(exports, "verifyModalDismissal", { enumerable: true, get: function () { return transition_ts_1.verifyModalDismissal; } });
 const targets = new WeakMap();
 const busyApps = new WeakSet();
+let executionMode = 'background';
+let activeOperations = 0;
+// 현재 REPL의 실행 모드 조회
+function getMode() {
+    return executionMode;
+}
+// 진행 중인 작업을 보존하며 실행 모드 변경
+function setMode(mode) {
+    if (mode !== 'background' && mode !== 'visible') {
+        throw new TypeError('A background or visible execution mode is required.');
+    }
+    if (mode === executionMode)
+        return Object.freeze({ status: 'kept', mode: executionMode });
+    if (activeOperations > 0) {
+        return Object.freeze({ status: 'blocked', mode: executionMode, reason: 'operation-in-progress' });
+    }
+    executionMode = mode;
+    return Object.freeze({ status: 'changed', mode: executionMode });
+}
+// 현재 모드와 대상별 창 올림 제한 확인
+function windowRaiseAllowed(permission) {
+    return executionMode === 'visible' && permission !== false;
+}
 // 유효한 대상 식별 문자열 검사
 function validText(value) {
     return typeof value === 'string' && value.trim().length > 0 && value.length <= 1024;
@@ -582,7 +607,7 @@ async function prepare(target) {
     if ((windowMismatch || windowUnobserved) &&
         (target.reselect || menuTitle !== undefined) &&
         observation.state !== undefined) {
-        if (target.allowWindowRaise !== true) {
+        if (!windowRaiseAllowed(target.allowWindowRaise)) {
             return {
                 summary: {
                     status: 'blocked',
@@ -595,7 +620,11 @@ async function prepare(target) {
         }
         recoveryAttempts = 1;
         try {
-            const context = { app: target.app, state: observation.state, allowWindowRaise: target.allowWindowRaise === true };
+            const context = {
+                app: target.app,
+                state: observation.state,
+                allowWindowRaise: windowRaiseAllowed(target.allowWindowRaise),
+            };
             const selected = target.windowMenu !== undefined && menuTitle !== undefined
                 ? await selectWindowFromMenu(context, target.windowMenu, menuTitle)
                 : await target.reselect?.(context);
@@ -647,7 +676,7 @@ function createTarget(options) {
         maxAgeMs: options.maxAgeMs,
         reselect: options.reselect,
         windowMenu: options.windowMenu,
-        allowWindowRaise: options.allowWindowRaise === true,
+        allowWindowRaise: options.allowWindowRaise,
     }));
     return token;
 }
@@ -659,11 +688,13 @@ async function prepareTarget(token) {
     if (busyApps.has(target.app))
         return blocked('unclassified-error');
     busyApps.add(target.app);
+    activeOperations += 1;
     try {
         return (await prepare(target)).summary;
     }
     finally {
         busyApps.delete(target.app);
+        activeOperations -= 1;
     }
 }
 // 최신 대상 확인 후 작업 한 번 실행
@@ -674,11 +705,16 @@ async function withTarget(token, action) {
     if (busyApps.has(target.app))
         return blocked('unclassified-error');
     busyApps.add(target.app);
+    activeOperations += 1;
     try {
         const { summary, state } = await prepare(target);
         if (summary.status !== 'ready' || state === undefined)
             return { ...summary, status: 'blocked' };
-        const value = await action({ app: target.app, state, allowWindowRaise: target.allowWindowRaise === true });
+        const value = await action({
+            app: target.app,
+            state,
+            allowWindowRaise: windowRaiseAllowed(target.allowWindowRaise),
+        });
         const observation = await observeTarget(target);
         return {
             ...summary,
@@ -689,6 +725,7 @@ async function withTarget(token, action) {
     }
     finally {
         busyApps.delete(target.app);
+        activeOperations -= 1;
     }
 }
 // 작업 한 번 실행 후 같은 대상의 실제 변화 확인
@@ -699,6 +736,7 @@ async function withVerifiedTarget(token, action, verify) {
     if (busyApps.has(target.app))
         return blocked('unclassified-error');
     busyApps.add(target.app);
+    activeOperations += 1;
     try {
         const { summary, state } = await prepare(target);
         if (summary.status !== 'ready' || state === undefined)
@@ -706,7 +744,7 @@ async function withVerifiedTarget(token, action, verify) {
         let invocation = 'returned';
         let value;
         try {
-            value = await action({ app: target.app, state, allowWindowRaise: target.allowWindowRaise === true });
+            value = await action({ app: target.app, state, allowWindowRaise: windowRaiseAllowed(target.allowWindowRaise) });
         }
         catch {
             invocation = 'threw';
@@ -735,6 +773,7 @@ async function withVerifiedTarget(token, action, verify) {
     }
     finally {
         busyApps.delete(target.app);
+        activeOperations -= 1;
     }
 }
 // 명시한 로컬 초안 필드의 교체와 제한된 재시도
@@ -766,6 +805,7 @@ async function setDraftValue(token, options) {
     });
     const setValue = target.app.setValue.bind(target.app);
     busyApps.add(target.app);
+    activeOperations += 1;
     try {
         const { summary, state } = await prepare(target);
         if (summary.status !== 'ready' || state === undefined) {
@@ -775,6 +815,7 @@ async function setDraftValue(token, options) {
     }
     finally {
         busyApps.delete(target.app);
+        activeOperations -= 1;
     }
 }
 // 전체 접근성 스냅샷의 메뉴 행 추출
@@ -899,9 +940,11 @@ async function selectWindowFromMenu(context, menuName, title, observer) {
             return;
         }
     }
+    activeOperations += 1;
     try {
-        if (context?.allowWindowRaise !== true)
+        if (executionMode !== 'visible' || context?.allowWindowRaise !== true) {
             return complete('window-raise-not-authorized');
+        }
         if (!validText(menuName) || !validText(title) || !context || typeof context.state !== 'string') {
             return complete('invalid-input');
         }
@@ -942,6 +985,9 @@ async function selectWindowFromMenu(context, menuName, title, observer) {
                 return complete('menu-unconfirmed');
             trace.menuReferenceChanged = menu.index !== initialMenu.index;
             trace.stage = 'menu-open';
+            if (executionMode !== 'visible' || context.allowWindowRaise !== true) {
+                return complete('window-raise-not-authorized');
+            }
             trace.menuOpenAttempted = true;
             await app.click(menu.index);
             trace.stage = 'popup-observation';
@@ -979,6 +1025,9 @@ async function selectWindowFromMenu(context, menuName, title, observer) {
         if (!target)
             return complete('target-unconfirmed');
         trace.stage = 'target-click';
+        if (executionMode !== 'visible' || context.allowWindowRaise !== true) {
+            return complete('window-raise-not-authorized');
+        }
         trace.targetClickAttempted = true;
         await app.click(target.index);
         return complete('selection-requested', true);
@@ -996,8 +1045,9 @@ async function selectWindowFromMenu(context, menuName, title, observer) {
     }
     finally {
         report();
+        activeOperations -= 1;
     }
 }
   })(guardExports, requireLocalModule);
-  return Object.freeze({ ...guardExports, sourceHash: 'ebc73c0a2c387346187bb0ecfc57fbd9826e1e8015cb1e0348c0d1c7690f4995' });
+  return Object.freeze({ ...guardExports, sourceHash: '98b85894efdf719060bf6f398c25fdc598573a55855728bb33da9c53094d18b2' });
 })();
