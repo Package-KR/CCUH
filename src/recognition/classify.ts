@@ -24,7 +24,13 @@ type UnknownReason =
   | 'insufficient-app-identity'
   | 'window-unobserved'
   | 'ambiguous-target';
-export type RecognitionFailureStage = 'ax-read' | 'header' | 'classification' | 'reselection' | 'operation-in-progress';
+export type RecognitionFailureStage =
+  | 'ax-read'
+  | 'header'
+  | 'classification'
+  | 'reselection'
+  | 'operation-in-progress'
+  | 'app-exit-requested';
 
 export type RecognitionResult =
   | { status: 'matched'; reason: 'app-selector-matched' | 'window-selector-matched'; basis: ComparisonBasis[] }
