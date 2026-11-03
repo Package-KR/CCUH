@@ -759,13 +759,41 @@ async function prepare(target) {
 function blocked(reason) {
     return { status: 'blocked', recognition: unknown(reason), recoveryAttempts: 0, recovered: false };
 }
+// 지원하는 자체 데이터 필드로 대상 옵션 복사
+function readTargetOptions(value) {
+    if (value === null || typeof value !== 'object' || Array.isArray(value))
+        return;
+    try {
+        const prototype = Object.getPrototypeOf(value);
+        if (prototype !== Object.prototype && prototype !== null)
+            return;
+        const fields = Object.getOwnPropertyDescriptors(value);
+        const allowed = [
+            'requestId',
+            'app',
+            'appName',
+            'windowTitle',
+            'maxAgeMs',
+            'reselect',
+            'windowMenu',
+            'allowWindowRaise',
+        ];
+        if (Reflect.ownKeys(fields).some(key => typeof key !== 'string' || !allowed.includes(key) || !Object.hasOwn(fields[key], 'value')) ||
+            ['requestId', 'app', 'appName'].some(key => !Object.hasOwn(fields, key)))
+            return;
+        return Object.create(null, fields);
+    }
+    catch {
+        return;
+    }
+}
 // 호출자가 받은 공식 앱 핸들과 고정 대상 등록
-function createTarget(options) {
-    const maxAgeMs = options && (typeof options === 'object' || typeof options === 'function') && 'maxAgeMs' in options
-        ? options.maxAgeMs
-        : DEFAULT_TARGET_MAX_AGE_MS;
-    if (!options ||
-        typeof options.app !== 'object' ||
+function createTarget(value) {
+    const options = readTargetOptions(value);
+    if (!options)
+        throw new TypeError('Target options must use supported own data fields.');
+    const maxAgeMs = Object.hasOwn(options, 'maxAgeMs') ? options.maxAgeMs : DEFAULT_TARGET_MAX_AGE_MS;
+    if (typeof options.app !== 'object' ||
         options.app === null ||
         typeof options.app.getAXState !== 'function' ||
         typeof options.app.click !== 'function' ||
@@ -1167,5 +1195,5 @@ async function selectWindowFromMenu(context, menuName, title, observer) {
     }
 }
   })(guardExports, requireLocalModule);
-  return Object.freeze({ ...guardExports, sourceHash: '9a4798614888cc9fc212360914e68cf0aaafc82b83fb03fa1061f81166026dc9' });
+  return Object.freeze({ ...guardExports, sourceHash: '9b3652c03f10586c7621102824c062638ca6bd4a43a381991ecec281915ee7f6' });
 })();
