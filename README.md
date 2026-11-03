@@ -19,7 +19,13 @@ Computer Use can connect to the wrong app or window, fail to enter text, or retu
 
 CCUH is currently being developed for **Codex App and Codex CLI on macOS only**. Computer Use must be available in the Codex client, and **Node.js 24 or later** is required.
 
+The read-only macOS environment collector also requires **Xcode or Command Line Tools** for its local build. CCUH does not install these tools or request OS permissions automatically.
+
 Windows support may be explored in the future if circumstances allow; there is no confirmed plan yet.
+
+## Environment Awareness
+
+Before a Computer Use JS call, CCUH observes display geometry and on-screen window placement. Window titles, page content and input events are excluded. Unknown Spaces, exact fullscreen state and browser-tab-to-window mappings remain explicit rather than being inferred from one app window.
 
 ## Execution Modes
 
