@@ -43,6 +43,7 @@ export type ModeChangeResult = Readonly<
   | { status: 'blocked'; mode: ExecutionMode; reason: 'operation-in-progress' }
 >;
 export type ActionContext = { app: AppApi; state: string; allowWindowRaise?: boolean };
+export type TargetActionOptions = Readonly<{ effect: 'app-exit' }>;
 export type TargetOptions = {
   requestId: string;
   app: AppApi;
@@ -64,7 +65,11 @@ export type TargetSummary = {
 };
 export type TargetExecution<T> =
   | (Omit<TargetSummary, 'status'> & { status: 'blocked' })
-  | (Omit<TargetSummary, 'status'> & { status: 'executed'; value?: T });
+  | (Omit<TargetSummary, 'status'> & {
+      status: 'executed';
+      value?: T;
+      postObservation?: 'skipped-app-exit';
+    });
 export type VerificationContext = { before: string; after: string };
 export type VerifiedTargetExecution<T> =
   | (Omit<TargetSummary, 'status'> & { status: 'blocked' })
@@ -496,13 +501,38 @@ export async function prepareTarget(token: TargetToken): Promise<TargetSummary> 
   }
 }
 
+// 자체 데이터 옵션에서 앱 종료 작업 구분
+function readActionEffect(options: unknown): 'ordinary' | 'app-exit' | undefined {
+  if (options === undefined) return 'ordinary';
+  if (options === null || typeof options !== 'object') return;
+  try {
+    if (Array.isArray(options)) return;
+    const prototype = Object.getPrototypeOf(options);
+    const keys = Reflect.ownKeys(options);
+    const effect = Object.getOwnPropertyDescriptor(options, 'effect');
+    if (
+      (prototype === Object.prototype || prototype === null) &&
+      keys.length === 1 &&
+      keys[0] === 'effect' &&
+      effect &&
+      Object.hasOwn(effect, 'value') &&
+      effect.value === 'app-exit'
+    )
+      return 'app-exit';
+  } catch {
+    return;
+  }
+}
+
 // 최신 대상 확인 후 작업 한 번 실행
 export async function withTarget<T>(
   token: TargetToken,
   action: (context: ActionContext) => Promise<T>,
+  options?: TargetActionOptions,
 ): Promise<TargetExecution<T>> {
   const target = targets.get(token);
-  if (!target || typeof action !== 'function') return blocked('invalid-evidence');
+  const effect = readActionEffect(options);
+  if (!target || typeof action !== 'function' || effect === undefined) return blocked('invalid-evidence');
   if (busyApps.has(target.app)) return blocked('unclassified-error', 'operation-in-progress');
   busyApps.add(target.app);
   activeOperations += 1;
@@ -514,6 +544,14 @@ export async function withTarget<T>(
       state,
       allowWindowRaise: windowRaiseAllowed(target.allowWindowRaise),
     });
+    if (effect === 'app-exit') {
+      return {
+        ...summary,
+        status: 'executed',
+        postObservation: 'skipped-app-exit',
+        ...(value === undefined ? {} : { value }),
+      };
+    }
     const observation = await observeTarget(target);
     return {
       ...summary,
