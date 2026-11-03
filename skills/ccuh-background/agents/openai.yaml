@@ -1,7 +1,0 @@
-interface:
-  display_name: 'CCUH Background'
-  short_description: 'Keep Computer Use tasks in the background'
-  default_prompt: 'Use $ccuh-background to keep Computer Use tasks in this chat in the background.'
-
-policy:
-  allow_implicit_invocation: true
