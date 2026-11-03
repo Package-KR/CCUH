@@ -510,6 +510,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.verifyModalDismissal = void 0;
 exports.getMode = getMode;
 exports.setMode = setMode;
+exports.acquireApp = acquireApp;
 exports.createTarget = createTarget;
 exports.prepareTarget = prepareTarget;
 exports.withTarget = withTarget;
@@ -545,6 +546,118 @@ function setMode(mode) {
 // 현재 모드와 대상별 창 올림 제한 확인
 function windowRaiseAllowed(permission) {
     return executionMode === 'visible' && permission !== false;
+}
+// 제어 문자가 없는 앱 선택 문자열 검사
+function validAppSelector(value) {
+    return validText(value) && !/[\u0000-\u001f\u007f]/u.test(value);
+}
+// 공식 앱 목록의 자체 데이터 필드 판독
+function readAppInventory(value) {
+    if (!Array.isArray(value))
+        return;
+    const entries = [];
+    try {
+        for (const row of value) {
+            if (row === null || typeof row !== 'object' || Array.isArray(row))
+                return;
+            const idField = Object.getOwnPropertyDescriptor(row, 'id');
+            const nameField = Object.getOwnPropertyDescriptor(row, 'displayName');
+            const runningField = Object.getOwnPropertyDescriptor(row, 'isRunning');
+            if (!idField ||
+                !Object.hasOwn(idField, 'value') ||
+                (nameField && !Object.hasOwn(nameField, 'value')) ||
+                (runningField && !Object.hasOwn(runningField, 'value')))
+                return;
+            const id = idField.value;
+            const displayName = nameField?.value;
+            const isRunning = runningField?.value;
+            if (!validAppSelector(id) ||
+                (displayName !== undefined && !validAppSelector(displayName)) ||
+                (isRunning !== undefined && typeof isRunning !== 'boolean'))
+                return;
+            entries.push({
+                id,
+                ...(displayName === undefined ? {} : { displayName }),
+                ...(isRunning === undefined ? {} : { isRunning }),
+            });
+        }
+    }
+    catch {
+        return;
+    }
+    return entries;
+}
+// 승인 경로가 반환한 앱 객체의 최소 메서드 확인
+function validAcquiredApp(value) {
+    try {
+        return (value !== null &&
+            typeof value === 'object' &&
+            typeof value.getAXState === 'function' &&
+            typeof value.click === 'function');
+    }
+    catch {
+        return false;
+    }
+}
+// 원문을 제외한 앱 획득 중단 요약 구성
+function acquisitionFailure(mode, status, reason, acquisitionAttempts = 0) {
+    return Object.freeze({ status, mode, reason, acquisitionAttempts });
+}
+// 현재 모드의 실행 상태 조건을 확인한 뒤 공식 앱 획득
+async function acquireApp(api, target) {
+    try {
+        if (api === null ||
+            typeof api !== 'object' ||
+            Array.isArray(api) ||
+            typeof api.listApps !== 'function' ||
+            typeof api.getApp !== 'function' ||
+            !validAppSelector(target))
+            return acquisitionFailure(executionMode, 'blocked', 'invalid-input');
+    }
+    catch {
+        return acquisitionFailure(executionMode, 'blocked', 'invalid-input');
+    }
+    if (activeOperations > 0)
+        return acquisitionFailure(executionMode, 'blocked', 'operation-in-progress');
+    const mode = executionMode;
+    activeOperations += 1;
+    try {
+        let appTarget = target;
+        if (mode === 'background') {
+            let inventory;
+            try {
+                inventory = readAppInventory(await api.listApps({ emit: false }));
+            }
+            catch {
+                return acquisitionFailure(mode, 'unavailable', 'inventory-unavailable');
+            }
+            if (!inventory)
+                return acquisitionFailure(mode, 'unavailable', 'invalid-inventory');
+            const matches = inventory.filter(row => row.id === target || (row.displayName !== undefined && equalText(row.displayName, target)));
+            if (matches.length === 0)
+                return acquisitionFailure(mode, 'blocked', 'app-unobserved');
+            if (matches.length !== 1)
+                return acquisitionFailure(mode, 'blocked', 'app-ambiguous');
+            if (matches[0].isRunning === undefined)
+                return acquisitionFailure(mode, 'blocked', 'running-state-unavailable');
+            if (!matches[0].isRunning)
+                return acquisitionFailure(mode, 'blocked', 'app-not-running');
+            appTarget = matches[0].id;
+        }
+        let app;
+        try {
+            app = await api.getApp(appTarget);
+        }
+        catch {
+            return acquisitionFailure(mode, 'unavailable', 'acquisition-unavailable', 1);
+        }
+        if (!validAcquiredApp(app))
+            return acquisitionFailure(mode, 'unavailable', 'invalid-app-handle', 1);
+        return Object.freeze({ status: 'acquired', mode, acquisitionAttempts: 1, app });
+    }
+    finally {
+        activeOperations -= 1;
+    }
 }
 // 유효한 대상 식별 문자열 검사
 function validText(value) {
@@ -1049,5 +1162,5 @@ async function selectWindowFromMenu(context, menuName, title, observer) {
     }
 }
   })(guardExports, requireLocalModule);
-  return Object.freeze({ ...guardExports, sourceHash: '98b85894efdf719060bf6f398c25fdc598573a55855728bb33da9c53094d18b2' });
+  return Object.freeze({ ...guardExports, sourceHash: 'efb063e060eb9965400a59a15d4a1d2c113df5ec1cfb0fc9f77368c5055a92a0' });
 })();

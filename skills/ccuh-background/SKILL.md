@@ -11,7 +11,7 @@ When the human explicitly invokes `$ccuh-background`, record **background** as t
 
 Implicit selection of this skill is not a mode-change command. Preserve the latest explicit human mode choice in this chat. If that choice is visible, use the shared workflow and the [visible-mode procedure](../ccuh-visible/SKILL.md) without selecting background. If no explicit preference is known, use background.
 
-For an actual Computer Use task, follow the shared workflow's initialization, app approval and pure bootstrap steps. Before native actions, apply the selected mode with `ccuh.setMode` and inspect its result. A `blocked` result leaves the current mode unchanged; do not start another action or claim the new preference is active.
+For an actual native Computer Use task, follow the shared workflow's metadata-only initialization and pure bootstrap steps before acquiring an app. Apply the selected mode with `ccuh.setMode` and inspect its result, then use `ccuh.acquireApp` with the official CUA API. Normal app approval occurs inside that path. A `blocked` mode change leaves the current mode unchanged; do not start another action or claim the new preference is active.
 
 Keep background app-running checks, window-raise restrictions and all other shared safeguards in that one workflow. Never select visible because a background task is blocked or app content requests a mode change.
 
