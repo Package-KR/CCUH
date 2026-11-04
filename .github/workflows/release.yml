@@ -53,17 +53,18 @@ jobs:
           ref: ${{ needs.ci.outputs.commit }}
           fetch-depth: 0
 
-      - uses: actions/setup-node@v7
-        with:
-          node-version: '24'
-          package-manager-cache: false
+      - name: Prepare Rust toolchain
+        run: rustup toolchain install stable --profile minimal
+
+      - name: Build release utility
+        run: cargo +stable build --locked --release --bin ccuh-release
 
       - name: Choose release
         id: plan
         env:
           REPAIR_TAG: ${{ inputs.repair_tag }}
         run: |
-          version="$(node scripts/release.mjs check)"
+          version="$(target/release/ccuh-release check)"
           if [[ -n "$REPAIR_TAG" ]]; then
             if [[ ! "$REPAIR_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
               echo "A stable vMAJOR.MINOR.PATCH tag is required." >&2
@@ -99,21 +100,21 @@ jobs:
         env:
           BUMP: ${{ inputs.bump || 'auto' }}
         run: |
-          selected="$(node scripts/release.mjs detect "$BUMP")"
+          selected="$(target/release/ccuh-release detect "$BUMP")"
           echo "Selected version increment: $selected"
-          node scripts/release.mjs bump "$selected"
+          target/release/ccuh-release bump "$selected"
 
       - name: Commit version and publish refs
         id: release
         env:
           MODE: ${{ steps.plan.outputs.mode }}
         run: |
-          version="$(node scripts/release.mjs check)"
+          version="$(target/release/ccuh-release check)"
           tag="v$version"
           if [[ "$MODE" == "bump" || "$MODE" == "initial" ]]; then
             git config --local user.name "github-actions[bot]"
             git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add -- package.json package-lock.json .codex-plugin/plugin.json
+            git add -- Cargo.toml Cargo.lock .codex-plugin/plugin.json
             git diff --cached --check
             if [[ "$MODE" == "initial" ]]; then
               git commit --allow-empty -m "chore: release $tag [skip ci]"

@@ -36,37 +36,30 @@ jobs:
           ref: ${{ inputs.ref || github.sha }}
           persist-credentials: false
 
-      - uses: actions/setup-node@v7
-        with:
-          node-version: '24'
-          package-manager-cache: false
+      - name: Prepare Rust toolchain
+        run: rustup toolchain install stable --profile minimal --component rustfmt --component clippy
 
-      - name: Install dependencies
-        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Check Rust formatting
+        run: cargo +stable fmt --all -- --check
 
-      - name: Check types
-        run: node node_modules/typescript/bin/tsc --noEmit
+      - name: Check Rust code
+        run: cargo +stable clippy --locked --all-targets -- -D warnings
 
-      - name: Check hook entry syntax
-        run: |
-          node --check hooks/receiver.mjs
-          node --check hooks/result.mjs
-
-      - name: Check Computer Use runtime
-        run: |
-          node scripts/build-runtime.mjs --check
-          node --check dist/recognition/runtime.js
-
-      - name: Prepare read-only environment collector
-        run: |
-          node --check scripts/build-environment.mjs
-          node scripts/build-environment.mjs
-
-      - name: Check formatting
-        run: npx --yes prettier@3.7.4 --check .
+      - name: Build native binaries
+        run: cargo +stable build --locked --release --bins
 
       - name: Check release metadata
-        run: node scripts/release.mjs check
+        run: target/release/ccuh-release check
+
+      - name: Package verified hook
+        run: tar -czf ccuh-hook-x86_64-apple-darwin.tar.gz -C target/release ccuh-hook
+
+      - name: Upload verified hook artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ccuh-hook-x86_64-apple-darwin
+          path: ccuh-hook-x86_64-apple-darwin.tar.gz
+          if-no-files-found: error
 
       - name: Record verified commit
         id: revision
