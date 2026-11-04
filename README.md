@@ -17,28 +17,38 @@ Computer Use can connect to the wrong app or window, fail to enter text, or retu
 
 ## Supported Environment
 
-CCUH is currently being developed for **Codex App and Codex CLI on macOS only**. Computer Use must be available in the Codex client, and **Node.js 24 or later** is required.
+CCUH is currently being developed for **Codex App and Codex CLI on macOS only**. Computer Use must be available in the Codex client.
 
-The read-only macOS environment collector also requires **Xcode or Command Line Tools** for its local build. CCUH does not install these tools or request OS permissions automatically.
+Building from source requires **stable Rust, Cargo, and Xcode or Command Line Tools**. The CCUH hooks run as a compiled Rust executable. Computer Use continues to run the generated JavaScript through its official runtime.
 
 Windows support may be explored in the future if circumstances allow; there is no confirmed plan yet.
 
-## Environment Awareness
+## How It Works
 
-Before a Computer Use JS call, CCUH observes display geometry and on-screen window placement. Window titles, page content and input events are excluded. Unknown Spaces, exact fullscreen state and browser-tab-to-window mappings remain explicit rather than being inferred from one app window.
+CCUH receives the official Computer Use `PreToolUse` and `PostToolUse` events. It records invocation identifiers, timing and minimal recovery metadata. Raw JavaScript, screen content and error messages are excluded from these records.
 
-## Execution Modes
+| Function                 | Behavior                                                                                                              |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| Invocation observation   | Connects matching call and return events and classifies pending, returned, failed and unconfirmed results.            |
+| Limited read recovery    | Wraps supported standalone reads on a confirmed App object and permits one alternate read after a recognized timeout. |
+| Bounded waiting          | Caps official CUA execution waits at 30 seconds and stops starting read recovery work after its 20-second budget. |
+| Repeated-call protection | Stops duplicate or unsafe follow-up calls when a previous result is failed or unconfirmed.                            |
 
-Background is the default. Select a mode for the current chat with `$ccuh-background` or `$ccuh-visible`. In Codex App, type `/` and choose **CCUH Background** or **CCUH Visible**. Codex CLI also supports `/skills`.
+Supported reads are `getAXState()`, `getScreenshot()` and `getAXStateAndScreenshot()`. CCUH keeps official app approvals in place and does not add window activation or input commands. On macOS, the read methods share the same native state backend; recovery is a bounded retry after a transient failure.
 
-Both modes share the same target checks and failure handling. Background applies automatically during Computer Use when no explicit mode has been selected.
+Automatic recovery applies to a single standalone read statement such as `await app.getAXState();`. Code that stores the result in a variable or combines multiple operations receives the wait limit and outcome observation, but is not rewritten to use an alternate read.
 
-| Mode       | Behavior                                                                                                                                                       |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Background | Disallows deliberate window raising and workspace switching. Checks that the app is already running before acquisition and stops on closed or uncertain state. |
-| Visible    | Allows an explicitly selected task window to be brought into view through an exposed official action. Normal app approvals still apply.                        |
+CUA JavaScript execution requests are capped at 30 seconds. A shorter requested timeout is preserved, with one second reserved before that limit for supported read handling. The official runtime can wait for native requests already in progress, so the internal read budget alone does not guarantee a tool return. The official execution timeout is the outer wait bound; it does not acknowledge native cancellation. Unconfirmed operations block further app work in the same chat, including later turns. A metadata-only check can establish that the original read Promise settled only while its runtime state remains available. A kernel reset can discard that state, in which case the result stays unconfirmed. Late settlement never proves task success.
 
-These modes guide CCUH within official Computer Use; they do not change its internal engine.
+## Build
+
+Run from the repository root to prepare the executable used by the plugin hooks:
+
+```bash
+cargo build --locked --release --bin ccuh-hook && mkdir -p bin && cp target/release/ccuh-hook bin/ccuh-hook
+```
+
+After installing or updating the plugin, review and trust its two hooks in Codex. Hook trust is separate from app access approval.
 
 ## License
 
