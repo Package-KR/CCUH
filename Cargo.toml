@@ -1,11 +1,14 @@
 [package]
 name = "ccuh"
-version = "1.0.0"
+version = "0.0.0"
 edition = "2024"
 publish = false
 license = "MIT"
 description = "A macOS companion for reliable Codex Computer Use."
 repository = "https://github.com/Package-KR/CCUH"
+
+[package.metadata.ccuh-release]
+history-base = "0110f2640e05046983d2dffe59d2c2ac9db8cb58"
 
 [[bin]]
 name = "ccuh-hook"
