@@ -275,29 +275,91 @@ fn git_text(root: &Path, arguments: &[&str]) -> Result<String, String> {
     String::from_utf8(output.stdout).map_err(|_| "Git history is not valid UTF-8.".to_owned())
 }
 
-// 현재 버전 태그 이후 커밋 조회
-fn release_commits(root: &Path, version: Version) -> Result<String, String> {
-    git_text(root, &["rev-parse", "--is-inside-work-tree"])?;
+// 초기 버전의 명시적인 커밋 기준 조회
+fn initial_history_base(root: &Path) -> Result<String, String> {
+    let manifest = read_document(root, "Cargo.toml")?;
+    let headers: Vec<_> = TABLE_PATTERN.captures_iter(&manifest.content).collect();
+    let mut section = None;
+    for (index, header) in headers.iter().enumerate() {
+        if header.get(1).map(|value| value.as_str()) != Some("[package.metadata.ccuh-release]") {
+            continue;
+        }
+        if section.is_some() {
+            return Err("Exactly one release history section is required.".to_owned());
+        }
+        let start = header
+            .get(0)
+            .ok_or_else(|| "The release history section is missing.".to_owned())?
+            .end();
+        let end = headers
+            .get(index + 1)
+            .and_then(|value| value.get(0))
+            .map_or(manifest.content.len(), |value| value.start());
+        section = Some(start..end);
+    }
+    let section =
+        section.ok_or_else(|| "The initial release history base is missing.".to_owned())?;
+    let (base, _) = toml_field(&manifest.content, section, "history-base")?;
+    if base.len() != 40
+        || !base
+            .bytes()
+            .all(|value| value.is_ascii_hexdigit() && !value.is_ascii_uppercase())
+    {
+        return Err("The release history base must be a full lowercase commit SHA.".to_owned());
+    }
+    git_text(
+        root,
+        &["rev-parse", "--verify", &format!("{base}^{{commit}}")],
+    )?;
+    Ok(base)
+}
+
+// 현재 버전의 정확한 태그 조회
+fn version_tag_base(root: &Path, version: Version) -> Result<String, String> {
     let reference = format!("refs/tags/v{version}");
     let exists = git(root, &["show-ref", "--verify", "--quiet", &reference])?;
-    let range = if exists.status.success() {
-        let base = git_text(
-            root,
-            &["rev-parse", "--verify", &format!("{reference}^{{commit}}")],
-        )?;
-        let base = base.trim();
-        if !git(root, &["merge-base", "--is-ancestor", base, "HEAD"])?
-            .status
-            .success()
-        {
-            return Err("The current version tag is not an ancestor of HEAD.".to_owned());
-        }
-        format!("{base}..HEAD")
-    } else if exists.status.code() == Some(1) {
-        "HEAD".to_owned()
+    if !exists.status.success() {
+        return Err(format!(
+            "The current version tag v{version} is missing or unreadable."
+        ));
+    }
+    Ok(git_text(
+        root,
+        &["rev-parse", "--verify", &format!("{reference}^{{commit}}")],
+    )?
+    .trim()
+    .to_owned())
+}
+
+// 지정한 기준 이후의 커밋만 조회
+fn release_commits(root: &Path, version: Version) -> Result<String, String> {
+    git_text(root, &["rev-parse", "--is-inside-work-tree"])?;
+    let initial_base = initial_history_base(root)?;
+    let base = if version.major == 0 && version.minor == 0 && version.patch == 0 {
+        initial_base
     } else {
-        return Err("Cannot determine whether the current version tag exists.".to_owned());
+        let tagged = version_tag_base(root, version)?;
+        if !git(
+            root,
+            &["merge-base", "--is-ancestor", &initial_base, &tagged],
+        )?
+        .status
+        .success()
+        {
+            return Err(
+                "The current version tag predates or diverges from the release history base."
+                    .to_owned(),
+            );
+        }
+        tagged
     };
+    if !git(root, &["merge-base", "--is-ancestor", &base, "HEAD"])?
+        .status
+        .success()
+    {
+        return Err("The release history base is not an ancestor of HEAD.".to_owned());
+    }
+    let range = format!("{base}..HEAD");
     git_text(
         root,
         &["log", "--no-show-signature", "--format=%B%x00", &range],
