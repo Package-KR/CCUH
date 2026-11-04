@@ -7,3 +7,5 @@ node_modules/
 /AGENTS.md
 /Agent/
 /native/.build/
+/target/
+/bin/
