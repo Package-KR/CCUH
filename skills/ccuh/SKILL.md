@@ -25,7 +25,17 @@ If the browser binding or its documented initialization is unavailable, stop thi
 
 ## Reuse rather than replace
 
-After the host's required initial binding and its returned browser documentation, read [the executable target-session guard](scripts/target-session.js) and define that self-contained code in the same CUA JavaScript session without changing its text. Its source check rejects accidental copy changes before installation; it performs no UI actions when defined. If the source check fails, reread the installed file and correct the definition before any binding. Do not import an undocumented runtime or edit the installed host code to load it.
+After the host's required first call and its returned browser documentation, load [the executable target-session guard](scripts/target-session.js) in the same CUA JavaScript session. When the documented JavaScript runtime supports local file imports, import the installed helper directly instead of copying its source. This loads CCUH's helper, not a replacement host runtime:
+
+```javascript
+var ccuhSkillDirectory = "/absolute/path/to/installed/ccuh";
+var ccuhFileUrl = (await import("node:url")).pathToFileURL;
+await import(ccuhFileUrl(`${ccuhSkillDirectory}/scripts/target-session.js`).href);
+// Only when exact-URL discovery is needed:
+await import(ccuhFileUrl(`${ccuhSkillDirectory}/scripts/target-discovery.js`).href);
+```
+
+Use the actual directory containing this `SKILL.md`. If file imports are unsupported, read and define the linked self-contained source without changing its text. Both helpers perform no UI actions when loaded, and their source checks reject accidental copy changes. If loading fails, correct the helper definition before any CCUH binding or action; do not reset the runtime or its reservations. Do not import an undocumented host runtime or edit installed host code.
 
 For a documented browser tab that exposes `url()`, `playwright.domSnapshot()`, and Playwright locators, bind `await CCUH.bindBrowserTab(existingTab, {targetId: existingTab.id, allowedUrls: [exactAuthorizedUrl]})`. This browser adapter uses DOM snapshots and has no native AX or screenshot fallback. Its `fill(label, value)`, `click(buttonName)`, `check(checkboxName, value)`, and `observe()` methods execute against that same tab. Labels and names must come from the observed target UI. Pass only explicitly authorized exact URLs; no wildcard widening.
 

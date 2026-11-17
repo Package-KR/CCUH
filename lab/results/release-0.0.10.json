@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "version": "0.0.10",
+  "release_kind": "public_preview",
+  "status": "final_validation_in_progress",
+  "supported_environment": {
+    "platform": "macOS",
+    "browser": "Chrome through the host's documented browser Computer Use interface",
+    "required_browser_methods": ["url", "playwright.domSnapshot", "playwright.getByLabel", "playwright.getByRole"],
+    "discovery_requirement": "Documented management tabs.query({url}) and tabs.get(id), plus exact-target binding",
+    "doctor_python": "3.9 or newer; standard library only",
+    "automatic_application": "Skill selection is model-driven; explicit ccuh selection is recommended. Raw host calls are not intercepted."
+  },
+  "components": {
+    "target_guard": {"runtime_revision": 4, "sha256": "acce7b41fc83c25a9c83271c891134f024f50e05d69b7e4acaaa60a8317d39c1"},
+    "target_discovery": {"runtime_revision": 1, "sha256": "69ad2335d703489b489ee662d4064596f01749f61c1ae896f2b2660740381379"},
+    "browser_code_unchanged_from_previous_live_typing_trials": true
+  },
+  "user_problem_matrix": [
+    {
+      "problem": "Work on an inactive tab without selecting it",
+      "status": "passed_scoped_live_case",
+      "evidence": "Fresh independent Desktop chat reused the same existing Chrome tab, saved once and verified the same target UI; active=false before and after.",
+      "scope": "Local dummy page through the official Chrome extension; not every browser or site."
+    },
+    {
+      "problem": "Work while the task window is minimized",
+      "status": "passed_prior_scoped_live_case",
+      "evidence": "Chrome settings saved with minimized metadata before and after in the recorded revision-4 trial.",
+      "scope": "The intermediate interval was not continuously measured; no universal never-restored guarantee."
+    },
+    {
+      "problem": "Connection failure and original native authentication refusal",
+      "status": "actual_desktop_authentication_recovery_verified_in_0.0.8",
+      "evidence": "Exact -10000 Sender process is not authenticated was observed in the actual Desktop chat; the product helper repaired the selected override, gracefully restarted the official Desktop, and the same chat read the same native dummy target successfully.",
+      "scope": "Supported missing/ad-hoc CLI override cases, with backup and preconditions. Generic permission, login, timeout or unsupported-host failures are not automatically repaired."
+    },
+    {
+      "problem": "Observe only the authorized task page",
+      "status": "target_and_url_checks_enforced_through_guard",
+      "evidence": "Exact-URL discovery avoids unrelated inventory; guard checks identity before and after operations and withholds a mismatched result.",
+      "scope": "Host capture/input is not atomic with navigation. Collection itself is not prevented if navigation races with a host call."
+    },
+    {
+      "problem": "Preserve the user's typing caret and keyboard focus",
+      "status": "passed_prior_physical_typing_cases",
+      "evidence": "Human typing and native dummy-input measurements were recorded while Chrome saves completed, on the same Desktop and on separate ordinary Desktops.",
+      "scope": "Observed cases only. CCUH cannot intercept an implicit OS focus change inside the host."
+    },
+    {
+      "problem": "Do not force the user's Space back to the task window",
+      "status": "passed_prior_user_assisted_separate_desktop_case",
+      "evidence": "The user confirmed physically typing on another ordinary Desktop without unwanted screen or caret movement while the same guarded browser code saved six times.",
+      "scope": "No OS Space lock or continuous system-wide Space monitor is supplied."
+    },
+    {
+      "problem": "Recognize the existing browser window instead of creating replacements",
+      "status": "passed_exact_url_discovery_and_reuse",
+      "evidence": "The independent fresh-chat trial rediscovered the original provider tab ID; only the single explicitly authorized setup tab was created. Unit tests cover missing, ambiguous, stale and unresolved lookup cases.",
+      "scope": "The supported Chrome management interface is required; lookup failure stops instead of creating a replacement."
+    },
+    {
+      "problem": "Recover the running actual Codex engine after a supported repair",
+      "status": "actual_desktop_restart_and_native_read_verified_in_0.0.8",
+      "evidence": "The product requested normal termination, launched the official Desktop once without activation, and native authentication recovered in the same chat. A transient startup-PID monitoring failure was retained in the raw record and the later identity recheck fix was tested separately.",
+      "scope": "Checkpoint, fresh idle evidence, confirmed background-work status and no unknown native mutation are required. No force quit."
+    }
+  ],
+  "latest_browser_trial": {
+    "installed_version": "0.0.9",
+    "result": "passed_ui_verification",
+    "browser_api": "official mcp__cua_repl Chrome extension path in a fresh Desktop chat",
+    "same_target_reused": true,
+    "setup_tab_creations": 1,
+    "replacement_tab_creations": 0,
+    "observed_saved_name": "ccuh-release-live",
+    "observed_enabled": true,
+    "observed_save_count": 1,
+    "backend_save_count": 1,
+    "active_metadata_before_and_after": false,
+    "os_focus_or_space_independently_measured_in_this_trial": false,
+    "discovered_issue": "Manual helper-source copying caused a parse error before mutation; 0.0.10 adds direct installed-file loading."
+  },
+  "new_recovery_behavior": {
+    "observed_error": "CUA_REPL_ENABLED_SURFACES is required",
+    "diagnostic_category": "browser_setup_unavailable",
+    "repair_block_reason": "host_browser_setup_required",
+    "enforced_behavior": "The supplied error blocks CLI repair planning, application and the startup drill, including when a stale CLI fixture also exists.",
+    "source_and_backup_unchanged_in_blocked_tests": true
+  },
+  "validation": {
+    "python_tests_passed": 221,
+    "javascript_tests_passed": 57,
+    "failures": 0,
+    "installed_file_import_in_real_node_repl": "guard revision 4 and discovery revision 1 loaded without UI operations",
+    "final_installed_browser_trial": "pending",
+    "clean_distribution_install": "pending",
+    "ci": "pending"
+  },
+  "privacy_of_release_evidence": "This summary contains no user transcript, native page text, user filesystem paths, chat IDs or authentication material. Raw development diagnostics are retained separately.",
+  "not_guaranteed": [
+    "Universal focus, Space, minimized-window or site compatibility.",
+    "Atomic prevention of unrelated host data collection or navigation/input races.",
+    "Automatic repair of all authentication, permission, connection or timeout failures.",
+    "Mandatory interception of every raw Computer Use call."
+  ]
+}

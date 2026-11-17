@@ -31,6 +31,7 @@ The CLI also accepts `--response-file -` for stdin and `--format json` for struc
 - A command exiting with 0 does not override a nested `isError: true`. Likewise, an error-free response or installed binary does not prove that Computer Use works.
 - A lookup failure does not establish that the target closed. Keep the original target; do not create a replacement window as a diagnostic step.
 - A timeout leaves the operation outcome unknown. Do not repeat a mutation or creation whose result is uncertain.
+- `browser_setup_unavailable` means the supplied error reports missing host browser initialization. The recovery helper blocks CLI repair for this response; use the host's documented browser setup instead. Changing a CLI override does not provide a missing browser surface.
 - Report the detected category, the last confirmed stage, and the relevant next check in the user's language. Preserve `unverified` when live authentication, target access, or the task outcome was not tested.
 
 The helper returns 0 for completed metadata inspection or no detected response error, 1 for a detected failure/unknown timeout outcome, and 2 for invalid input. Handle these as diagnostic results, not reasons to rerun the command repeatedly.

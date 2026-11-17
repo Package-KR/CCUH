@@ -84,6 +84,35 @@ class ResponseClassificationTests(unittest.TestCase):
                 self.assertTrue(report["is_error_detected"])
                 self.assertEqual(report["connection_status"], "unverified")
 
+    def test_observed_missing_browser_setup_is_distinct_from_optional_capability(self):
+        message = "CUA_REPL_ENABLED_SURFACES is required"
+        error = {"isError": True, "content": [{"type": "text", "text": message}]}
+        payloads = (
+            message,
+            error,
+            {"exit_code": 0, "result": error},
+            {"content": [{"text": json.dumps(error)}]},
+        )
+        for payload in payloads:
+            with self.subTest(payload_type=type(payload).__name__):
+                report = doctor.classify_response(payload)
+                self.assertEqual(report["category"], "browser_setup_unavailable")
+                self.assertTrue(report["is_error_detected"])
+                self.assertEqual(report["connection_status"], "unverified")
+                self.assertEqual(report["operation_outcome"], "unverified")
+
+    def test_missing_browser_setup_does_not_hide_unresolved_or_timed_out_operation(self):
+        for message, expected in (
+            ("request timed out", "timeout"),
+            ("CCUH: a previous native operation still has no confirmed completion", "operation_unresolved"),
+        ):
+            with self.subTest(category=expected):
+                report = doctor.classify_response({"isError": True, "content": [
+                    {"text": "CUA_REPL_ENABLED_SURFACES is required; " + message},
+                ]})
+                self.assertEqual(report["category"], expected)
+                self.assertEqual(report["operation_outcome"], "unknown")
+
     def test_observed_unresolved_operation_is_not_a_completed_or_cancelled_request(self):
         message = "CCUH: a previous native operation still has no confirmed completion..."
         error = {"isError": True, "content": [{"type": "text", "text": message}]}
@@ -235,6 +264,7 @@ class CliTests(unittest.TestCase):
         expected_keys = {"schema_version", "mode", "category", "connection_status", "operation_outcome", "is_error_detected", "next_action"}
         cases = (
             ("Capability is not available: visibility", "capability_unavailable", "unverified"),
+            ("CUA_REPL_ENABLED_SURFACES is required", "browser_setup_unavailable", "unverified"),
             ("CCUH: a previous native operation still has no confirmed completion...", "operation_unresolved", "unknown"),
         )
         for message, category, outcome in cases:
@@ -253,6 +283,7 @@ class CliTests(unittest.TestCase):
         secret = "test-only-private-value-not-for-output"
         cases = (
             ("Capability is not available: visibility", "capability_unavailable", "선택 옵션의 지원 여부를 사전에 확인", "탭이나 창을 다시 만들지 마세요"),
+            ("CUA_REPL_ENABLED_SURFACES is required", "browser_setup_unavailable", "호스트 설정이 제공되지 않았다는 응답", "CLI 실행 경로 복구로 이 초기화 오류가 해결됐다고 판단하지 마세요"),
             ("CCUH: a previous native operation still has no confirmed completion...", "operation_unresolved", "취소된 것으로 볼 수 없습니다", "확인 전 임의 초기화, 인증 우회, 같은 변경의 중복 요청을 하지 마세요"),
         )
         for message, category, status_explanation, action in cases:

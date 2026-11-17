@@ -40,6 +40,8 @@ RULES = (
      "Confirm that this session exposes a documented official entry point. Installation alone does not prove availability."),
     ("timeout", r"\btimeout\b|\btimed out\b|result[_ ]unknown|outcome[_ ]unknown",
      "The operation outcome is unknown. Check the original target before repeating any mutation or window-creation request."),
+    ("browser_setup_unavailable", r"\bcua_repl_enabled_surfaces\s+is required\b",
+     "Confirm that this session provides the official browser runtime setup. CLI override repair does not provide missing host browser initialization."),
     ("target_lookup_failed", r"(?:failed|unable|could not|cannot) to (?:find|resolve|query|list|determine|look up)|"
      r"(?:target|window|tab).{0,40}(?:lookup|query|enumeration).{0,25}(?:failed|error)|"
      r"\b(?:target|window|tab) (?:was |is )?not found\b|"
@@ -93,6 +95,11 @@ TEXT_GUIDANCE = {
         "시간 초과·결과 불확실",
         "시간 초과 응답을 감지했습니다. 작업이 취소됐는지는 확인하지 못했습니다.",
         "기존 대상에서 원래 요청의 결과를 먼저 확인하세요. 결과 확인 없이 새 창 생성이나 변경 요청을 반복하지 마세요.",
+    ),
+    "browser_setup_unavailable": (
+        "호스트 브라우저 초기화 설정 미제공",
+        "공식 브라우저 런타임 초기화에 필요한 호스트 설정이 제공되지 않았다는 응답입니다. 선택 기능 지원 여부와는 별개입니다.",
+        "현재 세션의 공식 브라우저 런타임 지원을 확인하세요. CLI 실행 경로 복구로 이 초기화 오류가 해결됐다고 판단하지 마세요.",
     ),
     "target_lookup_failed": (
         "기존 대상 조회 실패",

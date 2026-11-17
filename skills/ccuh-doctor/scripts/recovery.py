@@ -247,7 +247,7 @@ def payload_category(payload):
             return "timeout" if payload.get("category") == "timeout" else "operation_unresolved"
         if payload.get("schema_version") == 1 and payload.get("mode") in ("response", "environment"):
             category = payload.get("category")
-            known = {"operation_unresolved", "capability_unavailable", "authentication_failed", "permission_denied",
+            known = {"operation_unresolved", "capability_unavailable", "browser_setup_unavailable", "authentication_failed", "permission_denied",
                      "startup_failed", "tool_unavailable", "timeout", "target_lookup_failed", "target_absent",
                      "capture_failed", "tool_error", "response_unverified", "input_error", "environment_checked"}
             return category if category in known else "tool_error"
@@ -333,6 +333,8 @@ def adhoc_candidate_evidence(value):
 def response_block(category):
     if category in ("operation_unresolved", "timeout"):
         return "operation_completion_unconfirmed"
+    if category == "browser_setup_unavailable":
+        return "host_browser_setup_required"
     if category not in (None, "startup_failed", "response_unverified", "environment_checked"):
         return "diagnostic_requires_other_recovery"
     return None

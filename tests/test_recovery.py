@@ -198,6 +198,69 @@ class RecoveryFixtureTests(unittest.TestCase):
         self.assertEqual(json.loads(output.getvalue())["reason"], "operation_or_diagnostic_blocks_apply")
         self.assertFalse(self.backup_file.exists())
 
+    def browser_setup_payloads(self):
+        return (
+            {"isError": True, "content": [{"type": "text", "text": "CUA_REPL_ENABLED_SURFACES is required"}]},
+            {"schema_version": 1, "mode": "response", "category": "browser_setup_unavailable",
+             "connection_status": "unverified", "operation_outcome": "unverified",
+             "is_error_detected": True, "next_action": "redacted"},
+        )
+
+    def test_browser_setup_error_blocks_stale_cli_repair_planning(self):
+        before = self.env_file.read_bytes()
+        for index, payload in enumerate(self.browser_setup_payloads()):
+            with self.subTest(payload_type="raw" if index == 0 else "doctor"):
+                response = self.root / "browser-error.json"
+                response.write_text(json.dumps(payload))
+                self.assertEqual(recovery.response_category(response), "browser_setup_unavailable")
+                plan_file = self.root / ("blocked-plan-{}.json".format(index))
+                output = io.StringIO()
+                with patch.object(recovery, "runtime_evidence", return_value=VERIFIED), redirect_stdout(output):
+                    result = recovery.main(["--repair-plan", "--environment-file", str(self.env_file),
+                                            "--app-path", str(self.app), "--plan-file", str(plan_file),
+                                            "--response-file", str(response)])
+                self.assertEqual(result, 1)
+                self.assertEqual(json.loads(output.getvalue())["reason"], "host_browser_setup_required")
+                self.assertEqual(json.loads(plan_file.read_text())["status"], "blocked")
+                self.assertEqual(self.env_file.read_bytes(), before)
+                self.assertFalse(self.backup_file.exists())
+
+    def test_browser_setup_error_blocks_existing_plan_apply_and_startup_drill(self):
+        self.save_plan()
+        before = self.env_file.read_bytes()
+        for payload in self.browser_setup_payloads():
+            response = self.root / "browser-error.json"
+            response.write_text(json.dumps(payload))
+            actions = (
+                ["--apply", str(self.plan_file)],
+                ["--startup-drill", "--environment-file", str(self.env_file),
+                 "--app-path", str(self.app), "--plan-file", str(self.root / "unused-drill-plan.json")],
+            )
+            for action in actions:
+                with self.subTest(action=action[0], payload=payload):
+                    output = io.StringIO()
+                    with patch.object(recovery, "runtime_evidence", side_effect=AssertionError("must not probe runtime")), \
+                         patch.object(recovery, "selected_startup", side_effect=AssertionError("must not launch")), \
+                         redirect_stdout(output):
+                        result = recovery.main([*action, "--backup-file", str(self.backup_file),
+                                                "--response-file", str(response)])
+                    self.assertEqual(result, 1)
+                    self.assertEqual(json.loads(output.getvalue())["reason"], "operation_or_diagnostic_blocks_apply")
+                    self.assertEqual(self.env_file.read_bytes(), before)
+                    self.assertFalse(self.backup_file.exists())
+                    self.assertFalse((self.root / "unused-drill-plan.json").exists())
+
+    def test_browser_setup_error_preserves_unknown_operation_precedence(self):
+        raw = self.browser_setup_payloads()[0]
+        for payload, expected in (
+            ({"result": raw, "timedOut": True}, "timeout"),
+            ({"result": raw, "operation_outcome": "unknown"}, "operation_unresolved"),
+            ({**self.browser_setup_payloads()[1], "operation_outcome": "unknown"}, "operation_unresolved"),
+        ):
+            with self.subTest(category=expected):
+                self.assertEqual(recovery.payload_category(payload), expected)
+                self.assertEqual(recovery.response_block(expected), "operation_completion_unconfirmed")
+
     def test_doctor_json_unknown_outcome_is_not_lost_when_used_for_recovery(self):
         self.save_plan()
         for category in ("operation_unresolved", "timeout"):
