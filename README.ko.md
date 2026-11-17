@@ -4,40 +4,42 @@
 
 **Codex Computer Use Helpers**
 
-기존 Chrome 탭 작업과 지원되는 Codex Computer Use 오류 복구를 돕는 macOS 플러그인입니다.
+Codex 플러그인으로 설치하는 Computer Use 보조 스킬셋입니다.
 
 [English](README.md) | [한국어](README.ko.md)
 
 </div>
 
-> [!WARNING]
-> **프리뷰입니다.**
->
-> 호스트가 제공하는 브라우저 Computer Use 연결이 필요합니다. OS 포커스·Space 전환 차단과 무관 콘텐츠 수집 자체의 원자적 차단은 보장하지 않습니다.
+> [!NOTE]
+> macOS · Chrome 환경의 프리뷰입니다.
 
 ## 프로젝트 소개
 
-CCUH에는 다음 구성이 있습니다.
+Codex에 **등록된 CCUH 플러그인을 추가하면** 두 스킬과 실행 스크립트가 함께 설치됩니다.
 
-- **ccuh:** 정확한 URL로 기존 탭을 재사용하고, 지원되는 작업을 해당 대상으로 제한하며 결과가 불확실하면 새 창을 만들지 않고 중단하는 가드.
-- **ccuh-doctor:** 연결 진단, 되돌릴 수 있는 CLI 복구, 작업 상태 저장·유휴 확인 후 Codex 재시작.
-- **개발 도구:** 더미 화면, 입력 측정, 자동 테스트. 배포 ZIP에는 포함하지 않습니다.
+- **ccuh:** 기존 Chrome 탭 재사용, 대상 확인, 불확실한 작업 중단.
+- **ccuh-doctor:** 연결 오류 진단, 지원되는 복구, 상태 확인 후 승인된 Codex 재시작.
 
-macOS와 현재 채팅에서 작동하는 Chrome Computer Use 연결이 필요하며, Doctor에는 Python 3.9 이상이 필요합니다. CCUH가 호스트 브라우저 기능을 설치하지는 않습니다. 관련 요청에서 스킬이 자동 선택될 수 있지만 모든 Computer Use 호출에 강제 적용되지는 않습니다.
+Codex가 요청에 맞는 `SKILL.md` 지침을 읽고 동봉된 스크립트를 실행합니다. 실제 화면 조작에는 공식 Computer Use를 사용합니다.
 
-전달받은 ZIP을 압축 해제한 뒤, Codex CLI가 설치된 터미널에서 실행하세요. 소스 저장소 접근 권한은 필요하지 않습니다.
-
-```sh
-unzip ccuh-0.0.11.zip -d ccuh
-codex plugin marketplace add ./ccuh
-codex plugin add ccuh@ccuh
+```mermaid
+flowchart LR
+  U["사용자 요청"] --> C["Codex: 스킬 선택"]
+  subgraph P["CCUH 플러그인"]
+    S["ccuh<br/>대상 확인 · 작업 가드"]
+    D["ccuh-doctor<br/>오류 진단 · 지원 복구"]
+  end
+  C -->|"화면 작업"| S
+  C -->|"연결 오류"| D
+  S --> B["공식 Computer Use"]
+  B --> T["기존 Chrome 탭"]
 ```
 
-새 채팅에서 Chrome과 `ccuh` 스킬을 선택하고 “기존 `https://example.com/settings` 탭에서 …을 변경해줘. 현재 포커스를 유지하고, 지원되는 백그라운드 경로가 없으면 중단해줘”처럼 요청하세요. 연결이 막히면 `ccuh-doctor`로 진단할 수 있습니다. [공식 Chrome 연결 안내](https://learn.chatgpt.com/docs/chrome-extension)
+**사용:** 플러그인 추가 후 새 채팅에서 Chrome을 선택하고, “`ccuh`로 기존 `[URL]` 탭에서 …을 변경해줘”처럼 요청하세요.
 
-압축 해제한 폴더를 보관하세요. 업데이트할 때는 같은 폴더를 새 패키지 내용으로 교체하고 마지막 설치 명령을 다시 실행한 뒤 새 채팅에서 사용하세요.
+**필요 환경:** macOS · Chrome Computer Use 연결. Doctor에는 Python 3.9 이상이 필요합니다.
 
-실제 Chrome에서 비활성 탭·최소화 창·다른 Desktop에서의 직접 타이핑과, 실제 Codex 재시작 후 네이티브 인증 복구를 시험했습니다. 이는 시험한 사례이며 모든 환경의 보장은 아닙니다. URL 확인으로 캡처 후 비허용 결과 반환을 막을 수 있지만, 호스트의 캡처·입력을 원자적으로 제한하지는 못합니다. [동봉된 검증 기록과 호환 범위](VERIFICATION.json)
+적용 범위는 이 스킬을 통해 수행한 작업입니다. 모든 환경에서의 포커스·Space 보존과 무관 화면 수집 차단은 보장하지 않습니다. [검증 범위](VERIFICATION.json)
 
 ## 라이선스
 
