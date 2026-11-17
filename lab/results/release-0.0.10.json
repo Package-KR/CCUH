@@ -14,6 +14,7 @@
   "components": {
     "target_guard": {"runtime_revision": 4, "sha256": "acce7b41fc83c25a9c83271c891134f024f50e05d69b7e4acaaa60a8317d39c1"},
     "target_discovery": {"runtime_revision": 1, "sha256": "69ad2335d703489b489ee662d4064596f01749f61c1ae896f2b2660740381379"},
+    "cli_recovery": {"sha256": "38520d40084ba3b669bc79312f8297f51eb481f0444becc9fe2499a176563fd4"},
     "browser_code_unchanged_from_previous_live_typing_trials": true
   },
   "user_problem_matrix": [
@@ -86,18 +87,86 @@
     "diagnostic_category": "browser_setup_unavailable",
     "repair_block_reason": "host_browser_setup_required",
     "enforced_behavior": "The supplied error blocks CLI repair planning, application and the startup drill, including when a stale CLI fixture also exists.",
-    "source_and_backup_unchanged_in_blocked_tests": true
+    "source_and_backup_unchanged_in_blocked_tests": true,
+    "python_313_path_error_fix": "An actual macOS CI failure exposed symlink-loop errors being mistaken for a missing executable by newer pathlib. Recovery now accepts only explicit stat ENOENT as missing and preserves ELOOP, EACCES, ENOTDIR and other unconfirmed errors. The original symlink-loop test and three new behavior tests cover this.",
+    "final_installed_startup_drill": {
+      "status": "startup_recovered",
+      "before": "actual ENOENT",
+      "after_exit_code": 0,
+      "after_version": "codex-cli 0.169.0-alpha.11.1",
+      "official_runtime_verified": true,
+      "rollback_backup_created": true,
+      "scope": "Isolated launcher fixture; actual app and system environment unchanged; native authentication not retested by this drill."
+    }
   },
   "validation": {
-    "python_tests_passed": 221,
+    "python_tests_passed": 224,
     "javascript_tests_passed": 57,
     "failures": 0,
     "installed_file_import_in_real_node_repl": "guard revision 4 and discovery revision 1 loaded without UI operations",
-    "final_installed_browser_trial": "pending",
-    "clean_distribution_install": "pending",
+    "final_installed_browser_trial": {
+      "installed_version": "0.0.10",
+      "status": "same_target_ui_verified",
+      "independent_fresh_chat": true,
+      "helpers_loaded_by_local_file_import": true,
+      "helper_copy_errors": 0,
+      "same_tab_reused": true,
+      "observed_saved_name": "ccuh-010-verified",
+      "observed_enabled": true,
+      "ui_save_count": 1,
+      "backend_save_count": 1,
+      "mutation_retries": 0,
+      "task_replacement_windows_or_tabs": 0,
+      "scope": "Preparation explicitly allowed a new displayed test workspace. The actual existing-target task made no explicit activation, restore or global-input calls. This positive trial's target tab was active; the separate prior fresh-chat trial covered an inactive tab with identical guard code."
+    },
+    "unsupported_visibility_trial": {
+      "installed_version": "0.0.10",
+      "status": "stopped_without_task_mutation",
+      "actual_error": "Capability is not available: visibility",
+      "exact_lookup": "target_missing",
+      "repeat_creation_calls": 0,
+      "cli_repair_or_restart": false,
+      "task_success_claimed": false
+    },
+    "independent_installed_diagnostic": {
+      "category": "browser_setup_unavailable",
+      "repair_block_reason": "host_browser_setup_required",
+      "stale_cli_fixture_preserved": true,
+      "keep_preserved": true,
+      "backup_created": false,
+      "live_authentication_claimed": false
+    },
+    "passive_os_observer": {
+      "app_or_window_created": false,
+      "screen_or_text_collected": false,
+      "received_activation_changes": 0,
+      "received_space_changes": 0,
+      "task_interval_covered": true,
+      "delivery_verified": false,
+      "no_focus_or_space_change_proven": false,
+      "scope": "Received notification counts only, with no positive delivery control. The first sandboxed observer reported notification registration errors and was stopped; the later observation used an approved execution context. These zero counts are not evidence of universal focus or Space preservation."
+    },
+    "clean_distribution_install": {
+      "method": "Official Codex CLI with a fresh isolated configuration directory and the proposed clean local marketplace snapshot",
+      "status": "passed",
+      "version": "0.0.10",
+      "snapshot_files": 15,
+      "all_installed_snapshot_bytes_match": true,
+      "real_user_configuration_changed": false,
+      "remote_public_install": "requires publication approval"
+    },
     "ci": "pending"
   },
   "privacy_of_release_evidence": "This summary contains no user transcript, native page text, user filesystem paths, chat IDs or authentication material. Raw development diagnostics are retained separately.",
+  "cleanup": {
+    "owned_test_tab_closed": true,
+    "id_and_url_verified_before_close": true,
+    "target_absence_confirmed_after_close": true,
+    "close_calls": 1,
+    "local_fixture_servers_stopped": true,
+    "passive_observer_processes_stopped": true,
+    "other_user_targets_closed": false
+  },
   "not_guaranteed": [
     "Universal focus, Space, minimized-window or site compatibility.",
     "Atomic prevention of unrelated host data collection or navigation/input races.",

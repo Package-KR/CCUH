@@ -347,13 +347,19 @@ def assess_override(value, official):
         candidate = Path(value).expanduser()
         if not candidate.is_absolute():
             return "ambiguous_override_preserved"
-        if candidate.resolve() == official.resolve() and candidate.is_file():
+        # exists()/is_file() can hide path errors on newer Python versions.
+        # Only an explicit ENOENT from this override proves it is missing.
+        try:
+            info = candidate.stat()
+        except OSError as error:
+            if error.errno == errno.ENOENT:
+                return "missing_override"
+            raise
+        if candidate.resolve() == official.resolve() and stat.S_ISREG(info.st_mode):
             return "official_override_preserved"
-        if candidate.exists():
-            return "existing_override_preserved"
+        return "existing_override_preserved"
     except (OSError, ValueError, RuntimeError):
         return "override_path_unconfirmed_preserved"
-    return "missing_override"
 
 
 def make_plan(store, app_path, category=None, remove_adhoc=False, response_path=None):

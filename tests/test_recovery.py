@@ -1,3 +1,4 @@
+import errno
 import importlib.util
 import io
 import json
@@ -87,6 +88,49 @@ class RecoveryFixtureTests(unittest.TestCase):
         loop.symlink_to(loop)
         self.env_file.write_text(json.dumps({recovery.KEY: str(loop)}))
         self.assertEqual(self.save_plan()["reason"], "override_path_unconfirmed_preserved")
+
+    def test_override_below_a_regular_file_is_preserved_as_unconfirmed(self):
+        parent_file = self.root / "not-a-directory"
+        parent_file.touch()
+        self.env_file.write_text(json.dumps({recovery.KEY: str(parent_file / "codex")}))
+        before = self.env_file.read_bytes()
+        plan = self.save_plan()
+        self.assertEqual(plan["status"], "no_change")
+        self.assertEqual(plan["reason"], "override_path_unconfirmed_preserved")
+        self.assertEqual(self.env_file.read_bytes(), before)
+        self.assertFalse(self.backup_file.exists())
+
+    def test_confirmed_enoent_still_allows_stale_override_repair(self):
+        actual_stat = Path.stat
+        def override_stat(path, *args, **kwargs):
+            if path == Path(self.missing):
+                raise FileNotFoundError(errno.ENOENT, "fixture path is missing")
+            return actual_stat(path, *args, **kwargs)
+        with patch.object(Path, "stat", override_stat):
+            self.assertEqual(self.save_plan()["status"], "repair_available")
+            self.assertEqual(self.apply()["status"], "repair_applied")
+        self.assertEqual(json.loads(self.env_file.read_text()), {"KEEP": self.original["KEEP"]})
+        self.assertTrue(self.backup_file.exists())
+
+    def test_other_path_errors_preserve_override_and_block_stale_plan_apply(self):
+        self.save_plan()
+        before = self.env_file.read_bytes()
+        actual_stat = Path.stat
+        for code in (errno.EACCES, errno.ELOOP, errno.ENOTDIR, errno.EIO):
+            def override_stat(path, *args, **kwargs):
+                if path == Path(self.missing):
+                    raise OSError(code, "fixture path cannot be confirmed")
+                return actual_stat(path, *args, **kwargs)
+            with self.subTest(errno=code), patch.object(Path, "stat", override_stat):
+                with patch.object(recovery, "runtime_evidence", return_value=VERIFIED):
+                    plan = recovery.make_plan(self.store, self.app)
+                self.assertEqual(plan["status"], "no_change")
+                self.assertEqual(plan["reason"], "override_path_unconfirmed_preserved")
+                with self.assertRaises(recovery.RecoveryError) as caught:
+                    self.apply()
+                self.assertEqual(caught.exception.code, "override_must_be_preserved")
+            self.assertEqual(self.env_file.read_bytes(), before)
+            self.assertFalse(self.backup_file.exists())
 
     def test_absent_override_is_no_change(self):
         self.env_file.write_text("{}")
