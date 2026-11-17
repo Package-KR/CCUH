@@ -527,19 +527,39 @@ def startup_drill(store, app_path, plan_path, backup_path):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__, epilog="Exit codes: 0 = operation completed/no change; 1 = blocked or recovery not confirmed; 2 = usage/input error. Plans and backups use mode 0600. Backup values are private and never printed.")
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=fr'''Startup drill (run instead of separate --repair-plan/--apply):
+  The isolated fixture must still contain CODEX_CLI_PATH pointing to a missing
+  executable. An already repaired fixture is rejected. Use fresh output paths.
+
+  python3 "{Path(__file__).resolve()}" --startup-drill \
+    --environment-file "/path/to/selected-launcher.json" \
+    --plan-file "/private/tmp/ccuh-startup-plan.json" \
+    --backup-file "/private/tmp/ccuh-startup-backup.json" \
+    --evidence-file "/private/tmp/ccuh-startup-evidence.json"
+
+The drill runs CLI --version before and after repairing only that fixture.
+It does not restart an app or verify native authentication. --evidence-file is
+optional. Plans, backups, and evidence files are never overwritten; even a
+blocked repair plan can create its output file, so use a new path when retrying.
+
+Exit codes: 0 = operation completed/no change; 1 = blocked or recovery not
+confirmed; 2 = usage/input error. Plans and backups use mode 0600. Backup values
+are private and never printed.''')
     action = parser.add_mutually_exclusive_group(required=True)
     action.add_argument("--repair-plan", action="store_true")
     action.add_argument("--apply", metavar="PLAN")
     action.add_argument("--restore", metavar="BACKUP")
     action.add_argument("--predispatch", action="store_true")
-    action.add_argument("--startup-drill", action="store_true")
+    action.add_argument("--startup-drill", action="store_true", help="Repair an isolated missing-override fixture and compare CLI --version before/after; requires --environment-file, --plan-file, and --backup-file.")
     backend = parser.add_mutually_exclusive_group()
     backend.add_argument("--environment-file", help="Explicit isolated JSON launcher fixture; not config.toml.")
     backend.add_argument("--launchctl", action="store_true", help="Explicit macOS future-process environment backend; does not update this session.")
-    parser.add_argument("--plan-file")
-    parser.add_argument("--backup-file")
-    parser.add_argument("--evidence-file")
+    parser.add_argument("--plan-file", help="Fresh plan output path; required by --repair-plan and --startup-drill.")
+    parser.add_argument("--backup-file", help="Fresh rollback output path; required by --apply and --startup-drill.")
+    parser.add_argument("--evidence-file", help="Optional fresh output path for the JSON report.")
     parser.add_argument("--app-path", default="/Applications/ChatGPT.app")
     parser.add_argument("--response-file", help="One supplied diagnostic response (or - for stdin); unresolved/timeouts block mutation.")
     parser.add_argument("--remove-adhoc-cli-override", action="store_true", help="Opt in only with --repair-plan: remove an existing verified ad-hoc CLI override after exact native -10000 authentication evidence.")

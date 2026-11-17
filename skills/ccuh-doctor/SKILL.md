@@ -45,6 +45,18 @@ For the specific native error `-10000: Sender process is not authenticated`, an 
 
 The launchctl backend affects future processes, not the current app/session. It does not edit config.toml or other override sources; clearing an unrelated source does not establish repair. Do not restart an app with unconfirmed work. Report a required fresh process separately from the repair result, then repeat the same native read of the approved target through the documented Computer Use path. Only a successful native read establishes authentication recovery for that tested path. The helper deliberately leaves `current_connection: unverified` after changing a source. The `--environment-file` backend is an isolated launcher fixture, and `--startup-drill` proves only executable startup, not native authentication recovery.
 
+For an authorized isolated launcher startup test, run `--startup-drill` **instead of** the separate `--repair-plan`/`--apply` sequence. The selected JSON fixture must still contain `CODEX_CLI_PATH` pointing to a missing executable; an already repaired fixture is rejected. The drill runs CLI `--version`, prepares and applies the fixture repair with a rollback backup, then runs `--version` again. It requires `--environment-file`, `--plan-file`, and `--backup-file`; `--evidence-file` optionally saves the result:
+
+```sh
+python3 "<installed-skill-directory>/scripts/recovery.py" --startup-drill \
+  --environment-file "/path/to/selected-launcher.json" \
+  --plan-file "/private/tmp/ccuh-startup-plan.json" \
+  --backup-file "/private/tmp/ccuh-startup-backup.json" \
+  --evidence-file "/private/tmp/ccuh-startup-evidence.json"
+```
+
+Use fresh paths for all outputs. Even a blocked `--repair-plan` can create its plan file, so choose a new path when retrying. This startup test changes only the selected fixture and starts CLI child processes; it does not restart the Desktop or verify native authentication.
+
 The helper also gates independent optional-capability probes and permission waits with `--predispatch`; it does not rewrite UI requests, drop visibility settings to force foreground work, grant permissions, or retry pending native operations. A signature check failing inside a sandbox is unconfirmed, not proof of invalid signing; repair requires an execution context where verification succeeds.
 
 ## Restart the running Desktop after repair

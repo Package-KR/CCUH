@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "plugin_version": "0.0.9",
+  "status": "completed_with_browser_task_unverified",
+  "scope": "Independent agents receive the installed skill and a task, without helper commands or the answer procedure.",
+  "baseline_installed_doctor_trial": {
+    "plugin_version": "0.0.8",
+    "status": "passed_with_documentation_gaps",
+    "source": "isolated_launcher_fixture",
+    "actual_initial_error": "ENOENT from the selected CODEX_CLI_PATH",
+    "repair": "Removed only the selected missing override; preserved KEEP.",
+    "actual_cli_startup": "codex-cli 0.169.0-alpha.11.1; exit 0",
+    "backup_mode": "0600",
+    "private_result": "/private/tmp/ccuh-forward-yhaaw56c/doctor-trial-result.json",
+    "observed_gaps": [
+      "startup-drill help omitted its complete output-file contract.",
+      "The integrated drill requires the original missing override, so it cannot be appended after an already applied repair."
+    ],
+    "actual_desktop_restarted": false,
+    "native_authentication_verified": false
+  },
+  "host_browser_availability": {
+    "status": "setup_unavailable",
+    "available_tool": "mcp__node_repl.js",
+    "binding_check": "typeof cua === undefined",
+    "attempted_official_import": "@oai/cua/tinyskyAlt",
+    "actual_error": "CUA_REPL_ENABLED_SURFACES is required",
+    "documented_alternative_bootstrap_found": false,
+    "initialization_environment_modified": false,
+    "ui_target_read_or_mutated": false,
+    "replacement_tabs_created": 0,
+    "scope": "This chat's currently exposed host runtime, not a claim that all Codex installations lack browser support."
+  },
+  "changes": [
+    "Check for a documented browser runtime before discovery; stop with setup_unavailable when it is absent.",
+    "Do not treat a missing host surface as CLI authentication failure or manufacture it with environment flags, native whole-browser input, replacement tabs, or a restart.",
+    "Document startup-drill's complete arguments, missing-override precondition, fresh output paths, and its use instead of a separate plan/apply sequence in both the skill and --help."
+  ],
+  "final_installed_trials": {
+    "doctor": {
+      "status": "startup_recovered",
+      "installed_version": "0.0.9",
+      "fresh_independent_agent": true,
+      "helper_commands_supplied_by_parent": false,
+      "actual_before": {"category": "startup_failed", "errno": "ENOENT"},
+      "actual_after": {"category": "startup_completed", "exit_code": 0, "version": "codex-cli 0.169.0-alpha.11.1"},
+      "keep_preserved": true,
+      "only_selected_override_removed": true,
+      "rollback_backup_private": true,
+      "usage_errors": 0,
+      "sandbox_runtime_verification_initially_unconfirmed": true,
+      "approved_execution_context_retry_succeeded": true,
+      "actual_desktop_restarted": false,
+      "native_authentication_verified": false,
+      "private_result": "/private/tmp/ccuh-forward-yhaaw56c/final-doctor-result.json",
+      "private_backup": "/private/tmp/ccuh-forward-yhaaw56c/final-doctor-backup-2cd9aa73dfb0.json"
+    },
+    "browser_gate": {
+      "status": "passed_unavailable_capability_stop",
+      "task_result": "setup_unavailable",
+      "installed_version": "0.0.9",
+      "fresh_independent_agent": true,
+      "helper_commands_supplied_by_parent": false,
+      "actual_binding_check": "typeof cua === undefined",
+      "ui_change_attempts": 0,
+      "task_ui_result": "unverified",
+      "private_result": "/private/tmp/ccuh-forward-yhaaw56c/final-browser-result.json"
+    }
+  },
+  "validation": {
+    "python_tests": {"passed": 216, "failed": 0},
+    "javascript_tests": {"passed": 57, "failed": 0},
+    "both_skill_format_checks": "passed",
+    "package_assets": 12,
+    "source_archive_installed_bytes_identical": true,
+    "unexpected_archive_assets": [],
+    "archive": "dist/ccuh-0.0.9.zip",
+    "archive_sha256": "6d8cfcae44ef7b9df860262b89d9dd2b051bcc0cf898ef9e81559198190fe431"
+  },
+  "limits": [
+    "No browser mutation, inactive-tab reuse, focus preservation, minimized-window work, or cross-Space work was retested in this session: the browser prerequisite was unavailable.",
+    "A no-UI stop does not demonstrate focus preservation during an actual browser mutation.",
+    "The independent launcher fixture proves executable startup only. Actual Desktop authentication recovery remains the separately recorded 0.0.8 live drill in ccuh08-live-desktop.json."
+  ]
+}

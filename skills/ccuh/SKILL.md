@@ -7,6 +7,12 @@ description: Find and reuse an existing browser target by exact task URL during 
 
 Keep the requested existing target bound while the user works elsewhere. Use the bundled executable target-session guard for its supported browser path, and the read-only diagnostic helper for blocked connections. The guard enforces calls through its own facade; it does not control raw host tools or implicit OS focus changes.
 
+## Check the host browser capability
+
+Before looking up a target, confirm that this session provides a documented browser runtime and its initialization instructions. A generic JavaScript tool or native app tool alone does not establish browser support. Follow only the host's supplied initialization procedure; if it already provides `cua`, reuse it. A non-UI `typeof cua` check may confirm an existing binding, but do not call global inventory methods to bootstrap discovery.
+
+If the browser binding or its documented initialization is unavailable, stop this browser route and report `setup_unavailable`, the missing prerequisite, and that the requested UI change is unverified. Do not guess an import, inject runtime environment flags, switch to native whole-browser input, create a tab to test connectivity, or restart Codex to manufacture that capability. An initialization error such as `CUA_REPL_ENABLED_SURFACES is required` does not by itself establish a CLI authentication failure or authorize CLI repair. CCUH supplies guards for an available host browser interface; it does not enable a missing host surface.
+
 ## Bind the existing target
 
 - Start with the user's exact tab mention or an already verified target reference and URL. Use the current session's documented browser interface. Follow its first-call requirements.
