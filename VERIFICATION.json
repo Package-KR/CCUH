@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "version": "0.0.11",
+  "release_kind": "preview",
+  "distribution": {
+    "method": "ZIP with a local Codex plugin marketplace",
+    "source_repository_access_required": false,
+    "source_repository_visibility": "private",
+    "runtime_package_assets": 14,
+    "development_git_history_included": false,
+    "raw_diagnostic_logs_included": false,
+    "updates": "Replace the extracted local marketplace contents and repeat codex plugin add ccuh@ccuh."
+  },
+  "supported_environment": {
+    "platform": "macOS",
+    "browser": "Chrome through the host's documented browser Computer Use interface",
+    "doctor_python": "3.9 or newer, standard library only",
+    "automatic_application": "Model-driven skill selection; explicit ccuh selection recommended. Raw host tools are not intercepted."
+  },
+  "distribution_validation": {
+    "official_cli_install_from_extracted_zip": "passed",
+    "all_14_installed_assets_match": true,
+    "same_folder_update": "passed using a test-only version fixture",
+    "repository_or_git_checkout_used": false,
+    "real_user_configuration_changed": false,
+    "python_regression_tests": 228,
+    "unchanged_browser_regression_tests": 57,
+    "failures": 0
+  },
+  "runtime_provenance": {
+    "unchanged_from_verified_version": "0.0.10",
+    "target_guard_sha256": "acce7b41fc83c25a9c83271c891134f024f50e05d69b7e4acaaa60a8317d39c1",
+    "target_discovery_sha256": "69ad2335d703489b489ee662d4064596f01749f61c1ae896f2b2660740381379",
+    "cli_recovery_sha256": "38520d40084ba3b669bc79312f8297f51eb481f0444becc9fe2499a176563fd4",
+    "last_full_runtime_regression": {"python_tests": 224, "javascript_tests": 57, "failures": 0},
+    "macos_ci_python_versions": ["3.9", "3.13"],
+    "macos_ci_node_version": "24",
+    "macos_ci_runtime_baseline": "passed"
+  },
+  "verified_cases": [
+    {"case": "Existing exact-URL Chrome tab reuse", "result": "Same tab rediscovered; name, enabled state and one save confirmed in the installed 0.0.10 UI and local backend."},
+    {"case": "Inactive tab", "result": "Separate installed 0.0.9 trial saved successfully with active=false metadata before and after; guard code is unchanged."},
+    {"case": "Minimized window", "result": "Earlier Chrome trial saved with minimized metadata before and after; intermediate restore was not continuously measured."},
+    {"case": "Physical typing and ordinary macOS Desktops", "result": "Earlier user-assisted same-Desktop and separate-Desktop typing trials passed with the same browser guard code. These are scoped observations, not OS-level enforcement."},
+    {"case": "Actual Desktop authentication recovery", "result": "The 0.0.8 live drill observed the exact native -10000 authentication error, repaired the selected source, gracefully restarted the actual official Desktop, then read the same native dummy target successfully in the same chat."},
+    {"case": "Missing host browser setup", "result": "Installed Doctor classified browser_setup_unavailable and blocked CLI repair before changing the selected fixture or creating a backup."},
+    {"case": "Unconfirmed executable path", "result": "Python 3.13 symlink-loop regression fixed: only explicit stat ENOENT allows missing-path repair; other path errors preserve the override."},
+    {"case": "Actual executable startup", "result": "Latest installed recovery helper reproduced ENOENT and recovered an isolated launcher; official CLI --version returned exit 0. This did not restart the actual app or re-test native authentication."}
+  ],
+  "limits": [
+    "No universal guarantee of focus, Space, minimized-window or website compatibility.",
+    "URL checks withhold mismatched results but cannot make host capture/input atomic with navigation or prevent unrelated collection inside a racing host call.",
+    "Unsupported browser capabilities stop; all connection, authentication and permission errors are not automatically repairable.",
+    "The latest live browser trial used an active target after explicitly allowed preparation. Inactive-tab and physical-typing evidence comes from separate earlier trials with identical guard code."
+  ],
+  "privacy": "No user transcript, native page content, user filesystem paths, chat IDs, credentials or raw diagnostic logs are included."
+}

@@ -17,6 +17,7 @@ from typing import Dict, Optional, Tuple
 PACKAGE_FILES = (
     ("plugin.json", "plugin.json"),
     (".codex-plugin/plugin.json", ".codex-plugin/plugin.json"),
+    (".claude-plugin/marketplace.json", ".claude-plugin/marketplace.json"),
     ("skills/ccuh/SKILL.md", "skills/ccuh/SKILL.md"),
     ("skills/ccuh/scripts/target-session.js", "skills/ccuh/scripts/target-session.js"),
     ("skills/ccuh/scripts/target-discovery.js", "skills/ccuh/scripts/target-discovery.js"),
@@ -36,6 +37,7 @@ PACKAGE_FILES = (
     ("README.md", "README.md"),
     ("README.ko.md", "README.ko.md"),
     ("LICENSE", "LICENSE"),
+    ("VERIFICATION.json", "VERIFICATION.json"),
 )
 
 VERSION_PATTERN = re.compile(
@@ -73,19 +75,36 @@ def _text(data: bytes, relative: str) -> str:
         raise PackageError("Required file is not UTF-8: {}".format(relative)) from error
 
 
-def _manifest(data: bytes, relative: str) -> Dict[str, object]:
+def _json_object(data: bytes, relative: str) -> Dict[str, object]:
     try:
         value = json.loads(_text(data, relative))
     except json.JSONDecodeError as error:
-        raise PackageError("Invalid JSON manifest: {}".format(relative)) from error
+        raise PackageError("Invalid JSON file: {}".format(relative)) from error
     if not isinstance(value, dict):
-        raise PackageError("Manifest must be a JSON object: {}".format(relative))
+        raise PackageError("Required JSON object: {}".format(relative))
+    return value
+
+
+def _manifest(data: bytes, relative: str) -> Dict[str, object]:
+    value = _json_object(data, relative)
     if value.get("name") != "ccuh":
         raise PackageError("Manifest name must be ccuh: {}".format(relative))
     version = value.get("version")
     if not isinstance(version, str) or VERSION_PATTERN.fullmatch(version) is None:
         raise PackageError("Manifest requires an x.y.z version: {}".format(relative))
     return value
+
+
+def _marketplace(data: bytes) -> None:
+    value = _json_object(data, ".claude-plugin/marketplace.json")
+    plugins = value.get("plugins")
+    if value.get("name") != "ccuh" or not isinstance(plugins, list) or len(plugins) != 1:
+        raise PackageError("Marketplace must contain only the ccuh plugin")
+    plugin = plugins[0]
+    if not isinstance(plugin, dict) or plugin.get("name") != "ccuh":
+        raise PackageError("Marketplace plugin name must be ccuh")
+    if plugin.get("source") != {"source": "local", "path": "."}:
+        raise PackageError("Marketplace source must be the local archive root (.)")
 
 
 def _skill_frontmatter(data: bytes, relative: str, expected_name: str) -> None:
@@ -135,6 +154,13 @@ def _load_sources(root: Path) -> Tuple[str, Dict[str, bytes]]:
     codex = _manifest(sources[".codex-plugin/plugin.json"], ".codex-plugin/plugin.json")
     if public["version"] != codex["version"]:
         raise PackageError("Manifest versions do not match")
+    if codex.get("skills") != "./skills/":
+        raise PackageError("Codex manifest skills must reference ./skills/")
+    _marketplace(sources[".claude-plugin/marketplace.json"])
+    verification_path = "VERIFICATION.json"
+    verification = _json_object(sources[verification_path], verification_path)
+    if verification.get("version") != public["version"]:
+        raise PackageError("Verification version does not match the plugin")
     for skill in ("ccuh", "ccuh-doctor"):
         relative = "skills/{}/SKILL.md".format(skill)
         _skill_frontmatter(sources[relative], relative, skill)

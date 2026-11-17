@@ -17,6 +17,7 @@ SPEC.loader.exec_module(package)
 EXPECTED_ARCHIVE = {
     "plugin.json",
     ".codex-plugin/plugin.json",
+    ".claude-plugin/marketplace.json",
     "skills/ccuh/SKILL.md",
     "skills/ccuh/scripts/target-session.js",
     "skills/ccuh/scripts/target-discovery.js",
@@ -27,6 +28,7 @@ EXPECTED_ARCHIVE = {
     "README.md",
     "README.ko.md",
     "LICENSE",
+    "VERIFICATION.json",
 }
 
 
@@ -38,7 +40,16 @@ class PackageTests(unittest.TestCase):
         self.root.mkdir()
         self.manifest = {"name": "ccuh", "version": "0.1.2", "description": "Fixture plugin"}
         self.write("plugin.json", json.dumps(self.manifest))
-        self.write(".codex-plugin/plugin.json", json.dumps(self.manifest))
+        self.write(".codex-plugin/plugin.json", json.dumps(dict(self.manifest, skills="./skills/")))
+        self.marketplace = {
+            "name": "ccuh",
+            "plugins": [{"name": "ccuh", "source": {"source": "local", "path": "."}}],
+        }
+        self.write(".claude-plugin/marketplace.json", json.dumps(self.marketplace))
+        self.write(
+            "VERIFICATION.json",
+            json.dumps({"version": "0.1.2", "status": "fixture validation"}),
+        )
         self.write(
             "skills/ccuh/SKILL.md",
             "---\nname: ccuh\ndescription: Keep an exact target.\n---\n# CCUH\n",
@@ -85,8 +96,9 @@ class PackageTests(unittest.TestCase):
     def test_archive_contains_only_release_assets_at_root(self):
         for path in (
             ".git/config",
-            ".claude-plugin/marketplace.json",
+            ".claude-plugin/private.json",
             "lab/secret.json",
+            "lab/results/release-0.0.10.json",
             "tests/test_private.py",
             "notes/draft.md",
             "skills/ccuh-doctor/scripts/__pycache__/doctor.pyc",
@@ -100,6 +112,10 @@ class PackageTests(unittest.TestCase):
             self.assertEqual(len(archive.namelist()), len(EXPECTED_ARCHIVE))
             for path in ("README.md", "README.ko.md", "LICENSE"):
                 self.assertEqual(archive.read(path), (self.root / path).read_bytes())
+            self.assertEqual(
+                archive.read("VERIFICATION.json"),
+                (self.root / "VERIFICATION.json").read_bytes(),
+            )
             self.assertIsNone(archive.testzip())
 
     def test_manifests_and_both_skills_are_preserved_in_archive(self):
@@ -119,6 +135,26 @@ class PackageTests(unittest.TestCase):
                 "skills/ccuh-doctor/scripts/desktop_recovery.py",
             ):
                 self.assertEqual(archive.read(helper), (self.root / helper).read_bytes())
+
+    def test_extracted_marketplace_resolves_plugin_and_skills_without_repository(self):
+        output = package.build_plugin(self.root)
+        installed = Path(self.temporary.name) / "installed"
+        with zipfile.ZipFile(output) as archive:
+            archive.extractall(installed)
+        shutil.rmtree(self.root)
+        catalogue = json.loads((installed / ".claude-plugin/marketplace.json").read_text())
+        self.assertEqual(catalogue["name"], "ccuh")
+        self.assertEqual(len(catalogue["plugins"]), 1)
+        plugin = catalogue["plugins"][0]
+        self.assertEqual(plugin["name"], "ccuh")
+        self.assertEqual(plugin["source"], {"source": "local", "path": "."})
+        plugin_root = installed / plugin["source"]["path"]
+        manifest = json.loads((plugin_root / ".codex-plugin/plugin.json").read_text())
+        self.assertEqual(manifest["name"], plugin["name"])
+        skills = plugin_root / manifest["skills"]
+        self.assertEqual({path.parent.name for path in skills.glob("*/SKILL.md")}, {"ccuh", "ccuh-doctor"})
+        verification = json.loads((installed / "VERIFICATION.json").read_text())
+        self.assertEqual(verification["version"], manifest["version"])
 
     def test_extracted_doctor_skill_has_its_helper_without_repository(self):
         output = package.build_plugin(self.root)
@@ -207,6 +243,37 @@ class PackageTests(unittest.TestCase):
                 self.write("skills/ccuh-doctor/SKILL.md", text)
                 with self.assertRaises(package.PackageError):
                     package.check_plugin(self.root)
+
+    def test_marketplace_must_install_only_ccuh_from_local_archive_root(self):
+        invalid = (
+            {"name": "other", "plugins": self.marketplace["plugins"]},
+            {"name": "ccuh", "plugins": []},
+            {"name": "ccuh", "plugins": self.marketplace["plugins"] * 2},
+            {"name": "ccuh", "plugins": [{"name": "other", "source": {"source": "local", "path": "."}}]},
+            {"name": "ccuh", "plugins": [{"name": "ccuh", "source": {"source": "local", "path": ".."}}]},
+            {"name": "ccuh", "plugins": [{"name": "ccuh", "source": {"source": "github", "repo": "fixture/private"}}]},
+        )
+        for value in invalid:
+            with self.subTest(marketplace=value):
+                self.write(".claude-plugin/marketplace.json", json.dumps(value))
+                with self.assertRaises(package.PackageError):
+                    package.build_plugin(self.root)
+                self.assertFalse((self.root / "dist").exists())
+
+    def test_manifest_skills_must_resolve_to_packaged_directory(self):
+        for skills in (None, "../skills/", "./missing/", ["./skills/"]):
+            with self.subTest(skills=skills):
+                self.write(".codex-plugin/plugin.json", json.dumps(dict(self.manifest, skills=skills)))
+                with self.assertRaisesRegex(package.PackageError, "skills"):
+                    package.check_plugin(self.root)
+
+    def test_verification_must_be_json_for_the_packaged_version(self):
+        for value in ("not JSON", "[]", json.dumps({"version": "0.1.1"})):
+            with self.subTest(verification=value):
+                self.write("VERIFICATION.json", value)
+                with self.assertRaises(package.PackageError):
+                    package.build_plugin(self.root)
+                self.assertFalse((self.root / "dist").exists())
 
     def test_check_writes_nothing_even_with_output_option(self):
         output = Path(self.temporary.name) / "not-created" / "plugin.zip"

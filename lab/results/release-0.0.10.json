@@ -181,6 +181,8 @@
     }
   },
   "publication": {
+    "proposal_withdrawn": true,
+    "withdrawal_reason": "The user clarified that promotion does not require source publication. Keep the development repository private and distribute an installable ZIP instead.",
     "current_development_repository_private": true,
     "proposed_clean_public_repository": "dijeungi/CCUH-public",
     "proposed_snapshot_files": 15,
