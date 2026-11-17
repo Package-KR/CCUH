@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "validated_on": "2026-11-17",
+  "timezone": "Asia/Seoul",
+  "source_file": "lab/results/computer-use-baseline.json",
+  "doctor_file": "skills/ccuh-doctor/scripts/doctor.py",
+  "doctor_sha256": "b9de6a78a49e55733e93a8d55312592f4c5a71a31104346d0be71617183b97ce",
+  "scope": "Individual captured error strings only; the composite multi-phase history was not supplied to doctor.",
+  "checks": [
+    {
+      "name": "visibility_capability_unsupported",
+      "source_field": "$.cua_calls[0].error_verbatim",
+      "input_format": "plain_text",
+      "input_verbatim": "Capability is not available: visibility",
+      "command": [
+        "python3",
+        "skills/ccuh-doctor/scripts/doctor.py",
+        "--response-file",
+        "-",
+        "--format",
+        "json"
+      ],
+      "exit_code": 1,
+      "output": {
+        "schema_version": 1,
+        "mode": "response",
+        "category": "capability_unavailable",
+        "connection_status": "unverified",
+        "operation_outcome": "unverified",
+        "is_error_detected": true,
+        "next_action": "Check optional capability support during preflight and preserve the existing target. Do not recreate tabs or windows to force an unsupported option."
+      },
+      "stderr_empty": true
+    },
+    {
+      "name": "previous_native_operation_unresolved",
+      "source_field": "$.cua_calls[2].error_verbatim",
+      "input_format": "plain_text",
+      "input_verbatim": "Tool call blocked by PreToolUse hook: CCUH: a previous native operation still has no confirmed completion. This request was not executed. Do not repeat, reconnect, reset, or change the app; report the unresolved result. A wait deadline is not a native cancellation.. Tool: mcp__cua_repl__js",
+      "command": [
+        "python3",
+        "skills/ccuh-doctor/scripts/doctor.py",
+        "--response-file",
+        "-",
+        "--format",
+        "json"
+      ],
+      "exit_code": 1,
+      "output": {
+        "schema_version": 1,
+        "mode": "response",
+        "category": "operation_unresolved",
+        "connection_status": "unverified",
+        "operation_outcome": "unknown",
+        "is_error_detected": true,
+        "next_action": "Identify the original request and target, then confirm its state and outcome. Do not reset the session, bypass authentication, or repeat the same mutation while completion is unconfirmed."
+      },
+      "stderr_empty": true
+    },
+    {
+      "name": "historical_original_authentication_failure",
+      "provenance": "historical_recorded_message",
+      "source_thread": "00000000-0000-4000-8000-000000000001",
+      "source_thread_title": "Agent Dynamic Island - 메인",
+      "live_reproduction": false,
+      "input_format": "json_string",
+      "input_verbatim": "Computer Use server error -10000: Sender process is not authenticated",
+      "command": [
+        "python3",
+        "skills/ccuh-doctor/scripts/doctor.py",
+        "--response-file",
+        "-",
+        "--format",
+        "json"
+      ],
+      "exit_code": 1,
+      "output": {
+        "schema_version": 1,
+        "mode": "response",
+        "category": "authentication_failed",
+        "connection_status": "unverified",
+        "operation_outcome": "unverified",
+        "is_error_detected": true,
+        "next_action": "Report the runtime authentication failure. Use the approved official runtime; do not bypass authentication or retry UI actions."
+      },
+      "stderr_empty": true,
+      "scope": "Historical message classification only; the current Computer Use connection was not assessed."
+    }
+  ],
+  "environment_check": {
+    "command": [
+      "python3",
+      "skills/ccuh-doctor/scripts/doctor.py",
+      "--format",
+      "json"
+    ],
+    "exit_code": 0,
+    "output": {
+      "schema_version": 1,
+      "mode": "environment",
+      "category": "environment_checked",
+      "connection_status": "unverified",
+      "operation_outcome": "not_attempted",
+      "is_error_detected": false,
+      "environment": {
+        "os": "Darwin",
+        "os_release": "27.2.0",
+        "architecture": "arm64",
+        "app_present": true,
+        "app_metadata_readable": true,
+        "app_version": "26.1111.21308",
+        "app_build": "27194",
+        "official_binary_present": true,
+        "cli_override_present": true
+      },
+      "next_action": "Installation metadata does not verify authentication, permissions, target access, or focus preservation. Test only a specifically selected dummy target through the official tool."
+    },
+    "stderr_empty": true
+  },
+  "interpretation": "The helper classified recorded error strings individually, including the original historical authentication symptom; Computer Use was not rerun. Environment inspection does not verify current authentication, target access, focus preservation, or UI task success."
+}

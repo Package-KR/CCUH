@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "status": "both_close_calls_returned",
+  "startedUtc": "2026-11-17T03:34:18.671Z",
+  "completedUtc": "2026-11-17T03:34:25.599Z",
+  "preflight": {
+    "allRecordedNativeSetupChangesReturned": true,
+    "pendingOrUnknownChanges": false,
+    "guardUsedOrRebound": false
+  },
+  "metadata": [
+    {"id":850116239,"startUtc":"2026-11-17T03:34:18.671Z","endUtc":"2026-11-17T03:34:18.696Z","idMatches":true,"windowMatches":true,"urlMatches":true},
+    {"id":850116244,"startUtc":"2026-11-17T03:34:18.696Z","endUtc":"2026-11-17T03:34:18.698Z","idMatches":true,"windowMatches":true,"urlMatches":true}
+  ],
+  "expected": {
+    "ownWindowId": 850116242,
+    "targetUrl": "http://127.0.0.1:50626/user?case=guard-negative-r3",
+    "dummyUrl": "http://127.0.0.1:50626/user?case=controlled-20261117-r2"
+  },
+  "closeResults": [
+    {"id":850116239,"method":"tab.close","attempts":1,"startUtc":"2026-11-17T03:34:25.480Z","endUtc":"2026-11-17T03:34:25.544Z","outcome":"returned"},
+    {"id":850116244,"method":"tab.close","attempts":1,"startUtc":"2026-11-17T03:34:25.544Z","endUtc":"2026-11-17T03:34:25.599Z","outcome":"returned"}
+  ],
+  "verificationScope": "Reports native close-call return results only; no post-close inventory or repeated close was performed.",
+  "restrictions": {
+    "retries": 0,
+    "creationCalls": 0,
+    "broadInventoryCalls": 0,
+    "otherTabOrWindowActions": 0,
+    "windowsRemoveCalls": 0,
+    "appQuitOrProfileChangeCalls": 0,
+    "focusProbeActions": 0,
+    "cuaCompletionSummarySent": true,
+    "uiAfterCompletionSummary": 0
+  }
+}

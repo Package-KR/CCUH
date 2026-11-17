@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "status": "passed_scoped_stationary_caret_and_fullscreen_space_trial",
+  "plugin_version": "0.0.5",
+  "runtime_revision": 4,
+  "ui_evidence": "computer-use-final.json#/revision4Attempt/caretSpaceCase",
+  "observer": {
+    "source": "lab/FocusProbe.swift",
+    "run_id": "ccuh-final-caret-space-r3",
+    "raw_local_output": "/private/tmp/ccuh-focus-final-caret-space-r3.jsonl",
+    "raw_output_sha256_after_observer_stop": "5ce0ae7c7c18b13184ebfcd14717278dfb1e50082285bf92dab25382993d5d5e",
+    "raw_output_bytes": 865772,
+    "scope": "own_dummy_editor_and_workspace_change_notifications",
+    "other_app_names_windows_text_or_screenshots_collected": false,
+    "sample_interval_seconds": 1,
+    "clock_alignment": "CUA and observer UTC timestamps on the same host; no independent clock calibration",
+    "space_ids_and_cause_of_changes_available": false
+  },
+  "setup": {
+    "explicit_foreground_caret_button_at_utc": "2026-11-17T03:27:27.137Z",
+    "purpose": "Deliberately prepare the dummy input window before measuring background work; not a product focus-recovery action.",
+    "space_change_notification": {"sequence": 1396, "utc": "2026-11-17T03:27:04.641Z"},
+    "own_window_did_enter_fullscreen": {"sequence": 1398, "utc": "2026-11-17T03:27:04.681Z"},
+    "positive_space_notification_delivery_observed": true
+  },
+  "measured_task": {
+    "started_utc": "2026-11-17T03:27:37.030Z",
+    "ended_utc": "2026-11-17T03:27:40.088Z",
+    "target_id": "850116239",
+    "saved_worker_name": "ccuh-final-caret-space-r4",
+    "ui_save_count": 6,
+    "verification_source": "Same target guard.observe DOM snapshot; observer data did not substitute for UI success."
+  },
+  "state_check": {
+    "expected_text": "ccuh-final-caret-12345",
+    "expected_selection_utf16": [{"location": 22, "length": 0}],
+    "required_true_in_every_checked_sample": [
+      "foreground_observation_available",
+      "probe_is_frontmost",
+      "probe_key_window",
+      "editor_is_first_responder",
+      "probe_window_fullscreen"
+    ],
+    "pre_sample": {"sequence": 1434, "utc": "2026-11-17T03:27:36.779Z"},
+    "during_samples": [
+      {"sequence": 1435, "utc": "2026-11-17T03:27:37.779Z"},
+      {"sequence": 1436, "utc": "2026-11-17T03:27:38.779Z"},
+      {"sequence": 1437, "utc": "2026-11-17T03:27:39.778Z"}
+    ],
+    "post_sample": {"sequence": 1438, "utc": "2026-11-17T03:27:40.779Z"},
+    "all_five_samples_satisfied_flags_text_and_selection": true,
+    "non_sample_events_received_inside_task_interval": [],
+    "first_later_key_loss": {"sequence": 1454, "utc": "2026-11-17T03:27:55.033Z"},
+    "later_key_loss_interpretation": "Outside the measured task interval; cause not inferred and not hidden from the report."
+  },
+  "earlier_failed_precondition": {
+    "ui_evidence": "computer-use-controlled.json",
+    "interval_utc": ["2026-11-17T03:01:14.648Z", "2026-11-17T03:01:19.952Z"],
+    "own_samples_during": 5,
+    "foreground_and_key_precondition_met": false,
+    "counted_as_focus_preservation_success": false
+  },
+  "limits": [
+    "One controlled Chrome DOM trial with a stationary caret in the owned AppKit test editor.",
+    "Simultaneous physical human typing and arbitrary native applications were not tested.",
+    "The Space condition used the owned app fullscreen Space, not every macOS desktop or display configuration.",
+    "Samples and received notifications do not prove a universal absence of transient or undelivered events.",
+    "The guard cannot prevent implicit host focus changes or enforce locks across separate chats/runtime resets."
+  ]
+}

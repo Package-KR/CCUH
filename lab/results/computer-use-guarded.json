@@ -1,0 +1,229 @@
+{
+  "run_id": "00000000-0000-4000-8000-000000000005",
+  "phase": "guarded_existing_target_success_path_attempt",
+  "status": "blocked_during_guard_binding",
+  "requested_result": {
+    "worker_name": "ccuh-guarded",
+    "enabled": true,
+    "save_and_reobserve_with_same_guard": true
+  },
+  "target": {
+    "existing_binding": "baselineTarget002",
+    "expected_id": "850116213",
+    "expected_id_source": "Existing session reference previously verified during baseline",
+    "allowed_urls": ["http://127.0.0.1:50626/target"],
+    "current_identity_verified": false,
+    "current_url_observed": null,
+    "tab_closed_confirmed": false,
+    "replacement_target_used": false
+  },
+  "skill": {
+    "path": "/Users/example/Desktop/개발/CCUH/skills/ccuh/SKILL.md",
+    "script_path": "/Users/example/Desktop/개발/CCUH/skills/ccuh/scripts/target-session.js",
+    "script_sha256_at_record_time": "084d21c58ea3f3d0cee062a0010ccddc351843d986b99781111c7152e031843e",
+    "script_defined_inline": true,
+    "script_modified_for_execution": false,
+    "protocol_version": 1,
+    "instrumentation": "UTC start/end and result logging appended after the unchanged self-contained script; no adapter replacement or script modifications",
+    "stop_rule_verbatim": "After a lookup failure, allow at most one narrow recheck of the same target using current metadata. If still unresolved, stop and report the blocker."
+  },
+  "creation_calls": 0,
+  "actual_calls": [
+    {
+      "sequence": 1,
+      "tool": "mcp__cua_repl.js",
+      "action": "Inline script definition followed by CCUH.bindBrowserTab",
+      "binding_expression": "CCUH.bindBrowserTab(baselineTarget002,{targetId:baselineTarget002.id,allowedUrls:['http://127.0.0.1:50626/target']})",
+      "started_utc": "2026-11-17T02:42:24.909Z",
+      "ended_utc": "2026-11-17T02:42:24.990Z",
+      "target_id": "850116213",
+      "creation_calls": 0,
+      "outcome": "error",
+      "error": {
+        "name": "CCUHSessionError",
+        "code": "identity_unavailable",
+        "stage": "binding",
+        "message": "CCUH rejected the operation: identity_unavailable."
+      },
+      "audit": [
+        {"sequence": 1, "event": "binding_started", "stage": "binding"},
+        {"sequence": 2, "event": "identity_unavailable", "stage": "binding"},
+        {"sequence": 3, "event": "same_target_recheck", "stage": "binding"},
+        {"sequence": 4, "event": "identity_unavailable", "stage": "binding"},
+        {"sequence": 5, "event": "session_locked", "stage": "binding", "code": "identity_unavailable"}
+      ]
+    },
+    {
+      "sequence": 2,
+      "tool": "mcp__cua_repl.js",
+      "completion_summary": "Recorded guarded target identity failure",
+      "result": "Completion summary received.",
+      "ui_action": false,
+      "utc_timestamp": null,
+      "timestamp_note": "Completion reporting only; the summary-only tool call contained no clock instrumentation."
+    }
+  ],
+  "timing_scope": {
+    "clock_source": "new Date().toISOString() in the persistent CUA JavaScript session",
+    "measured_scope": "Start/end of the awaited bindBrowserTab facade call, after inline script definition",
+    "individual_internal_identity_call_timestamps": "not_exposed_by_script",
+    "interval_proves_native_completion": false,
+    "os_observer_reported_running_by_source_thread": true,
+    "os_observer_output_read_or_correlated_in_this_chat": false
+  },
+  "guard_status": {
+    "facade_returned": false,
+    "status_method_called": false,
+    "status_object": null,
+    "reason_status_unavailable": "Binding rejected before returning the facade.",
+    "last_audit_event": "session_locked",
+    "last_audit_code": "identity_unavailable",
+    "identity_failure_events": 2,
+    "same_target_rechecks": 1,
+    "additional_rechecks_or_rebinding_after_failure": 0,
+    "underlying_identity_error": "unknown",
+    "native_cancellation_or_historical_state_resolution_confirmed": false
+  },
+  "existing_metadata_evidence_review": {
+    "scope": "Existing output and executed inline script only; no new CUA call, metadata request, rebinding, or runtime inspection",
+    "method_name": "tab.url()",
+    "documented_return_type": "Promise<undefined | string>",
+    "observed_return_type": "unknown",
+    "raw_error_preserved": false,
+    "raw_return_value_preserved": false,
+    "failure_origin": "unknown",
+    "native_url_dispatch_count": null,
+    "native_url_dispatch_count_note": "Two identity_unavailable audit events establish two guard identity-verification failures, not a measured count of native tab.url() dispatches.",
+    "attempts": [
+      {
+        "identity_attempt": 1,
+        "audit_sequence": 2,
+        "raw_error_available": false,
+        "raw_error": null,
+        "original_error_name": "unknown",
+        "original_error_code": "unknown",
+        "original_error_message": "unknown",
+        "return_type": "unknown",
+        "failure_origin": "unknown"
+      },
+      {
+        "identity_attempt": 2,
+        "audit_sequence": 4,
+        "raw_error_available": false,
+        "raw_error": null,
+        "original_error_name": "unknown",
+        "original_error_code": "unknown",
+        "original_error_message": "unknown",
+        "return_type": "unknown",
+        "failure_origin": "unknown"
+      }
+    ],
+    "why_unknown": "In the executed inline snapshot, verifyIdentity catches and discards failures from withDeadline(ports.identity), returned-identity validation, canonicalUrl(identity.url), and targetId validation. Its catch (_) records only identity_unavailable. The adapter does not retain the URL result, result type, or original error.",
+    "runtime_inferences": {
+      "basis": "Control flow of the exact previously executed inline script and its returned binding_started audit event; no additional runtime test",
+      "url_method_presence": "The adapter's typeof tab.url === function capability check was passed; this does not establish successful execution of the getter.",
+      "allowed_url_canonicalization": "parsePolicy canonicalizes the authorized allowedUrls with new URL before binding_started. That event was returned, so this policy canonicalization did not throw.",
+      "complete_url_constructor_absence": "Inconsistent with the observed control flow; this does not rule out failure when validating the later metadata value.",
+      "promise_related_failure": "unknown; no Promise-specific original error or code was retained",
+      "undefined_return_observed": false,
+      "missing_evidence_means_undefined_return": false,
+      "actual_tab_lookup_failure_confirmed": false
+    },
+    "source_provenance": "A follow-up disk read contains additions absent from the previously executed inline snapshot. The current disk file was not loaded or executed in CUA, and those additions are not evidence about the failed attempt.",
+    "additional_cua_calls": 0,
+    "additional_ui_calls": 0,
+    "additional_bindings": 0,
+    "creation_calls": 0
+  },
+  "metadata_diagnostic": {
+    "authorization_scope": "One direct read-only URL metadata getter invocation outside the ended guarded workflow; no production workflow continuation",
+    "tool": "mcp__cua_repl.js",
+    "method": "baselineTarget002.url()",
+    "target_id": "850116213",
+    "getter_invocation_count": 1,
+    "started_at_utc": "2026-11-17T02:46:34.527Z",
+    "ended_at_utc": "2026-11-17T02:46:34.555Z",
+    "outcome": "error",
+    "return_type": "unknown",
+    "matches_exact_authorized_url": null,
+    "returned_url_recorded": false,
+    "error": {
+      "name": "Error",
+      "code": "unknown",
+      "message": "No tab with id: 850116213."
+    },
+    "interpretation": "This direct getter lookup reported no tab with the specified ID at the recorded time. It establishes a current target lookup error on the direct getter path, without running the guard's URL canonicalization or deadline helpers. It does not establish physical tab closure, its mechanism, or the underlying cause of the earlier guarded identity failures.",
+    "earlier_guarded_identity_raw_error": "unknown; not recovered by this later diagnostic",
+    "native_pending_block_or_automatic_approval_rejection": false,
+    "new_binding_attempted": false,
+    "observe_or_input_attempted": false,
+    "creation_calls": 0,
+    "reconnect_or_reset_attempted": false,
+    "app_activation_or_inventory_attempted": false,
+    "ended_guard_facade_modified_or_reused": false,
+    "completion_summary": "Recorded missing target tab diagnostic",
+    "completion_summary_result": "Completion summary received."
+  },
+  "pure_javascript_runtime_diagnostic": {
+    "authorization_scope": "One exact typeof-only JavaScript diagnostic; no UI or native calls",
+    "tool": "mcp__cua_repl.js",
+    "code": "nodeRepl.write({URL:typeof URL,setTimeout:typeof setTimeout,clearTimeout:typeof clearTimeout,Promise:typeof Promise,WeakSet:typeof WeakSet,tabIdType:typeof baselineTarget002.id,urlMethodType:typeof baselineTarget002.url});",
+    "execution_count": 1,
+    "result": "success",
+    "returned_types": {
+      "URL": "function",
+      "setTimeout": "function",
+      "clearTimeout": "function",
+      "Promise": "function",
+      "WeakSet": "function",
+      "tabIdType": "string",
+      "urlMethodType": "function"
+    },
+    "tab_url_invoked": false,
+    "new_binding_attempted": false,
+    "observe_or_input_attempted": false,
+    "creation_calls": 0,
+    "reset_or_reconnect_attempted": false,
+    "new_completion_summary_issued": false,
+    "interpretation": "The named globals and URL method have function type in this diagnostic, and the existing handle id has string type. No constructor, timer, Promise behavior, or URL getter behavior was exercised. This does not determine the cause of the earlier identity_unavailable result or recover its missing raw error and return type."
+  },
+  "ui_verification": {
+    "guard_observe_called": false,
+    "fresh_target_ui_returned": false,
+    "fresh_labels_obtained": false,
+    "guard_fill_called": false,
+    "guard_check_called": false,
+    "guard_click_called": false,
+    "mutation_receipt_returned": false,
+    "requested_name_saved_and_verified": false,
+    "requested_enabled_state_verified": false,
+    "last_confirmed_stage": "Inline guard installed; existing-target binding rejected after one same-target recheck.",
+    "interpretation": "No guarded UI success was observed. Identity unavailability does not establish that the tab closed, navigated, lost its connection, or lacks a supported URL API."
+  },
+  "scope_controls": {
+    "new_tabs_or_windows_created": 0,
+    "other_user_apps_or_tabs_accessed": false,
+    "app_or_tab_inventory_requested": false,
+    "screenshots_requested": false,
+    "whole_app_capture_requested": false,
+    "page_source_or_server_api_used_for_success": false,
+    "events_endpoint_accessed": false,
+    "explicit_activation_or_space_operation_issued": false,
+    "global_input_issued": false,
+    "state_files_deleted": false,
+    "native_work_force_stopped": false,
+    "repl_reset_or_browser_reconnect_attempted": false,
+    "url_departure_or_tab_close_negative_test_attempted": false,
+    "code_configuration_skills_or_user_environment_modified": false,
+    "project_contents_indexed_with_context_mode": false
+  },
+  "unverified_conditions": [
+    "Current target URL and the lifecycle of tab 850116213; the later direct getter reported no tab with that ID, without establishing physical closure or its mechanism",
+    "Underlying cause of identity_unavailable",
+    "Runtime guarded observe emit:false and exact-label locator fill/check/click behavior",
+    "Saving and observing ccuh-guarded with activation enabled",
+    "Actual OS foreground, user input, Space, and window interference during the recorded interval",
+    "Individual native metadata call timing and cancellation",
+    "URL departure and tab closure negative cases, intentionally not attempted"
+  ]
+}

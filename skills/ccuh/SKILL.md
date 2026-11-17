@@ -1,0 +1,49 @@
+---
+name: ccuh
+description: Reuse an existing browser target during Codex Computer Use without replacement windows or forced macOS Spaces changes, and diagnose Computer Use connection failures. Use for CCUH-assisted tasks and reports of lost targets or input interference.
+---
+
+# CCUH
+
+Keep the requested existing target bound while the user works elsewhere. Use the bundled executable target-session guard for its supported browser path, and the read-only diagnostic helper for blocked connections. The guard enforces calls through its own facade; it does not control raw host tools or implicit OS focus changes.
+
+## Bind the existing target
+
+- Start with the user's exact tab mention or an already verified target reference and URL. Use the current session's documented browser interface. Follow its first-call requirements.
+- Record the available browser instance, tab/window identifiers, and expected task page. A browser app name alone does not identify the user's intended tab.
+- Use the narrowest documented target lookup. When the target is known, do not enumerate unrelated apps/tabs or capture the whole browser to find it. If the interface cannot resolve it without broadening observation, ask the user to identify that tab.
+- Initial binding can itself return page content. Choose the exact target before calling it. Keep subsequent reads, screenshots, and actions on that handle.
+- Record whether the tab was user-owned or created by the agent. Follow the host's documented tab lifecycle: an ephemeral agent-created tab may close at turn end, while a released user tab may stay open. Use a documented handoff mark only for an unfinished workflow that must continue from that live page. Do not classify automatic cleanup as failure to recognize a user's existing window.
+- If the tab navigates, check the permitted task page before reading content or acting. A matching tab ID alone is insufficient. If the runtime cannot guard a navigation race, disclose that strict content isolation is unverified rather than claiming it is enforced.
+
+## Reuse rather than replace
+
+After the host's required initial binding and its returned browser documentation, read [the executable target-session guard](scripts/target-session.js) and define that self-contained code in the same CUA JavaScript session without changing its text. Its source check rejects accidental copy changes before installation; it performs no UI actions when defined. If the source check fails, reread the installed file and correct the definition before any binding. Do not import an undocumented runtime or edit the installed host code to load it.
+
+For a documented browser tab that exposes `url()`, `playwright.domSnapshot()`, and Playwright locators, bind `await CCUH.bindBrowserTab(existingTab, {targetId: existingTab.id, allowedUrls: [exactAuthorizedUrl]})`. This browser adapter uses DOM snapshots and has no native AX or screenshot fallback. Its `fill(label, value)`, `click(buttonName)`, `check(checkboxName, value)`, and `observe()` methods execute against that same tab. Labels and names must come from the observed target UI. Pass only explicitly authorized exact URLs; no wildcard widening.
+
+Use the returned facade for supported reads and mutations. It checks target identity before dispatch, withholds observations until identity is rechecked, limits metadata retry, serializes operations, and locks an uncertain mutation. It exposes no tab creation, activation, restore, or global-input method. A receipt means a method returned with identity checks passed, not that the requested UI result is complete; verify that result with `observe()`.
+
+If the required documented methods or runtime capabilities are absent, report this guarded route as unsupported rather than pretending it executed. Keep the returned facade: the runtime rejects a second binding of the same target ID and refuses to replace a different runtime revision. Do not reset the JavaScript session or start another chat to bypass an unresolved task; reservations are local to that runtime and cannot enforce locks across those boundaries. `suspend("user_space_changed")` and `interference("focus_changed")` stop later facade calls when the user or independent observer reports interference; the JavaScript guard itself does not monitor OS Spaces. URL pre/post checks do not eliminate a navigation race or prove that the host never collected other data.
+
+- Distinguish lookup failure, confirmed absence, capture failure, and a pending/unknown result. An error or empty screenshot does not prove that the window closed.
+- After a lookup failure, allow at most one narrow recheck of the same target using current metadata. If still unresolved, stop and report the blocker.
+- For an existing-target task, do not recover by creating a new tab/window, opening the URL again, launching a second browser instance, or silently switching browser profiles. An explicit request to create a new workspace is a separate task.
+- A timeout does not prove an action was cancelled. Do not repeat a creation or mutation whose result is unknown. If no returned handle or narrow request metadata can resolve that outcome, report it as unknown and stop rather than searching unrelated windows.
+
+## Preserve the user's Space and input
+
+- Treat the user's Space switch as their choice. Keep the same target and use only the supported background path. If that path fails, pause this task with a concrete limitation.
+- Do not use app activation, window raising, restoring a minimized window, tab activation, new-tab shortcuts, or global input to recover this workflow. Do not widen a failed tab-scoped operation into a whole-app capture.
+- Do not take focus and then restore it as a substitute for preserving input. If the runtime takes focus during connection or an action, report the interference and stop that path.
+- Visibility/background options do not establish that typing focus, the selected tab, or the current Space will remain unchanged. Keep minimized, occluded, inactive-tab, and other-Space behavior separate.
+
+## Diagnose a blocked connection
+
+Connection diagnosis is a user-facing optional feature included in this plugin. When a connection failure blocks the task or the user requests diagnosis, read the sibling [CCUH Doctor skill](../ccuh-doctor/SKILL.md) and use its bundled helper. Normal tasks do not need to run it. If that resource is absent, report a missing diagnostic component rather than inventing a command or installing it automatically.
+
+Use a response already supplied by the failed call or an explicitly selected diagnostic file. Do not collect unrelated logs or dump the environment. A successful environment check is not a successful connection or UI task. Diagnostics do not authorize configuration changes, restarts, broader observation, or authentication bypasses.
+
+## Finish with observable results
+
+Verify the requested change in the target UI using the current Computer Use instructions. Report completion only when that target state is visible. Otherwise report the last confirmed stage and why the same target could not be used. Do not claim zero focus changes or zero unrelated observations unless independent measurements support that claim.

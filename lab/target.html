@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CCUH 목표 · Worker 테스트 설정</title>
+<style>
+  :root { color-scheme: light dark; font: 17px/1.5 system-ui, sans-serif; }
+  body { max-width: 680px; margin: 64px auto; padding: 0 24px; }
+  .tag { color: #17816b; font-weight: 700; }
+  form { border: 1px solid #9ba8a2; border-radius: 16px; padding: 28px; }
+  label { display: block; margin: 16px 0 8px; }
+  input[type=text] { box-sizing: border-box; width: 100%; font: inherit; padding: 10px; }
+  .toggle { display: flex; gap: 12px; align-items: center; }
+  button { font: inherit; padding: 10px 24px; margin-top: 24px; cursor: pointer; }
+  #result { min-height: 32px; margin: 20px 0 0; font-weight: 700; }
+  footer { font-size: 14px; opacity: .75; margin-top: 24px; }
+</style>
+<main>
+  <p class="tag">CCUH LAB · 목표 탭</p>
+  <h1>Worker 테스트 설정</h1>
+  <p>이 페이지는 로컬 실험용입니다. 실제 Cloudflare 계정이나 배포에 연결되지 않습니다.</p>
+  <form id="settings">
+    <label for="name">Worker 이름</label>
+    <input id="name" name="name" type="text" maxlength="63" pattern="[a-z0-9][a-z0-9-]{0,62}" required autocomplete="off" spellcheck="false">
+    <label class="toggle"><input id="enabled" name="enabled" type="checkbox"> Worker 활성화</label>
+    <button type="submit">설정 저장</button>
+    <p id="result" role="status" aria-live="polite">설정을 불러오는 중…</p>
+  </form>
+  <footer>시험 과제: 이름을 <code>ccuh-demo</code>로 지정하고 활성화한 뒤 저장하세요.<br>
+    서버와 이벤트는 이 컴퓨터의 메모리에만 유지됩니다. 서버를 다시 시작하면 초기화됩니다.
+    <p id="recording" role="status">로컬 이벤트 기록 준비 중</p>
+  </footer>
+</main>
+<script>
+  const nameInput = document.querySelector('#name');
+  const enabledInput = document.querySelector('#enabled');
+  const result = document.querySelector('#result');
+  const recording = document.querySelector('#recording');
+  let queue = Promise.resolve();
+  let eventCount = 0;
+  let deliveryFailures = 0;
+  let clientSequence = 0;
+  const pageId = crypto.randomUUID();
+  function showRecordingStatus() {
+    recording.textContent = deliveryFailures
+      ? `로컬 이벤트 ${eventCount}건 기록 · 전송 실패 ${deliveryFailures}건 · 이 시행은 측정 불완전`
+      : `로컬 이벤트 ${eventCount}건 기록`;
+  }
+  function record(event, data = {}) {
+    const payload = { source: 'target', event, data: {
+      ...data, page_id: pageId, client_sequence: ++clientSequence,
+      client_time_ms: Date.now(), client_monotonic_ms: Math.round(performance.now()),
+    } };
+    queue = queue.then(async () => {
+      const response = await fetch('/events', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload), keepalive: true,
+      });
+      if (!response.ok) throw new Error('Event delivery failed');
+      eventCount++;
+      showRecordingStatus();
+    }).catch(() => { deliveryFailures++; showRecordingStatus(); });
+  }
+  window.addEventListener('focus', () => record('window_focus'));
+  window.addEventListener('blur', () => record('window_blur'));
+  document.addEventListener('visibilitychange', () => record('visibilitychange', { visibility: document.visibilityState }));
+  nameInput.addEventListener('focus', () => record('focus', { focused: true }));
+  nameInput.addEventListener('blur', () => record('blur', { focused: false }));
+  nameInput.addEventListener('input', () => record('name_input', { name: nameInput.value }));
+  enabledInput.addEventListener('change', () => record('enabled_change', { enabled: enabledInput.checked }));
+  document.querySelector('#settings').addEventListener('submit', async event => {
+    event.preventDefault();
+    const payload = { name: nameInput.value, enabled: enabledInput.checked };
+    record('save_requested', payload);
+    result.textContent = '저장 중…';
+    try {
+      const response = await fetch('/worker', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+      });
+      if (!response.ok) throw new Error('Save failed');
+      const data = await response.json();
+      result.textContent = `저장됨: ${data.worker.name} · ${data.worker.enabled ? '활성화' : '비활성화'} · 저장 ${data.worker.revision}회`;
+    } catch (_) {
+      result.textContent = '저장 실패 · 설정 결과를 확인하지 못했습니다.';
+      record('save_failed', { message: 'The local save request failed' });
+    }
+  });
+  async function initialize() {
+    record('page_ready', { visibility: document.visibilityState });
+    try {
+      const response = await fetch('/worker');
+      if (!response.ok) throw new Error('Load failed');
+      const data = await response.json();
+      nameInput.value = data.worker.name;
+      enabledInput.checked = data.worker.enabled;
+      result.textContent = data.worker.revision
+        ? `저장됨: ${data.worker.name} · ${data.worker.enabled ? '활성화' : '비활성화'} · 저장 ${data.worker.revision}회`
+        : '아직 저장한 설정이 없습니다.';
+    } catch (_) { result.textContent = '초기 설정을 읽지 못했습니다. 서버 연결을 확인하세요.'; }
+  }
+  initialize();
+</script>
+</html>

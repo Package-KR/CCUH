@@ -1,0 +1,14 @@
+{
+  "name": "ccuh",
+  "interface": {
+    "displayName": "CCUH"
+  },
+  "plugins": [
+    {
+      "name": "ccuh",
+      "source": { "source": "local", "path": "./" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Productivity"
+    }
+  ]
+}

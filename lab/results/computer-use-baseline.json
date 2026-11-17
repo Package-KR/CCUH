@@ -1,0 +1,330 @@
+{
+  "run_id": "00000000-0000-4000-8000-000000000005",
+  "phase": "baseline_ui_task_after_reported_ccuh_0_0_2_update",
+  "original_requested_phase": "pre_ccuh_baseline",
+  "clean_pre_ccuh_comparison_established": false,
+  "date": "2026-11-17",
+  "timezone": "Asia/Seoul",
+  "status": "baseline_saved_and_verified_in_same_target_tab",
+  "target_url": "http://127.0.0.1:50626/target",
+  "requested_result": {
+    "name": "ccuh-baseline",
+    "enabled": true,
+    "save_and_reobserve_in_same_tab": true
+  },
+  "tool_path": {
+    "tool": "mcp__cua_repl.js",
+    "api": "cua.createBrowserTab",
+    "requested_browser": "chrome",
+    "actual_browser_backend": "Chrome extension",
+    "observed_browser_id": "1"
+  },
+  "cua_calls": [
+    {
+      "sequence": 1,
+      "code": "let tab = await cua.createBrowserTab(\"chrome\", \"http://127.0.0.1:50626/target\", {visible:false, sessionName:\"🧪 CCUH\"});",
+      "result": "error",
+      "error_verbatim": "Capability is not available: visibility",
+      "returned_documentation": "CreateBrowserTabOptions includes visible; options are applied before opening; unsupported settings throw.",
+      "tab_metadata_returned": false,
+      "target_ui_returned": false,
+      "screenshot_returned": false
+    },
+    {
+      "sequence": 2,
+      "completion_summary": "Recorded Chrome visibility capability failure",
+      "result": "Completion summary received."
+    },
+    {
+      "sequence": 3,
+      "code": "await cua.rewriteDocumentation();",
+      "result": "blocked_by_pre_tool_use_hook",
+      "executed": false,
+      "error_verbatim": "Tool call blocked by PreToolUse hook: CCUH: a previous native operation still has no confirmed completion. This request was not executed. Do not repeat, reconnect, reset, or change the app; report the unresolved result. A wait deadline is not a native cancellation.. Tool: mcp__cua_repl__js"
+    },
+    {
+      "sequence": 4,
+      "completion_summary": "Recorded unresolved native operation blocker",
+      "result": "Completion summary received."
+    },
+    {
+      "sequence": 5,
+      "code": "await cua.rewriteDocumentation();",
+      "result": "rejected_by_automatic_approval_review",
+      "executed": false,
+      "rejection_verbatim": "This action was rejected due to unacceptable risk.\nReason: The same documentation call was already blocked by an unresolved native-operation guard, which explicitly prohibited retrying or reconnecting; repeating it proceeds without the required prerequisite.",
+      "continuation_instruction": "Do not bypass this rejection through a workaround or indirect execution. Continue with a safer alternative, or carry out checks to prove that the action is authorized or low risk before trying again. Complete unaffected work without asking for confirmation. Report anything that remains blocked, clarify why it was blocked by auto-review, inform the user of the risk and ask for approval."
+    },
+    {
+      "sequence": 6,
+      "completion_summary": "Recorded automatic review rejection",
+      "result": "Completion summary received."
+    },
+    {
+      "sequence": 7,
+      "code": "await cua.rewriteDocumentation();",
+      "authorization": "The source thread relayed the actual user's explicit approval for this documentation query only.",
+      "result": "success",
+      "executed": true,
+      "returned_content": "Generic Computer Use documentation, TypeScript API signatures, workflow, output rules, notes, and confirmation policy.",
+      "chrome_specific_documentation_returned": false,
+      "target_tab_metadata_returned": false,
+      "target_ui_returned": false
+    },
+    {
+      "sequence": 8,
+      "completion_summary": "Retrieved approved CUA documentation",
+      "result": "Completion summary received."
+    },
+    {
+      "sequence": 9,
+      "code": "var baselineTarget002 = await cua.createBrowserTab(\"chrome\", \"http://127.0.0.1:50626/target\", {sessionName:\"🧪 CCUH\"});",
+      "result": "success",
+      "browser_name": "Chrome",
+      "browser_type": "extension",
+      "browser_id": "1",
+      "tab_id": "850116213",
+      "title": "CCUH 목표 · Worker 테스트 설정",
+      "url": "http://127.0.0.1:50626/target",
+      "chrome_specific_documentation_returned": true,
+      "target_ui_returned": true,
+      "initial_ui": {
+        "worker_name": "empty",
+        "activation_checkbox_value": 0,
+        "save_status_verbatim": "아직 저장한 설정이 없습니다.",
+        "focused_ui_element": "0 AXWebArea"
+      }
+    },
+    {
+      "sequence": 10,
+      "code": "await baselineTarget002.setValue(8, \"ccuh-baseline\"); await baselineTarget002.click(9); await baselineTarget002.click(10); await baselineTarget002.getAXState();",
+      "result": "success",
+      "tab_id": "850116213",
+      "url": "http://127.0.0.1:50626/target",
+      "verified_ui": {
+        "worker_name": "ccuh-baseline",
+        "activation_checkbox_value": 1,
+        "save_status_verbatim": "저장됨: ccuh-baseline · 활성화 · 저장 1회",
+        "focused_ui_element": "10 button 설정 저장"
+      }
+    },
+    {
+      "sequence": 11,
+      "completion_summary": "Saved and verified baseline settings",
+      "result": "Completion summary received."
+    }
+  ],
+  "first_connection": {
+    "status": "not_established",
+    "failure_stage": "visibility_capability_validation",
+    "interpretation": "The initial creation request returned the visibility capability error without a tab binding or target UI. Generic documentation supports expected option rejection before opening. A later historical hook reported an unidentified previous native operation without confirmed completion, so initial native completion and absence of an initial tab were not confirmed. A separately authorized visibility-omitted request later connected successfully in call 9.",
+    "retry_attempted": true,
+    "alternate_browser_attempted": false
+  },
+  "created_target_tab": {
+    "creation_confirmed": true,
+    "initial_attempt_absence_confirmed": false,
+    "id": "850116213",
+    "provider_tab_id": null,
+    "browser_id": "1",
+    "observed_title": "CCUH 목표 · Worker 테스트 설정",
+    "observed_url": "http://127.0.0.1:50626/target",
+    "binding_reused_for_all_ui_actions": "baselineTarget002",
+    "later_tab_lifecycle": "not_observed"
+  },
+  "successful_connection": {
+    "status": "connected_and_target_ui_observed",
+    "cua_call_sequence": 9,
+    "visibility_option_omitted": true,
+    "visibility_omitted_creation_requests": 1,
+    "new_preparation_request_accepted": true,
+    "native_ui_actions_accepted": true,
+    "interpretation": "Chrome extension connection, target UI, and successful input/save verification were observed. This establishes no broader claim about hook configuration or completion of historical operations."
+  },
+  "follow_up": {
+    "historical_phase": "First continuation, before the reported 0.0.2 update",
+    "status": "blocked_by_unresolved_native_operation",
+    "authorized_preparation_request": "cua.createBrowserTab(\"chrome\", \"http://127.0.0.1:50626/target\", {sessionName:\"🧪 CCUH\"})",
+    "authorization_condition": "Only one preparation request without visibility, after confirming a pre-creation failure from official documentation and no returned tab identifier.",
+    "authorized_preparation_request_issued": false,
+    "documentation_refresh_attempted": true,
+    "documentation_refresh_executed": false,
+    "blocking_reason": "The CCUH PreToolUse hook reported an unresolved prior native operation and instructed no repeat, reconnect, reset, or app change.",
+    "previous_native_operation_identity": "not_provided_by_hook",
+    "native_completion_or_cancellation_confirmed": false,
+    "completion_summary_accepted": true,
+    "completion_summary_proves_native_completion": false
+  },
+  "official_documentation_review": {
+    "basis": "Generic CUA documentation returned with call 1 and refreshed by approved call 7; Chrome-specific browser API documentation returned with successful target creation call 9. Generic wrapper and Chrome-specific surfaces are distinguished below.",
+    "option_validation": {
+      "verbatim": "Apply options before opening the tab; omitted settings stay unchanged, unsupported settings throw.",
+      "assessment": "Supports an expected pre-opening visibility-option rejection; the later unresolved-operation hook prevents treating native completion as confirmed."
+    },
+    "tab_url_metadata": {
+      "documented": "Generic wrapper documentation lists optional URL metadata and readonly Tab.id. Chrome-specific documentation returned with call 9 additionally documents a direct Tab.url() getter and Tab.title().",
+      "exact_signatures": [
+        "type BrowserTabInfo = { id: string; providerTabId?: string; title?: string; url?: string; };",
+        "type TabInfo = { id: string; providerTabId?: string; browserId: string; title?: string; url?: string; };",
+        "listTabs(options?: BrowserOptions & ObservationOptions): Promise<TabInfo[]>;",
+        "getState(options?: ObservationOptions): Promise<State>;",
+        "getTab(reference: string | { mention: string } | { url: string }, options?: BrowserOptions): Promise<Tab>;",
+        "interface Tab extends Target<Uint8Array> { readonly id: string; /* other documented methods omitted here */ }",
+        "url(): Promise<undefined | string>;",
+        "title(): Promise<undefined | string>;"
+      ],
+      "known_url_binding_is_not_a_url_getter": true,
+      "target_scoped_url_getter_documented": true,
+      "executed": false,
+      "assessment": "The exact target URL was returned in creation and post-save tab metadata. The separately documented url() getter was not invoked. Inventory APIs were not used."
+    },
+    "observation_emit_false": {
+      "documented": true,
+      "documented_scope": "ObservationOptions includes emit?: boolean; getAXState, getScreenshot, getAXStateAndScreenshot and listed discovery methods accept observation options. Documentation says emit:false suppresses result output while first-use documentation still displays.",
+      "exact_signatures": [
+        "type ObservationOptions = { emit?: boolean };",
+        "type StateOptions = ObservationOptions & { disableDiffing?: boolean };",
+        "getAXState(options?: StateOptions): Promise<string>;",
+        "getScreenshot(options?: ObservationOptions): Promise<ScreenshotResult>;",
+        "getAXStateAndScreenshot(options?: StateOptions): Promise<StateAndScreenshot>;"
+      ],
+      "emit_false_proves_background_or_no_focus_change": false,
+      "runtime_verified": false
+    },
+    "playwright_locators": {
+      "generic_guidance_present": true,
+      "chrome_specific_signatures_returned": true,
+      "exact_signatures": [
+        "domSnapshot(): Promise<string>;",
+        "getByRole(role: string, options: { exact?: boolean; name?: TextMatcher }): PlaywrightLocator;",
+        "getByLabel(text: TextMatcher, options: { exact?: boolean }): PlaywrightLocator;",
+        "getByPlaceholder(text: TextMatcher, options: { exact?: boolean }): PlaywrightLocator;",
+        "locator(selector: string): PlaywrightLocator;",
+        "fill(value: string, options?: { timeout?: number }): Promise<void>;",
+        "click(options?: LocatorClickOptions): Promise<void>;",
+        "check(options?: LocatorCheckOptions): Promise<void>;",
+        "setChecked(checked: boolean, options?: LocatorCheckOptions): Promise<void>;"
+      ],
+      "assessment": "Chrome-specific documentation exposes tab.playwright and locator builders and actions. Their runtime behavior was not exercised; this short task used the CUA accessibility input API.",
+      "executed": false
+    },
+    "cua_input_api": {
+      "documented": true,
+      "examples": ["click", "setValue", "paste", "pressKey", "typeText"],
+      "exact_signatures": [
+        "click(target: number | Vec2, options?: ClickOptions): Promise<void>;",
+        "drag(from: Vec2, to: Vec2): Promise<void>;",
+        "scroll(target: number | Vec2, direction: Direction, pages?: number): Promise<void>;",
+        "selectText(elementIndex: number, text: string, options?: SelectTextOptions): Promise<void>;",
+        "setValue(elementIndex: number, value: string): Promise<void>;",
+        "performSecondaryAction(elementIndex: number, action: string): Promise<void>;",
+        "paste(elementIndex: number | null, text: string, options?: PasteOptions): Promise<void>;",
+        "pressKey(elementIndex: number | null, key: string, options?: PressKeyOptions): Promise<void>;",
+        "typeText(elementIndex: number | null, text: string): Promise<void>;"
+      ],
+      "qualification": "Generic documentation warns that native input wrappers throw on DOM-only tabs. In this connected Chrome target, CUA setValue and click completed and their effects were observed by getAXState.",
+      "executed": true,
+      "runtime_verified_methods": ["setValue", "click", "getAXState"]
+    },
+    "own_javascript_function_definitions": {
+      "javascript_execution_and_persistent_bindings_documented": true,
+      "explicit_function_definition_contract_returned": false,
+      "assessment": "The tool accepts JavaScript and persistent bindings. The returned documentation neither separately specifies nor tests user-defined function declarations. No function or undocumented browser API was attempted.",
+      "runtime_verified": false
+    }
+  },
+  "v002_follow_up": {
+    "historical_phase": "First documentation attempt after the reported 0.0.2 update; before explicit documentation-only approval and successful call 9",
+    "status": "blocked_by_automatic_approval_review",
+    "reported_setup": {
+      "source": "Delegating source thread 00000000-0000-4000-8000-000000000002",
+      "reported_ccuh_version": "0.0.2",
+      "reported_plugin_enabled": true,
+      "reported_previous_native_operation_lock_hook_removed": true,
+      "reported_historical_records_and_state_files_unchanged": true,
+      "independently_verified_in_this_chat": false
+    },
+    "existing_completion_record_read": "lab/results/computer-use-baseline.json",
+    "visibility_omitted_creation_reauthorized": true,
+    "visibility_omitted_creation_request_issued": false,
+    "documentation_refresh_attempted": true,
+    "documentation_refresh_executed": false,
+    "current_hook_status": "not_observed",
+    "interpretation": "The current documentation request was rejected before execution by automatic approval review, citing the historical unresolved-operation prerequisite. This is not a fresh execution result from the CCUH hook and does not show whether the reported 0.0.2 hook configuration is active.",
+    "target_ui_observed": false,
+    "retry_after_rejection_attempted": false,
+    "workaround_or_indirect_execution_attempted": false,
+    "authentication_bypass_attempted": false,
+    "state_files_deleted": false,
+    "native_operation_force_stopped": false,
+    "completion_summary_accepted": true,
+    "api_documentation_assessment": "No fresh browser documentation or target URL getter, emit:false observation, or locator result was obtained. Existing generic-documentation findings above remain unverified at runtime."
+  },
+  "target_ui_verification": {
+    "observed": true,
+    "name_entered": true,
+    "observed_worker_name": "ccuh-baseline",
+    "enabled_set": true,
+    "observed_activation_checkbox_value": 1,
+    "save_attempted": true,
+    "saved_result_reobserved": true,
+    "save_status_verbatim": "저장됨: ccuh-baseline · 활성화 · 저장 1회",
+    "same_target_tab_verified": true,
+    "verification_surface": "Actual target accessibility UI returned by getAXState after input and save",
+    "reload_or_reopen_persistence_tested": false,
+    "screenshot_captured": false
+  },
+  "approved_documentation_only_follow_up": {
+    "status": "documentation_retrieved_under_explicit_approval",
+    "authorization_source": "Delegating source thread 00000000-0000-4000-8000-000000000002 relayed the actual user's reply: 문서 조회만 재실행 승인",
+    "authorized_action": "cua.rewriteDocumentation() exactly once",
+    "authorized_documentation_query_attempts": 1,
+    "documentation_query_succeeded": true,
+    "additional_ui_actions_or_tab_creation_authorized_in_this_follow_up": false,
+    "additional_ui_actions_or_tab_creation_attempted": false,
+    "prior_task_cancellation_attempted": false,
+    "state_files_deleted": false,
+    "current_guard_observation": "The approved documentation call executed and was not blocked. This does not independently establish the current hook configuration or its behavior for native UI calls.",
+    "current_hook_status": "not_determined",
+    "native_operation_status": "unresolved_from_available_evidence",
+    "chrome_connection_tested": false,
+    "target_ui_observed": false,
+    "documentation_retrieval_proves_hook_removal_or_native_completion": false,
+    "completion_summary_accepted": true,
+    "runtime_capability_tests_performed": false
+  },
+  "user_surface": {
+    "explicit_foreground_or_space_operation_issued": false,
+    "minimize_restore_or_other_window_operation_issued": false,
+    "foreground_state_observed": false,
+    "space_state_observed": false,
+    "actual_screen_movement": "unmeasured",
+    "target_ui_focus_observed": "Initially AXWebArea; after save, button 설정 저장",
+    "target_ui_focus_proves_system_foreground_or_space": false
+  },
+  "scope_controls": {
+    "tab_creation_requests": 2,
+    "visibility_option_creation_requests": 1,
+    "visibility_omitted_creation_requests": 1,
+    "app_or_tab_inventory_requested": false,
+    "whole_chrome_app_capture_requested": false,
+    "other_user_apps_or_tabs_accessed": false,
+    "user_dummy_page_accessed": false,
+    "events_api_accessed": false,
+    "page_source_or_shell_http_used": false,
+    "authentication_bypass_attempted": false,
+    "ccuh_skills_or_design_read": false,
+    "project_code_configuration_skills_or_user_environment_modified": false,
+    "project_contents_indexed_with_context_mode": false
+  },
+  "unverified_conditions": [
+    "A clean pre-CCUH baseline or before/after comparison; UI success occurred after the source thread reported updating CCUH to 0.0.2",
+    "Current CCUH 0.0.2 installation and internal hook configuration; accepted documentation, creation, input, and observation calls are observed but do not independently prove installed configuration",
+    "Identity, completion, or cancellation of the prior native operation reported by the hook",
+    "Actual absence of a created tab after the initial visibility capability error",
+    "Separate invocation of the documented Chrome url() getter, emit:false behavior, locator runtime behavior, and user-defined JavaScript functions",
+    "Saved-state persistence after reload or reopen and subsequent target tab lifecycle",
+    "Actual user foreground and Space state or movement",
+    "Behavior across Spaces, minimized windows, restored windows, and dedicated dummy window conditions"
+  ]
+}

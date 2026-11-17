@@ -1,0 +1,2570 @@
+{
+  "run_id": "00000000-0000-4000-8000-000000000005",
+  "phase": "independent_controlled_fixture_runtime_revision_2",
+  "status": "normal_minimized_and_followup_ui_saves_verified_foreground_precondition_not_met",
+  "evidence_provenance": "Recorded from actual CUA tool outputs and the exact inline script definition in this chat; no UI calls were made to assemble this artifact.",
+  "skill_discovery": {
+    "catalog_advertised_name": "ccuh:ccuh",
+    "catalog_advertised_path": "/Users/example/.codex/plugins/cache/ccuh/ccuh/0.0.2/skills/ccuh/SKILL.md",
+    "catalog_path_read_result": "No such file or directory",
+    "discovery_method": "Narrow rg --files of /Users/example/.codex/plugins/cache/ccuh/ccuh filtered to SKILL.md",
+    "installed_skill_found_and_read": "/Users/example/.codex/plugins/cache/ccuh/ccuh/0.0.4/skills/ccuh/SKILL.md",
+    "reported_installed_version": "0.0.4",
+    "refreshed_0_0_4_automatic_discovery": "unverified",
+    "source_script_requested": "/Users/example/Desktop/개발/CCUH/skills/ccuh/scripts/target-session.js"
+  },
+  "runtime": {
+    "observed_protocol_version": 1,
+    "observed_runtime_revision": 2,
+    "guard_facade_count": 1,
+    "redefined_or_rebound_after_installation": false,
+    "observation_path": "tab.playwright.domSnapshot() only",
+    "ax_or_screenshot_fallback_used": false,
+    "fixture_wrapper_initial_ax_returned": true,
+    "fixture_wrapper_initial_ax_note": "cua.createBrowserTab and cua.getTab automatically returned fixture AX state. Guard observations and success verification used DOM snapshots; no AX fallback was invoked.",
+    "executed_inline_snapshot": {
+      "provenance": "Exact self-contained script text from the executed CUA code argument, before appended instrumentation; not read from later disk state.",
+      "encoding": "UTF-8",
+      "newline_style": "LF",
+      "trailing_newline": true,
+      "sha256": "d81e8a8c542b39045c58e145fc1552f1ef98b023cf1b537fa340690bd5b8d8d5",
+      "source": "/*\n * CCUH guarded existing-target session, protocol 1, runtime revision 2.\n * Paste this self-contained file into the documented CUA JavaScript runtime\n * after its required first binding call. It performs no I/O on its own.\n *\n * Adapter contract (all methods must use the SAME already-bound target):\n *   identity() -> Promise<{targetId: string, url: string}>\n *   observe({emit: false}) -> Promise<observation>\n *   fill(locator: string, value: string) -> Promise<void>\n *   click(locator: string) -> Promise<void>\n *   check(locator: string, checked: boolean) -> Promise<void>\n * Use only methods actually documented by the current CUA/browser session.\n * Locators are adapter-defined strings grounded in the observed target UI.\n * bindBrowserTab(tab, policy) supplies the documented browser adapter: fill\n * uses an exact accessibility label; click uses an exact button name; check\n * uses an exact checkbox name. Its locator strings are not CSS selectors.\n * Browser observations use only playwright.domSnapshot(), returning its string\n * without printing it. There is no native AX/screenshot fallback.\n *\n * This guard limits calls made through its facade. It cannot block raw tools,\n * prevent implicit OS focus changes inside the host, or make URL pre/post\n * checks atomic with capture/input. emit:false must be honored by the adapter;\n * it is not an assertion that the underlying host never collected other data.\n * Binding requires URL, Promise, WeakSet and working JavaScript timer globals.\n * Runtime/capability rejection occurs before an adapter call is scheduled.\n */\n(function installCCUH(root) {\n  \"use strict\";\n  const RUNTIME_REVISION = 2;\n\n  if (root.CCUH !== undefined) {\n    if (!root.CCUH || root.CCUH.protocolVersion !== 1) {\n      throw new Error(\"A different CCUH runtime is already installed.\");\n    }\n    if (typeof root.CCUH.bindBrowserTab === \"function\" &&\n        root.CCUH.runtimeRevision >= RUNTIME_REVISION) return;\n    // Replace only an earlier protocol-1 namespace. Previously created session\n    // objects retain their closures, locks and outstanding operations unchanged.\n  }\n\n  class SessionError extends Error {\n    constructor(code, stage) {\n      super(\"CCUH rejected the operation: \" + code + \".\");\n      this.name = \"CCUHSessionError\";\n      this.code = code;\n      this.stage = stage;\n    }\n  }\n\n  // Only our concrete adapter can certify that a capability check failed\n  // before the actual locator mutation method was called.\n  const knownPreDispatchFailures = typeof WeakSet === \"function\" ? new WeakSet() : null;\n\n  function runtimeFailure(stage) {\n    const failure = new SessionError(\"unsupported_runtime\", stage);\n    if (knownPreDispatchFailures) knownPreDispatchFailures.add(failure);\n    return failure;\n  }\n\n  function requireRuntime(stage) {\n    if (typeof URL !== \"function\" || typeof Promise !== \"function\" ||\n        typeof Promise.resolve !== \"function\" || typeof Promise.race !== \"function\" ||\n        !knownPreDispatchFailures || typeof setTimeout !== \"function\" ||\n        typeof clearTimeout !== \"function\") {\n      throw runtimeFailure(stage);\n    }\n  }\n\n  function unsupportedBeforeDispatch() {\n    const failure = new SessionError(\"unsupported_browser_api\", \"dispatch\");\n    knownPreDispatchFailures.add(failure);\n    return failure;\n  }\n\n  function canonicalUrl(value) {\n    if (typeof value !== \"string\") throw new Error(\"Invalid URL\");\n    const parsed = new URL(value);\n    if ((parsed.protocol !== \"http:\" && parsed.protocol !== \"https:\") ||\n        parsed.username || parsed.password) throw new Error(\"Invalid URL\");\n    return parsed.href;\n  }\n\n  function timeoutValue(value, fallback) {\n    if (value === undefined) return fallback;\n    if (!Number.isInteger(value) || value < 1 || value > 120000) {\n      throw new SessionError(\"invalid_policy\", \"binding\");\n    }\n    return value;\n  }\n\n  function parsePolicy(policy) {\n    if (!policy || typeof policy.targetId !== \"string\" ||\n        !policy.targetId || policy.targetId.length > 512 ||\n        !Array.isArray(policy.allowedUrls) || !policy.allowedUrls.length ||\n        policy.allowedUrls.length > 32) {\n      throw new SessionError(\"invalid_policy\", \"binding\");\n    }\n    let allowed;\n    try {\n      allowed = new Set(policy.allowedUrls.map(canonicalUrl));\n    } catch (_) {\n      throw new SessionError(\"invalid_policy\", \"binding\");\n    }\n    return {\n      targetId: policy.targetId,\n      allowed,\n      timeoutMs: timeoutValue(policy.timeoutMs, 10000),\n      mutationTimeoutMs: timeoutValue(policy.mutationTimeoutMs, 15000),\n    };\n  }\n\n  function copyAdapter(adapter) {\n    const result = {};\n    for (const method of [\"identity\", \"observe\", \"fill\", \"click\", \"check\"]) {\n      if (!adapter || typeof adapter[method] !== \"function\") {\n        throw new SessionError(\"invalid_adapter\", \"binding\");\n      }\n      result[method] = adapter[method].bind(adapter);\n    }\n    return result;\n  }\n\n  function withDeadline(call, milliseconds, stage) {\n    requireRuntime(stage);\n    let timer;\n    let rejectTimeout;\n    const timeout = new Promise((_, reject) => { rejectTimeout = reject; });\n    try {\n      // Set up the deadline before queuing any host call. A missing or rejected\n      // timer must not leave a metadata/action call running without its guard.\n      timer = setTimeout(() => rejectTimeout(new SessionError(\"operation_timeout\", stage)), milliseconds);\n    } catch (_) {\n      throw runtimeFailure(stage);\n    }\n    const work = Promise.resolve().then(call);\n    return Promise.race([work, timeout]).finally(() => clearTimeout(timer));\n  }\n\n  function reportedError(value) {\n    return value && typeof value === \"object\" &&\n      (value.isError === true ||\n       (value.result && typeof value.result === \"object\" && value.result.isError === true));\n  }\n\n  async function bindExisting(adapter, requestedPolicy) {\n    requireRuntime(\"binding\");\n    const policy = parsePolicy(requestedPolicy);\n    const ports = copyAdapter(adapter);\n    const events = [];\n    let state = \"active\";\n    let reasonCode = null;\n    let busy = false;\n    let lookupRetriesRemaining = 1;\n    let mutationOutcome = \"not_attempted\";\n    let mutationAttempted = false;\n\n    function record(event, stage, action, extra) {\n      const entry = {sequence: events.length + 1, event, stage};\n      if (action) entry.action = action;\n      if (extra) Object.assign(entry, extra);\n      events.push(Object.freeze(entry));\n    }\n\n    function audit() {\n      return events.map(entry => Object.freeze(Object.assign({}, entry)));\n    }\n\n    function error(code, stage) {\n      const failure = new SessionError(code, stage);\n      failure.audit = Object.freeze(audit());\n      return failure;\n    }\n\n    function lock(code, stage, action) {\n      if (state === \"active\") state = \"locked\";\n      reasonCode = code;\n      record(\"session_locked\", stage, action, {code});\n    }\n\n    function ensureActive(stage) {\n      if (state === \"active\") return;\n      const code = state === \"suspended\" ? \"session_suspended\" :\n        state === \"interference\" ? \"interference_detected\" : \"session_locked\";\n      throw error(code, stage);\n    }\n\n    async function verifyIdentity(stage, action) {\n      while (true) {\n        ensureActive(stage);\n        let targetId;\n        let url;\n        let causeCode = \"metadata_rejected\";\n        try {\n          const identity = await withDeadline(ports.identity, policy.timeoutMs, stage);\n          ensureActive(stage);\n          causeCode = \"metadata_invalid_identity\";\n          if (!identity || typeof identity !== \"object\" || Array.isArray(identity)) {\n            throw new Error(\"Identity unavailable\");\n          }\n          if (reportedError(identity)) {\n            causeCode = \"metadata_reported_error\";\n            throw new Error(\"Identity unavailable\");\n          }\n          targetId = identity.targetId;\n          if (typeof targetId !== \"string\" || !targetId) throw new Error(\"Identity unavailable\");\n          const rawUrl = identity.url;\n          causeCode = rawUrl === undefined || rawUrl === null || rawUrl === \"\" ?\n            \"metadata_url_missing\" : \"metadata_url_invalid\";\n          url = canonicalUrl(rawUrl);\n        } catch (failure) {\n          ensureActive(stage);\n          if (knownPreDispatchFailures.has(failure)) {\n            lock(\"unsupported_runtime\", stage, action);\n            throw error(\"unsupported_runtime\", stage);\n          }\n          if (failure instanceof SessionError && failure.code === \"operation_timeout\") {\n            causeCode = \"metadata_timeout\";\n          }\n          record(\"identity_unavailable\", stage, action, {causeCode});\n          if (lookupRetriesRemaining > 0) {\n            lookupRetriesRemaining -= 1;\n            record(\"same_target_recheck\", stage, action);\n            continue;\n          }\n          lock(\"identity_unavailable\", stage, action);\n          throw error(\"identity_unavailable\", stage);\n        }\n        const idMatches = targetId === policy.targetId;\n        const urlMatches = policy.allowed.has(url);\n        record(\"identity_checked\", stage, action, {idMatches, urlMatches});\n        if (!idMatches || !urlMatches) {\n          const code = !idMatches ? \"target_mismatch\" : \"url_not_allowed\";\n          lock(code, stage, action);\n          throw error(code, stage);\n        }\n        return;\n      }\n    }\n\n    function validateLocator(locator) {\n      if (typeof locator !== \"string\" || !locator.trim() || locator.length > 2048) {\n        throw error(\"invalid_request\", \"request\");\n      }\n    }\n\n    async function run(action, args, mutating) {\n      ensureActive(\"request\");\n      if (busy) {\n        record(\"operation_rejected\", \"request\", action, {code: \"session_busy\"});\n        throw error(\"session_busy\", \"request\");\n      }\n      busy = true;\n      let dispatched = false;\n      let payload;\n      if (mutating) {\n        mutationAttempted = false;\n        mutationOutcome = \"not_attempted\";\n      }\n      record(\"operation_started\", \"before\", action);\n      try {\n        await verifyIdentity(\"before\", action);\n        ensureActive(\"dispatch\");\n        dispatched = true;\n        if (mutating) {\n          mutationAttempted = true;\n          mutationOutcome = \"unverified\";\n        }\n        try {\n          payload = await withDeadline(\n            () => ports[action].apply(undefined, args),\n            mutating ? policy.mutationTimeoutMs : policy.timeoutMs,\n            \"dispatch\"\n          );\n          if (reportedError(payload)) throw new Error(\"Adapter reported failure\");\n        } catch (failure) {\n          const notDispatched = knownPreDispatchFailures.has(failure);\n          if (notDispatched) dispatched = false;\n          if (mutating) {\n            mutationAttempted = !notDispatched;\n            mutationOutcome = notDispatched ? \"not_attempted\" : \"unknown\";\n          }\n          const code = notDispatched ? failure.code :\n            failure instanceof SessionError && failure.code === \"operation_timeout\"\n            ? \"operation_timeout\" : mutating ? \"mutation_result_unknown\" : \"observation_failed\";\n          lock(code, \"dispatch\", action);\n          const sanitized = error(code, \"dispatch\");\n          sanitized.mutationAttempted = mutating && mutationAttempted;\n          throw sanitized;\n        }\n        ensureActive(\"after\");\n        await verifyIdentity(\"after\", action);\n        ensureActive(\"return\");\n        record(\"operation_returned\", \"return\", action);\n        if (mutating) {\n          // A returned adapter call and matching identity checks do not establish\n          // the user's requested UI effect. Observe the target to verify it.\n          mutationOutcome = \"returned\";\n          return Object.freeze({action, outcome: \"returned\", identityChecksPassed: true});\n        }\n        return payload;\n      } catch (failure) {\n        if (mutating && dispatched) mutationOutcome = \"unknown\";\n        payload = undefined;\n        record(\"result_withheld\", failure instanceof SessionError ? failure.stage : \"unknown\", action);\n        if (failure instanceof SessionError) {\n          failure.audit = Object.freeze(audit());\n          throw failure;\n        }\n        lock(\"operation_failed\", \"unknown\", action);\n        throw error(\"operation_failed\", \"unknown\");\n      } finally {\n        busy = false;\n        payload = undefined;\n      }\n    }\n\n    function stop(nextState, reason) {\n      if (state !== \"active\") return status();\n      state = nextState;\n      const accepted = new Set([\"manual\", \"user_space_changed\", \"user_input_detected\", \"focus_changed\", \"target_hidden\"]);\n      reasonCode = accepted.has(reason) ? reason : \"unspecified\";\n      record(nextState === \"interference\" ? \"interference_detected\" : \"session_suspended\", \"request\", null, {code: reasonCode});\n      return status();\n    }\n\n    function status() {\n      return Object.freeze({state, busy, reasonCode, lookupRetriesRemaining, mutationOutcome, mutationAttempted});\n    }\n\n    record(\"binding_started\", \"binding\");\n    await verifyIdentity(\"binding\", null);\n    record(\"binding_completed\", \"binding\");\n\n    return Object.freeze({\n      observe() {\n        return run(\"observe\", [{emit: false}], false);\n      },\n      async fill(locator, value) {\n        validateLocator(locator);\n        if (typeof value !== \"string\" || value.length > 1048576) {\n          return Promise.reject(error(\"invalid_request\", \"request\"));\n        }\n        return run(\"fill\", [locator, value], true);\n      },\n      async click(locator) {\n        validateLocator(locator);\n        return run(\"click\", [locator], true);\n      },\n      async check(locator, checked) {\n        validateLocator(locator);\n        if (typeof checked !== \"boolean\") {\n          return Promise.reject(error(\"invalid_request\", \"request\"));\n        }\n        return run(\"check\", [locator, checked], true);\n      },\n      suspend(reason) { return stop(\"suspended\", reason); },\n      interference(reason) { return stop(\"interference\", reason); },\n      status,\n      audit,\n    });\n  }\n\n  async function bindBrowserTab(tab, policy) {\n    let url;\n    let snapshot;\n    let getByLabel;\n    let getByRole;\n    try {\n      if (!tab || typeof tab.id !== \"string\" || !tab.id ||\n          typeof tab.url !== \"function\" || !tab.playwright ||\n          typeof tab.playwright.domSnapshot !== \"function\" ||\n          typeof tab.playwright.getByLabel !== \"function\" ||\n          typeof tab.playwright.getByRole !== \"function\") {\n        throw new Error(\"Unsupported browser interface\");\n      }\n      url = tab.url.bind(tab);\n      snapshot = tab.playwright.domSnapshot.bind(tab.playwright);\n      getByLabel = tab.playwright.getByLabel.bind(tab.playwright);\n      getByRole = tab.playwright.getByRole.bind(tab.playwright);\n    } catch (_) {\n      throw new SessionError(\"unsupported_browser_api\", \"binding\");\n    }\n\n    function locatorMethod(locator, method) {\n      if (!locator || typeof locator[method] !== \"function\") {\n        throw unsupportedBeforeDispatch();\n      }\n      return locator[method].bind(locator);\n    }\n\n    return bindExisting({\n      async identity() {\n        return {targetId: tab.id, url: await url()};\n      },\n      async observe() {\n        const text = await snapshot();\n        if (typeof text !== \"string\") throw new Error(\"Invalid DOM snapshot\");\n        return text;\n      },\n      fill(label, value) {\n        return locatorMethod(getByLabel(label, {exact: true}), \"fill\")(value);\n      },\n      click(name) {\n        return locatorMethod(getByRole(\"button\", {name, exact: true}), \"click\")();\n      },\n      check(name, checked) {\n        return locatorMethod(getByRole(\"checkbox\", {name, exact: true}), \"setChecked\")(checked);\n      },\n    }, policy);\n  }\n\n  root.CCUH = Object.freeze({protocolVersion: 1, runtimeRevision: RUNTIME_REVISION, bindExisting, bindBrowserTab});\n})(globalThis);\n",
+      "hash_scope": "Entire source string, including final newline; excludes instrumentation appended after the script",
+      "utf8_bytes": 15834,
+      "installed_file_equality_claimed": false
+    },
+    "newer_patch_evaluation": "Not attempted; source-thread follow-up requested preserving this exact runtime revision 2 execution.",
+    "old_failed_target_id": "850116213",
+    "old_failed_target_or_facade_reused": false,
+    "old_evidence_files_modified": false
+  },
+  "management": {
+    "browser_id": "1",
+    "browser_name": "Chrome",
+    "browser_type": "extension",
+    "advertised_capabilities": [
+      "viewport",
+      "management"
+    ],
+    "management_documentation_returned": true,
+    "local_management_document_read": "/Users/example/.codex/plugins/cache/openai-bundled/chrome/26.1111.21308/docs/capabilities/browser/management.md",
+    "supported_operations_observed": [
+      "tabs.query({url:exactUrl})",
+      "windows.create({tabId,focused:false})",
+      "tabs.get(nativeId)",
+      "tabs.move(nativeId,{windowId,index:-1})"
+    ],
+    "rejected_operation": "tabs.update(850116244,{active:true})",
+    "rejected_error": "Chrome API tabs.update contains an unsupported property",
+    "no_denied_method_workaround": true
+  },
+  "fixture": {
+    "target_url": "http://127.0.0.1:50626/target?case=controlled-20261117-r2",
+    "target_id": "850116239",
+    "target_native_tab_id": 850116239,
+    "own_window_id": 850116242,
+    "dummy_user_url": "http://127.0.0.1:50626/user?case=controlled-20261117-r2",
+    "dummy_user_tab_id": "850116244",
+    "dummy_user_native_tab_id": 850116244,
+    "target_unique_exact_url_match": true,
+    "dummy_unique_exact_url_match": true,
+    "target_window_relationship_verified": true,
+    "tab_creation_calls": 2,
+    "target_tab_creation_calls": 1,
+    "dummy_user_tab_creation_calls": 1,
+    "window_creation_calls": 1,
+    "window_creation_arguments": {
+      "tabId": 850116239,
+      "focused": false
+    },
+    "window_creation_with_url_used": false,
+    "creation_was_independent_fixture_not_missing_target_recovery": true,
+    "fresh_data_isolation_established": false,
+    "isolation_note": "The new fixture initially displayed ccuh-baseline, activation enabled, and save count 1. No reset of shared dummy server state was requested or performed."
+  },
+  "cases": {
+    "normal": {
+      "status": "passed",
+      "requested_name": "ccuh-controlled-normal",
+      "requested_enabled": true,
+      "first_observation_call": 13,
+      "final_observation_call": 17,
+      "input_label": "Worker 이름",
+      "checkbox_name": "Worker 활성화",
+      "save_button_name": "설정 저장",
+      "before_snapshot": "- main:\n  - paragraph: CCUH LAB · 목표 탭\n  - heading \"Worker 테스트 설정\" [level=1]\n  - paragraph: 이 페이지는 로컬 실험용입니다. 실제 Cloudflare 계정이나 배포에 연결되지 않습니다.\n  - generic: Worker 이름\n  - textbox \"Worker 이름\": ccuh-baseline\n  - checkbox \"Worker 활성화\" [checked]\n  - text: Worker 활성화\n  - button \"설정 저장\"\n  - status: \"저장됨: ccuh-baseline · 활성화 · 저장 1회\"\n  - text: \"시험 과제: 이름을\"\n  - code: ccuh-demo\n  - text: 로 지정하고 활성화한 뒤 저장하세요.\n  - text: 서버와 이벤트는 이 컴퓨터의 메모리에만 유지됩니다. 서버를 다시 시작하면 초기화됩니다.\n  - status: 로컬 이벤트 1건 기록",
+      "after_snapshot": "- main:\n  - paragraph: CCUH LAB · 목표 탭\n  - heading \"Worker 테스트 설정\" [level=1]\n  - paragraph: 이 페이지는 로컬 실험용입니다. 실제 Cloudflare 계정이나 배포에 연결되지 않습니다.\n  - generic: Worker 이름\n  - textbox \"Worker 이름\": ccuh-controlled-normal\n  - checkbox \"Worker 활성화\" [checked]\n  - text: Worker 활성화\n  - button \"설정 저장\" [active]\n  - status: \"저장됨: ccuh-controlled-normal · 활성화 · 저장 2회\"\n  - text: \"시험 과제: 이름을\"\n  - code: ccuh-demo\n  - text: 로 지정하고 활성화한 뒤 저장하세요.\n  - text: 서버와 이벤트는 이 컴퓨터의 메모리에만 유지됩니다. 서버를 다시 시작하면 초기화됩니다.\n  - status: 로컬 이벤트 5건 기록",
+      "actual_save_status": "저장됨: ccuh-controlled-normal · 활성화 · 저장 2회",
+      "save_count_before": 1,
+      "save_count_after": 2,
+      "saved_name_and_enabled_ui_verified": true,
+      "receipt_alone_used_as_success": false,
+      "final_observation_ended_utc": "2026-11-17T02:53:54.145Z"
+    },
+    "inactive_tab": {
+      "status": "unsupported_setup",
+      "requested_name": "ccuh-controlled-inactive",
+      "dummy_created_and_moved_to_owned_window": true,
+      "dummy_last_sampled_active": false,
+      "active_true_request_accepted": false,
+      "failed_call": 21,
+      "failure_message": "Chrome API tabs.update contains an unsupported property",
+      "failure_started_utc": "2026-11-17T02:54:07.144Z",
+      "failure_ended_utc": "2026-11-17T02:54:07.147Z",
+      "target_active_false_precheck_executed": false,
+      "guarded_save_attempted": false,
+      "postcondition_observation_executed": false,
+      "alternative_activation_or_creation_attempted": false,
+      "later_known_target_tab_sample": {
+        "call": 24,
+        "active": true,
+        "windowId": 850116242,
+        "exactUrl": true
+      },
+      "later_known_dummy_tab_sample": {
+        "call": 25,
+        "active": false,
+        "windowId": 850116242,
+        "exactUrl": true
+      },
+      "activation_retry_attempted": false,
+      "reason": "The explicit later known-ID checks did not establish target inactive/dummy active; no active:true retry occurred."
+    },
+    "minimized": {
+      "status": "passed_at_sampled_pre_and_post_states",
+      "requested_name": "ccuh-controlled-minimized",
+      "requested_enabled": true,
+      "window_minimize_call": 26,
+      "window_precondition_call": 27,
+      "window_before": {
+        "id": 850116242,
+        "state": "minimized",
+        "focused": false
+      },
+      "first_observation_call": 28,
+      "final_observation_call": 32,
+      "actual_save_status": "저장됨: ccuh-controlled-minimized · 활성화 · 저장 3회",
+      "saved_name_and_enabled_ui_verified": true,
+      "receipt_alone_used_as_success": false,
+      "final_observation_ended_utc": "2026-11-17T02:56:28.909Z",
+      "window_postcondition_call": 33,
+      "window_after": {
+        "id": 850116242,
+        "state": "minimized",
+        "focused": false
+      },
+      "uninterrupted_minimization_or_no_transient_restore_claim": false
+    },
+    "other_space_stationary_caret": {
+      "status": "blocked_during_owned_window_setup_restoration",
+      "setup_restore_call": 34,
+      "setup_window_check_call": 35,
+      "requested_window_state": "normal",
+      "returned_and_checked_window_state": "minimized",
+      "condition_failure": "Owned window setup restoration not confirmed.",
+      "restore_repeated": false,
+      "subsequent_restore_outcome": "unmeasured",
+      "focus_probe_app_selected": false,
+      "fullscreen_setup_attempted": false,
+      "stationary_caret_setup_attempted": false,
+      "guarded_save_attempted": false,
+      "actual_concurrent_human_typing_verified": false
+    },
+    "other_space_with_recorded_window_state": {
+      "status": "ui_save_verified_foreground_caret_precondition_not_met",
+      "historical_setup_failure": {
+        "status": "blocked_during_caret_setup",
+        "separate_from_first_restoration_blocked_setup": true,
+        "known_owned_window_call": 38,
+        "known_owned_window_sample": {
+          "id": 850116242,
+          "state": "normal",
+          "focused": false
+        },
+        "interpretation_of_later_normal_sample": "Normal state was observed later than the earlier unconfirmed restoration. No restore update was repeated; the cause or transition timing was not established.",
+        "own_app_path": "/private/tmp/CCUH Focus Probe.app",
+        "own_app_selected_call": 39,
+        "input_label": "CCUH Test Input",
+        "input_index": 4,
+        "setup_text": "ccuh-caret-12345",
+        "text_input_call": 40,
+        "fullscreen_toggle_button": "Toggle Full Screen",
+        "fullscreen_toggle_call": 41,
+        "post_toggle_ui_observation_call": 42,
+        "post_toggle_ui_text_verified": true,
+        "fullscreen_transition_ui_evidence": "Window controls 6-9 disappeared, title index 12 appeared, field 4 retained ccuh-caret-12345 and focus.",
+        "actual_os_fullscreen_boolean_measured": false,
+        "actual_os_space_measured": false,
+        "caret_setup_click_call": 43,
+        "caret_setup_click_outcome": "error",
+        "blocker_message": "The user changed '/tmp/CCUH Focus Probe.app'. Re-query the latest state with `get_app_state` before sending more actions.",
+        "blocker_classification": "Runtime state-change guard during setup; no measured focus or Space interference conclusion.",
+        "select_text_executed": false,
+        "final_caret_ax_observation_executed": false,
+        "caret_setup_complete_variable_assigned": false,
+        "caret_placed_or_verified": false,
+        "app_requery_or_action_retry_after_error": false,
+        "guard_interference_called": false,
+        "requested_background_name": "ccuh-controlled-other-space",
+        "background_guard_observe_or_mutation_called": false,
+        "background_save_verified": false,
+        "independent_probe_log_read": false,
+        "full_space_preservation_verified": false,
+        "actual_concurrent_human_typing_verified": false,
+        "app_cleanup_or_caret_restoration_performed": false
+      },
+      "explicit_continuation_scope": "One fresh own-app AX state and a fresh-index field click followed immediately in the same CUA call by the existing guard's observe/fill/check/click/observe sequence; no new facade, fullscreen toggle, restore retry, or tab creation.",
+      "fresh_own_app_observation_call": 46,
+      "actor_observed_setup_text": "ccuh-caret-12345",
+      "actor_observed_setup_field_index": 4,
+      "actor_observed_setup_focus_index": 4,
+      "actor_observed_setup_window_controls": "No close/minimize controls in the returned own-app UI",
+      "source_reported_setup_log": {
+        "source": "Primary agent relayed source-thread report from the independent own-app log",
+        "reported_fullscreen": true,
+        "reported_selection_location": 16,
+        "reported_selection_length": 0,
+        "actor_read_independent_log": false,
+        "independently_verified_by_actor": false
+      },
+      "fresh_index_setup_click_call": 47,
+      "fresh_index_setup_click_returned": true,
+      "select_text_called_in_continuation": false,
+      "caret_location_after_setup_click_independently_verified": false,
+      "fullscreen_toggle_repeated": false,
+      "own_app_read_or_focus_restoration_after_background_start": false,
+      "background_guard_calls": [
+        48,
+        49,
+        50,
+        51,
+        52
+      ],
+      "background_started_utc": "2026-11-17T03:01:14.648Z",
+      "final_observation_ended_utc": "2026-11-17T03:01:19.952Z",
+      "measured_background_interval_seconds": 5.304,
+      "interval_note": "Wall-clock facade-call interval includes the first observe lasting 5.000 seconds. It is not a subsecond or native-completion claim.",
+      "requested_name": "ccuh-controlled-other-space",
+      "requested_enabled": true,
+      "before_save_status": "저장됨: ccuh-controlled-minimized · 활성화 · 저장 3회",
+      "actual_save_status": "저장됨: ccuh-controlled-other-space · 활성화 · 저장 4회",
+      "saved_name_and_enabled_ui_verified": true,
+      "final_local_event_count": 13,
+      "receipt_alone_used_as_success": false,
+      "guard_interference_called": false,
+      "actual_os_space_measured_by_actor": false,
+      "caret_text_key_or_space_preservation": "Not validated: independent source-log evaluation reports the required foreground precondition was not met. AX editor focus did not establish OS key focus.",
+      "independent_foreground_precondition_evaluation": {
+        "source_thread_id": "00000000-0000-4000-8000-000000000002",
+        "provenance": "Source-thread report of its independent own-app OS log evaluation; this actor did not read the log",
+        "relevant_task_started_utc": "2026-11-17T03:01:14.648Z",
+        "relevant_final_observation_ended_utc": "2026-11-17T03:01:19.952Z",
+        "probe_key_window": false,
+        "probe_is_frontmost": false,
+        "exact_os_log_sample_timestamps_provided_to_actor": false,
+        "foreground_caret_precondition_met": false,
+        "other_space_foreground_setup_established": false,
+        "foreground_caret_preservation_validated": false,
+        "ax_editor_focus_proves_os_key_focus": false,
+        "actual_target_ui_save_result_changed_by_this_evaluation": false,
+        "computer_use_caused_focus_change_established": false
+      },
+      "actual_concurrent_human_typing_verified": false,
+      "final_read_only_window_observation_call": 53,
+      "final_window_sample": {
+        "id": 850116242,
+        "state": "normal",
+        "focused": false
+      }
+    }
+  },
+  "calls": [
+    {
+      "sequence": 1,
+      "method": "cua.getBrowser",
+      "args": {
+        "id": "1"
+      },
+      "startedUtc": "2026-11-17T02:51:45.617Z",
+      "endedUtc": "2026-11-17T02:51:45.742Z",
+      "outcome": "returned"
+    },
+    {
+      "sequence": 2,
+      "method": "browser.capabilities.list",
+      "args": {
+        "browserId": "1"
+      },
+      "startedUtc": "2026-11-17T02:51:45.742Z",
+      "endedUtc": "2026-11-17T02:51:45.742Z",
+      "outcome": "returned",
+      "result": {
+        "ids": [
+          "viewport",
+          "management"
+        ]
+      }
+    },
+    {
+      "sequence": 3,
+      "method": "browser.documentation",
+      "args": {
+        "browserId": "1"
+      },
+      "startedUtc": "2026-11-17T02:51:50.525Z",
+      "endedUtc": "2026-11-17T02:51:50.526Z",
+      "outcome": "returned",
+      "result": {
+        "documentationReturned": true
+      }
+    },
+    {
+      "sequence": 4,
+      "method": "browser.capabilities.get(management).documentation",
+      "args": {
+        "browserId": "1"
+      },
+      "startedUtc": "2026-11-17T02:51:50.526Z",
+      "endedUtc": "2026-11-17T02:51:50.526Z",
+      "outcome": "returned",
+      "result": {
+        "documentationReturned": true
+      }
+    },
+    {
+      "sequence": 5,
+      "method": "browser.nameSession",
+      "args": {
+        "name": "🧪 CCUH 통제 검증"
+      },
+      "startedUtc": "2026-11-17T02:52:10.282Z",
+      "endedUtc": "2026-11-17T02:52:10.285Z",
+      "outcome": "returned"
+    },
+    {
+      "sequence": 6,
+      "method": "cua.createBrowserTab",
+      "args": {
+        "browser": "chrome",
+        "url": "http://127.0.0.1:50626/target?case=controlled-20261117-r2",
+        "sessionName": "🧪 CCUH 통제 검증"
+      },
+      "startedUtc": "2026-11-17T02:52:10.286Z",
+      "endedUtc": "2026-11-17T02:52:15.292Z",
+      "outcome": "returned",
+      "result": {
+        "id": "850116239"
+      }
+    },
+    {
+      "sequence": 7,
+      "method": "management.tabs.query",
+      "args": {
+        "url": "http://127.0.0.1:50626/target?case=controlled-20261117-r2"
+      },
+      "startedUtc": "2026-11-17T02:52:22.740Z",
+      "endedUtc": "2026-11-17T02:52:22.747Z",
+      "outcome": "returned",
+      "result": [
+        {
+          "id": 850116239,
+          "windowId": 850114146,
+          "active": false,
+          "exactUrl": true
+        }
+      ]
+    },
+    {
+      "sequence": 8,
+      "method": "management.windows.create",
+      "args": {
+        "tabId": 850116239,
+        "focused": false
+      },
+      "startedUtc": "2026-11-17T02:52:22.747Z",
+      "endedUtc": "2026-11-17T02:52:22.850Z",
+      "outcome": "returned",
+      "result": {
+        "id": 850116242,
+        "state": "normal",
+        "focused": false
+      }
+    },
+    {
+      "sequence": 9,
+      "method": "cua.getTab",
+      "args": {
+        "id": "850116239",
+        "browser": "chrome"
+      },
+      "startedUtc": "2026-11-17T02:52:29.428Z",
+      "endedUtc": "2026-11-17T02:52:29.580Z",
+      "outcome": "returned",
+      "result": {
+        "id": "850116239"
+      }
+    },
+    {
+      "sequence": 10,
+      "method": "management.tabs.get",
+      "args": {
+        "tabId": 850116239
+      },
+      "startedUtc": "2026-11-17T02:52:29.580Z",
+      "endedUtc": "2026-11-17T02:52:29.582Z",
+      "outcome": "returned",
+      "result": {
+        "id": 850116239,
+        "windowId": 850116242,
+        "active": true,
+        "exactUrl": true
+      }
+    },
+    {
+      "sequence": 11,
+      "method": "tab.url",
+      "args": {
+        "targetId": "850116239"
+      },
+      "startedUtc": "2026-11-17T02:52:29.582Z",
+      "endedUtc": "2026-11-17T02:52:29.583Z",
+      "outcome": "returned",
+      "result": {
+        "exactUrl": true
+      }
+    },
+    {
+      "sequence": 12,
+      "method": "CCUH.bindBrowserTab",
+      "args": {
+        "targetId": "850116239",
+        "allowedUrls": [
+          "http://127.0.0.1:50626/target?case=controlled-20261117-r2"
+        ]
+      },
+      "startedUtc": "2026-11-17T02:53:36.841Z",
+      "endedUtc": "2026-11-17T02:53:36.846Z",
+      "outcome": "returned",
+      "result": {
+        "status": {
+          "state": "active",
+          "busy": false,
+          "reasonCode": null,
+          "lookupRetriesRemaining": 1,
+          "mutationOutcome": "not_attempted",
+          "mutationAttempted": false
+        },
+        "audit": [
+          {
+            "sequence": 1,
+            "event": "binding_started",
+            "stage": "binding"
+          },
+          {
+            "sequence": 2,
+            "event": "identity_checked",
+            "stage": "binding",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 3,
+            "event": "binding_completed",
+            "stage": "binding"
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 13,
+      "method": "guard.observe",
+      "args": {
+        "case": "normal",
+        "targetId": "850116239"
+      },
+      "startedUtc": "2026-11-17T02:53:36.846Z",
+      "endedUtc": "2026-11-17T02:53:36.886Z",
+      "outcome": "returned",
+      "result": {
+        "snapshot": "- main:\n  - paragraph: CCUH LAB · 목표 탭\n  - heading \"Worker 테스트 설정\" [level=1]\n  - paragraph: 이 페이지는 로컬 실험용입니다. 실제 Cloudflare 계정이나 배포에 연결되지 않습니다.\n  - generic: Worker 이름\n  - textbox \"Worker 이름\": ccuh-baseline\n  - checkbox \"Worker 활성화\" [checked]\n  - text: Worker 활성화\n  - button \"설정 저장\"\n  - status: \"저장됨: ccuh-baseline · 활성화 · 저장 1회\"\n  - text: \"시험 과제: 이름을\"\n  - code: ccuh-demo\n  - text: 로 지정하고 활성화한 뒤 저장하세요.\n  - text: 서버와 이벤트는 이 컴퓨터의 메모리에만 유지됩니다. 서버를 다시 시작하면 초기화됩니다.\n  - status: 로컬 이벤트 1건 기록",
+        "status": {
+          "state": "active",
+          "busy": false,
+          "reasonCode": null,
+          "lookupRetriesRemaining": 1,
+          "mutationOutcome": "not_attempted",
+          "mutationAttempted": false
+        },
+        "audit": [
+          {
+            "sequence": 1,
+            "event": "binding_started",
+            "stage": "binding"
+          },
+          {
+            "sequence": 2,
+            "event": "identity_checked",
+            "stage": "binding",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 3,
+            "event": "binding_completed",
+            "stage": "binding"
+          },
+          {
+            "sequence": 4,
+            "event": "operation_started",
+            "stage": "before",
+            "action": "observe"
+          },
+          {
+            "sequence": 5,
+            "event": "identity_checked",
+            "stage": "before",
+            "action": "observe",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 6,
+            "event": "identity_checked",
+            "stage": "after",
+            "action": "observe",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 7,
+            "event": "operation_returned",
+            "stage": "return",
+            "action": "observe"
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 14,
+      "method": "guard.fill",
+      "args": {
+        "case": "normal",
+        "targetId": "850116239",
+        "label": "Worker 이름",
+        "value": "ccuh-controlled-normal"
+      },
+      "startedUtc": "2026-11-17T02:53:53.815Z",
+      "endedUtc": "2026-11-17T02:53:53.855Z",
+      "outcome": "returned",
+      "result": {
+        "status": {
+          "state": "active",
+          "busy": false,
+          "reasonCode": null,
+          "lookupRetriesRemaining": 1,
+          "mutationOutcome": "returned",
+          "mutationAttempted": true
+        },
+        "auditDelta": [
+          {
+            "sequence": 8,
+            "event": "operation_started",
+            "stage": "before",
+            "action": "fill"
+          },
+          {
+            "sequence": 9,
+            "event": "identity_checked",
+            "stage": "before",
+            "action": "fill",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 10,
+            "event": "identity_checked",
+            "stage": "after",
+            "action": "fill",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 11,
+            "event": "operation_returned",
+            "stage": "return",
+            "action": "fill"
+          }
+        ],
+        "receipt": {
+          "action": "fill",
+          "outcome": "returned",
+          "identityChecksPassed": true
+        }
+      }
+    },
+    {
+      "sequence": 15,
+      "method": "guard.check",
+      "args": {
+        "case": "normal",
+        "targetId": "850116239",
+        "name": "Worker 활성화",
+        "checked": true
+      },
+      "startedUtc": "2026-11-17T02:53:53.855Z",
+      "endedUtc": "2026-11-17T02:53:53.866Z",
+      "outcome": "returned",
+      "result": {
+        "status": {
+          "state": "active",
+          "busy": false,
+          "reasonCode": null,
+          "lookupRetriesRemaining": 1,
+          "mutationOutcome": "returned",
+          "mutationAttempted": true
+        },
+        "auditDelta": [
+          {
+            "sequence": 12,
+            "event": "operation_started",
+            "stage": "before",
+            "action": "check"
+          },
+          {
+            "sequence": 13,
+            "event": "identity_checked",
+            "stage": "before",
+            "action": "check",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 14,
+            "event": "identity_checked",
+            "stage": "after",
+            "action": "check",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 15,
+            "event": "operation_returned",
+            "stage": "return",
+            "action": "check"
+          }
+        ],
+        "receipt": {
+          "action": "check",
+          "outcome": "returned",
+          "identityChecksPassed": true
+        }
+      }
+    },
+    {
+      "sequence": 16,
+      "method": "guard.click",
+      "args": {
+        "case": "normal",
+        "targetId": "850116239",
+        "name": "설정 저장"
+      },
+      "startedUtc": "2026-11-17T02:53:53.866Z",
+      "endedUtc": "2026-11-17T02:53:54.136Z",
+      "outcome": "returned",
+      "result": {
+        "status": {
+          "state": "active",
+          "busy": false,
+          "reasonCode": null,
+          "lookupRetriesRemaining": 1,
+          "mutationOutcome": "returned",
+          "mutationAttempted": true
+        },
+        "auditDelta": [
+          {
+            "sequence": 16,
+            "event": "operation_started",
+            "stage": "before",
+            "action": "click"
+          },
+          {
+            "sequence": 17,
+            "event": "identity_checked",
+            "stage": "before",
+            "action": "click",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 18,
+            "event": "identity_checked",
+            "stage": "after",
+            "action": "click",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 19,
+            "event": "operation_returned",
+            "stage": "return",
+            "action": "click"
+          }
+        ],
+        "receipt": {
+          "action": "click",
+          "outcome": "returned",
+          "identityChecksPassed": true
+        }
+      }
+    },
+    {
+      "sequence": 17,
+      "method": "guard.observe",
+      "args": {
+        "case": "normal",
+        "targetId": "850116239",
+        "phase": "after"
+      },
+      "startedUtc": "2026-11-17T02:53:54.136Z",
+      "endedUtc": "2026-11-17T02:53:54.145Z",
+      "outcome": "returned",
+      "result": {
+        "status": {
+          "state": "active",
+          "busy": false,
+          "reasonCode": null,
+          "lookupRetriesRemaining": 1,
+          "mutationOutcome": "returned",
+          "mutationAttempted": true
+        },
+        "auditDelta": [
+          {
+            "sequence": 20,
+            "event": "operation_started",
+            "stage": "before",
+            "action": "observe"
+          },
+          {
+            "sequence": 21,
+            "event": "identity_checked",
+            "stage": "before",
+            "action": "observe",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 22,
+            "event": "identity_checked",
+            "stage": "after",
+            "action": "observe",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 23,
+            "event": "operation_returned",
+            "stage": "return",
+            "action": "observe"
+          }
+        ],
+        "snapshot": "- main:\n  - paragraph: CCUH LAB · 목표 탭\n  - heading \"Worker 테스트 설정\" [level=1]\n  - paragraph: 이 페이지는 로컬 실험용입니다. 실제 Cloudflare 계정이나 배포에 연결되지 않습니다.\n  - generic: Worker 이름\n  - textbox \"Worker 이름\": ccuh-controlled-normal\n  - checkbox \"Worker 활성화\" [checked]\n  - text: Worker 활성화\n  - button \"설정 저장\" [active]\n  - status: \"저장됨: ccuh-controlled-normal · 활성화 · 저장 2회\"\n  - text: \"시험 과제: 이름을\"\n  - code: ccuh-demo\n  - text: 로 지정하고 활성화한 뒤 저장하세요.\n  - text: 서버와 이벤트는 이 컴퓨터의 메모리에만 유지됩니다. 서버를 다시 시작하면 초기화됩니다.\n  - status: 로컬 이벤트 5건 기록"
+      }
+    },
+    {
+      "sequence": 18,
+      "method": "cua.createBrowserTab",
+      "args": {
+        "browser": "chrome",
+        "url": "http://127.0.0.1:50626/user?case=controlled-20261117-r2",
+        "sessionName": "🧪 CCUH 통제 검증",
+        "case": "inactive_setup"
+      },
+      "startedUtc": "2026-11-17T02:54:06.676Z",
+      "endedUtc": "2026-11-17T02:54:07.132Z",
+      "outcome": "returned",
+      "result": {
+        "id": "850116244"
+      }
+    },
+    {
+      "sequence": 19,
+      "method": "management.tabs.query",
+      "args": {
+        "url": "http://127.0.0.1:50626/user?case=controlled-20261117-r2"
+      },
+      "startedUtc": "2026-11-17T02:54:07.132Z",
+      "endedUtc": "2026-11-17T02:54:07.134Z",
+      "outcome": "returned",
+      "result": [
+        {
+          "id": 850116244,
+          "windowId": 850114146,
+          "active": false,
+          "exactUrl": true
+        }
+      ]
+    },
+    {
+      "sequence": 20,
+      "method": "management.tabs.move",
+      "args": {
+        "tabId": 850116244,
+        "windowId": 850116242,
+        "index": -1
+      },
+      "startedUtc": "2026-11-17T02:54:07.134Z",
+      "endedUtc": "2026-11-17T02:54:07.144Z",
+      "outcome": "returned",
+      "result": {
+        "id": 850116244,
+        "windowId": 850116242,
+        "active": false
+      }
+    },
+    {
+      "sequence": 21,
+      "method": "management.tabs.update",
+      "args": {
+        "tabId": 850116244,
+        "active": true
+      },
+      "startedUtc": "2026-11-17T02:54:07.144Z",
+      "endedUtc": "2026-11-17T02:54:07.147Z",
+      "outcome": "error",
+      "error": {
+        "name": "Error",
+        "code": "unknown",
+        "stage": "unknown",
+        "message": "Chrome API tabs.update contains an unsupported property"
+      }
+    },
+    {
+      "sequence": 22,
+      "method": "tab.markHandoff",
+      "args": {
+        "targetId": "850116239"
+      },
+      "startedUtc": "2026-11-17T02:55:47.963Z",
+      "endedUtc": "2026-11-17T02:55:47.968Z",
+      "outcome": "returned"
+    },
+    {
+      "sequence": 23,
+      "method": "tab.markHandoff",
+      "args": {
+        "targetId": "850116244"
+      },
+      "startedUtc": "2026-11-17T02:55:47.969Z",
+      "endedUtc": "2026-11-17T02:55:47.971Z",
+      "outcome": "returned"
+    },
+    {
+      "sequence": 24,
+      "method": "management.tabs.get",
+      "args": {
+        "tabId": 850116239
+      },
+      "startedUtc": "2026-11-17T02:56:14.267Z",
+      "endedUtc": "2026-11-17T02:56:14.271Z",
+      "outcome": "returned",
+      "result": {
+        "id": 850116239,
+        "windowId": 850116242,
+        "active": true,
+        "exactUrl": true
+      }
+    },
+    {
+      "sequence": 25,
+      "method": "management.tabs.get",
+      "args": {
+        "tabId": 850116244
+      },
+      "startedUtc": "2026-11-17T02:56:14.271Z",
+      "endedUtc": "2026-11-17T02:56:14.273Z",
+      "outcome": "returned",
+      "result": {
+        "id": 850116244,
+        "windowId": 850116242,
+        "active": false,
+        "exactUrl": true
+      }
+    },
+    {
+      "sequence": 26,
+      "method": "management.windows.update",
+      "args": {
+        "windowId": 850116242,
+        "state": "minimized"
+      },
+      "startedUtc": "2026-11-17T02:56:22.227Z",
+      "endedUtc": "2026-11-17T02:56:22.773Z",
+      "outcome": "returned",
+      "result": {
+        "id": 850116242,
+        "state": "minimized",
+        "focused": false
+      }
+    },
+    {
+      "sequence": 27,
+      "method": "management.windows.get",
+      "args": {
+        "windowId": 850116242,
+        "populate": false
+      },
+      "startedUtc": "2026-11-17T02:56:22.773Z",
+      "endedUtc": "2026-11-17T02:56:22.780Z",
+      "outcome": "returned",
+      "result": {
+        "id": 850116242,
+        "state": "minimized",
+        "focused": false
+      }
+    },
+    {
+      "sequence": 28,
+      "method": "guard.observe",
+      "args": {
+        "case": "minimized",
+        "targetId": "850116239",
+        "phase": "before"
+      },
+      "startedUtc": "2026-11-17T02:56:22.781Z",
+      "endedUtc": "2026-11-17T02:56:22.803Z",
+      "outcome": "returned",
+      "result": {
+        "snapshot_excerpt": {
+          "save_status": "저장됨: ccuh-controlled-normal · 활성화 · 저장 2회"
+        },
+        "status": {
+          "state": "active",
+          "busy": false,
+          "reasonCode": null,
+          "lookupRetriesRemaining": 1,
+          "mutationOutcome": "returned",
+          "mutationAttempted": true
+        },
+        "auditDelta": [
+          {
+            "sequence": 24,
+            "event": "operation_started",
+            "stage": "before",
+            "action": "observe"
+          },
+          {
+            "sequence": 25,
+            "event": "identity_checked",
+            "stage": "before",
+            "action": "observe",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 26,
+            "event": "identity_checked",
+            "stage": "after",
+            "action": "observe",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 27,
+            "event": "operation_returned",
+            "stage": "return",
+            "action": "observe"
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 29,
+      "method": "guard.fill",
+      "args": {
+        "case": "minimized",
+        "targetId": "850116239",
+        "label": "Worker 이름",
+        "value": "ccuh-controlled-minimized"
+      },
+      "startedUtc": "2026-11-17T02:56:28.582Z",
+      "endedUtc": "2026-11-17T02:56:28.605Z",
+      "outcome": "returned",
+      "result": {
+        "status": {
+          "state": "active",
+          "busy": false,
+          "reasonCode": null,
+          "lookupRetriesRemaining": 1,
+          "mutationOutcome": "returned",
+          "mutationAttempted": true
+        },
+        "auditDelta": [
+          {
+            "sequence": 28,
+            "event": "operation_started",
+            "stage": "before",
+            "action": "fill"
+          },
+          {
+            "sequence": 29,
+            "event": "identity_checked",
+            "stage": "before",
+            "action": "fill",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 30,
+            "event": "identity_checked",
+            "stage": "after",
+            "action": "fill",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 31,
+            "event": "operation_returned",
+            "stage": "return",
+            "action": "fill"
+          }
+        ],
+        "receipt": {
+          "action": "fill",
+          "outcome": "returned",
+          "identityChecksPassed": true
+        }
+      }
+    },
+    {
+      "sequence": 30,
+      "method": "guard.check",
+      "args": {
+        "case": "minimized",
+        "targetId": "850116239",
+        "name": "Worker 활성화",
+        "checked": true
+      },
+      "startedUtc": "2026-11-17T02:56:28.605Z",
+      "endedUtc": "2026-11-17T02:56:28.616Z",
+      "outcome": "returned",
+      "result": {
+        "status": {
+          "state": "active",
+          "busy": false,
+          "reasonCode": null,
+          "lookupRetriesRemaining": 1,
+          "mutationOutcome": "returned",
+          "mutationAttempted": true
+        },
+        "auditDelta": [
+          {
+            "sequence": 32,
+            "event": "operation_started",
+            "stage": "before",
+            "action": "check"
+          },
+          {
+            "sequence": 33,
+            "event": "identity_checked",
+            "stage": "before",
+            "action": "check",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 34,
+            "event": "identity_checked",
+            "stage": "after",
+            "action": "check",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 35,
+            "event": "operation_returned",
+            "stage": "return",
+            "action": "check"
+          }
+        ],
+        "receipt": {
+          "action": "check",
+          "outcome": "returned",
+          "identityChecksPassed": true
+        }
+      }
+    },
+    {
+      "sequence": 31,
+      "method": "guard.click",
+      "args": {
+        "case": "minimized",
+        "targetId": "850116239",
+        "name": "설정 저장"
+      },
+      "startedUtc": "2026-11-17T02:56:28.616Z",
+      "endedUtc": "2026-11-17T02:56:28.891Z",
+      "outcome": "returned",
+      "result": {
+        "status": {
+          "state": "active",
+          "busy": false,
+          "reasonCode": null,
+          "lookupRetriesRemaining": 1,
+          "mutationOutcome": "returned",
+          "mutationAttempted": true
+        },
+        "auditDelta": [
+          {
+            "sequence": 36,
+            "event": "operation_started",
+            "stage": "before",
+            "action": "click"
+          },
+          {
+            "sequence": 37,
+            "event": "identity_checked",
+            "stage": "before",
+            "action": "click",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 38,
+            "event": "identity_checked",
+            "stage": "after",
+            "action": "click",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 39,
+            "event": "operation_returned",
+            "stage": "return",
+            "action": "click"
+          }
+        ],
+        "receipt": {
+          "action": "click",
+          "outcome": "returned",
+          "identityChecksPassed": true
+        }
+      }
+    },
+    {
+      "sequence": 32,
+      "method": "guard.observe",
+      "args": {
+        "case": "minimized",
+        "targetId": "850116239",
+        "phase": "after"
+      },
+      "startedUtc": "2026-11-17T02:56:28.891Z",
+      "endedUtc": "2026-11-17T02:56:28.909Z",
+      "outcome": "returned",
+      "result": {
+        "snapshot_excerpt": {
+          "textbox_name": "Worker 이름",
+          "textbox_value": "ccuh-controlled-minimized",
+          "checkbox_name": "Worker 활성화",
+          "checkbox_checked": true,
+          "save_status": "저장됨: ccuh-controlled-minimized · 활성화 · 저장 3회"
+        },
+        "status": {
+          "state": "active",
+          "busy": false,
+          "reasonCode": null,
+          "lookupRetriesRemaining": 1,
+          "mutationOutcome": "returned",
+          "mutationAttempted": true
+        },
+        "auditDelta": [
+          {
+            "sequence": 40,
+            "event": "operation_started",
+            "stage": "before",
+            "action": "observe"
+          },
+          {
+            "sequence": 41,
+            "event": "identity_checked",
+            "stage": "before",
+            "action": "observe",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 42,
+            "event": "identity_checked",
+            "stage": "after",
+            "action": "observe",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 43,
+            "event": "operation_returned",
+            "stage": "return",
+            "action": "observe"
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 33,
+      "method": "management.windows.get",
+      "args": {
+        "windowId": 850116242,
+        "populate": false
+      },
+      "startedUtc": "2026-11-17T02:56:28.909Z",
+      "endedUtc": "2026-11-17T02:56:28.911Z",
+      "outcome": "returned",
+      "result": {
+        "id": 850116242,
+        "state": "minimized",
+        "focused": false
+      }
+    },
+    {
+      "sequence": 34,
+      "method": "management.windows.update",
+      "args": {
+        "windowId": 850116242,
+        "state": "normal"
+      },
+      "startedUtc": "2026-11-17T02:56:38.648Z",
+      "endedUtc": "2026-11-17T02:56:38.653Z",
+      "outcome": "returned",
+      "result": {
+        "id": 850116242,
+        "state": "minimized",
+        "focused": false
+      }
+    },
+    {
+      "sequence": 35,
+      "method": "management.windows.get",
+      "args": {
+        "windowId": 850116242,
+        "populate": false
+      },
+      "startedUtc": "2026-11-17T02:56:38.653Z",
+      "endedUtc": "2026-11-17T02:56:38.653Z",
+      "outcome": "returned",
+      "result": {
+        "id": 850116242,
+        "state": "minimized",
+        "focused": false
+      }
+    },
+    {
+      "sequence": 36,
+      "method": "tab.markHandoff",
+      "args": {
+        "targetId": "850116239"
+      },
+      "startedUtc": "2026-11-17T02:57:09.136Z",
+      "endedUtc": "2026-11-17T02:57:09.140Z",
+      "outcome": "returned"
+    },
+    {
+      "sequence": 37,
+      "method": "tab.markHandoff",
+      "args": {
+        "targetId": "850116244"
+      },
+      "startedUtc": "2026-11-17T02:57:09.140Z",
+      "endedUtc": "2026-11-17T02:57:09.142Z",
+      "outcome": "returned"
+    },
+    {
+      "sequence": 38,
+      "method": "management.windows.get",
+      "args": {
+        "windowId": 850116242,
+        "populate": false
+      },
+      "startedUtc": "2026-11-17T02:58:28.987Z",
+      "endedUtc": "2026-11-17T02:58:28.990Z",
+      "outcome": "returned",
+      "result": {
+        "id": 850116242,
+        "state": "normal",
+        "focused": false
+      }
+    },
+    {
+      "sequence": 39,
+      "method": "cua.getApp",
+      "args": {
+        "path": "/private/tmp/CCUH Focus Probe.app"
+      },
+      "startedUtc": "2026-11-17T02:58:28.990Z",
+      "endedUtc": "2026-11-17T02:58:35.302Z",
+      "outcome": "returned",
+      "result": {
+        "own_app": true,
+        "ui": {
+          "input": {
+            "index": 4,
+            "name": "CCUH Test Input",
+            "value": "empty"
+          },
+          "toggle_full_screen": {
+            "index": 2,
+            "name": "Toggle Full Screen"
+          },
+          "window_controls": {
+            "close": 6,
+            "fullscreen": 7,
+            "minimize": 8,
+            "title": 9
+          },
+          "focused_element": 4
+        }
+      }
+    },
+    {
+      "sequence": 40,
+      "method": "probe.setValue",
+      "args": {
+        "fieldIndex": 4,
+        "value": "ccuh-caret-12345"
+      },
+      "startedUtc": "2026-11-17T02:58:51.137Z",
+      "endedUtc": "2026-11-17T02:58:51.611Z",
+      "outcome": "returned"
+    },
+    {
+      "sequence": 41,
+      "method": "probe.click",
+      "args": {
+        "buttonIndex": 2,
+        "name": "Toggle Full Screen"
+      },
+      "startedUtc": "2026-11-17T02:58:51.611Z",
+      "endedUtc": "2026-11-17T02:58:51.700Z",
+      "outcome": "returned"
+    },
+    {
+      "sequence": 42,
+      "method": "probe.getAXState",
+      "args": {},
+      "startedUtc": "2026-11-17T02:58:51.700Z",
+      "endedUtc": "2026-11-17T02:58:52.385Z",
+      "outcome": "returned",
+      "result": {
+        "ui_diff": {
+          "removed_indices": [
+            6,
+            7,
+            8,
+            9
+          ],
+          "field": {
+            "index": 4,
+            "description": "CCUH Test Input",
+            "value": "ccuh-caret-12345"
+          },
+          "added_title_index": 12,
+          "focused_element": 4
+        },
+        "interpretation": "Changed own-app UI is consistent with a fullscreen transition; no direct OS Space or fullscreen boolean was measured."
+      }
+    },
+    {
+      "sequence": 43,
+      "method": "probe.click",
+      "args": {
+        "fieldIndex": 4,
+        "phase": "caret_setup"
+      },
+      "startedUtc": "2026-11-17T02:59:02.211Z",
+      "endedUtc": "2026-11-17T02:59:02.219Z",
+      "outcome": "error",
+      "error": {
+        "name": "Error",
+        "code": "unknown",
+        "stage": "unknown",
+        "message": "The user changed '/tmp/CCUH Focus Probe.app'. Re-query the latest state with `get_app_state` before sending more actions."
+      }
+    },
+    {
+      "sequence": 44,
+      "method": "tab.markHandoff",
+      "args": {
+        "targetId": "850116239"
+      },
+      "startedUtc": "2026-11-17T02:59:29.629Z",
+      "endedUtc": "2026-11-17T02:59:29.632Z",
+      "outcome": "returned"
+    },
+    {
+      "sequence": 45,
+      "method": "tab.markHandoff",
+      "args": {
+        "targetId": "850116244"
+      },
+      "startedUtc": "2026-11-17T02:59:29.632Z",
+      "endedUtc": "2026-11-17T02:59:29.633Z",
+      "outcome": "returned"
+    },
+    {
+      "sequence": 46,
+      "method": "probe.getAXState",
+      "args": {
+        "app": "/private/tmp/CCUH Focus Probe.app",
+        "disableDiffing": true
+      },
+      "startedUtc": "2026-11-17T03:01:01.634Z",
+      "endedUtc": "2026-11-17T03:01:01.804Z",
+      "outcome": "returned",
+      "result": {
+        "ui": {
+          "field": {
+            "index": 4,
+            "name": "CCUH Test Input",
+            "value": "ccuh-caret-12345"
+          },
+          "button": {
+            "index": 2,
+            "name": "Toggle Full Screen"
+          },
+          "close_or_minimize_controls_present": false,
+          "focused_element": 4
+        },
+        "interpretation": "Own-app UI is consistent with the prior fullscreen setup; no direct OS fullscreen or Space boolean was measured."
+      }
+    },
+    {
+      "sequence": 47,
+      "method": "probe.click",
+      "args": {
+        "fieldIndex": 4,
+        "phase": "explicit_fresh_index_setup_continuation"
+      },
+      "startedUtc": "2026-11-17T03:01:14.584Z",
+      "endedUtc": "2026-11-17T03:01:14.648Z",
+      "outcome": "returned"
+    },
+    {
+      "sequence": 48,
+      "method": "guard.observe",
+      "args": {
+        "case": "other_space_with_recorded_window_state",
+        "targetId": "850116239",
+        "phase": "before"
+      },
+      "startedUtc": "2026-11-17T03:01:14.648Z",
+      "endedUtc": "2026-11-17T03:01:19.648Z",
+      "outcome": "returned",
+      "result": {
+        "snapshot_excerpt": {
+          "textbox_name": "Worker 이름",
+          "textbox_value": "ccuh-controlled-minimized",
+          "checkbox_name": "Worker 활성화",
+          "checkbox_checked": true,
+          "save_status": "저장됨: ccuh-controlled-minimized · 활성화 · 저장 3회"
+        },
+        "status": {
+          "state": "active",
+          "busy": false,
+          "reasonCode": null,
+          "lookupRetriesRemaining": 1,
+          "mutationOutcome": "returned",
+          "mutationAttempted": true
+        },
+        "auditDelta": [
+          {
+            "sequence": 44,
+            "event": "operation_started",
+            "stage": "before",
+            "action": "observe"
+          },
+          {
+            "sequence": 45,
+            "event": "identity_checked",
+            "stage": "before",
+            "action": "observe",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 46,
+            "event": "identity_checked",
+            "stage": "after",
+            "action": "observe",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 47,
+            "event": "operation_returned",
+            "stage": "return",
+            "action": "observe"
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 49,
+      "method": "guard.fill",
+      "args": {
+        "case": "other_space_with_recorded_window_state",
+        "targetId": "850116239",
+        "label": "Worker 이름",
+        "value": "ccuh-controlled-other-space"
+      },
+      "startedUtc": "2026-11-17T03:01:19.649Z",
+      "endedUtc": "2026-11-17T03:01:19.666Z",
+      "outcome": "returned",
+      "result": {
+        "status": {
+          "state": "active",
+          "busy": false,
+          "reasonCode": null,
+          "lookupRetriesRemaining": 1,
+          "mutationOutcome": "returned",
+          "mutationAttempted": true
+        },
+        "auditDelta": [
+          {
+            "sequence": 48,
+            "event": "operation_started",
+            "stage": "before",
+            "action": "fill"
+          },
+          {
+            "sequence": 49,
+            "event": "identity_checked",
+            "stage": "before",
+            "action": "fill",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 50,
+            "event": "identity_checked",
+            "stage": "after",
+            "action": "fill",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 51,
+            "event": "operation_returned",
+            "stage": "return",
+            "action": "fill"
+          }
+        ],
+        "receipt": {
+          "action": "fill",
+          "outcome": "returned",
+          "identityChecksPassed": true
+        }
+      }
+    },
+    {
+      "sequence": 50,
+      "method": "guard.check",
+      "args": {
+        "case": "other_space_with_recorded_window_state",
+        "targetId": "850116239",
+        "name": "Worker 활성화",
+        "checked": true
+      },
+      "startedUtc": "2026-11-17T03:01:19.666Z",
+      "endedUtc": "2026-11-17T03:01:19.673Z",
+      "outcome": "returned",
+      "result": {
+        "status": {
+          "state": "active",
+          "busy": false,
+          "reasonCode": null,
+          "lookupRetriesRemaining": 1,
+          "mutationOutcome": "returned",
+          "mutationAttempted": true
+        },
+        "auditDelta": [
+          {
+            "sequence": 52,
+            "event": "operation_started",
+            "stage": "before",
+            "action": "check"
+          },
+          {
+            "sequence": 53,
+            "event": "identity_checked",
+            "stage": "before",
+            "action": "check",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 54,
+            "event": "identity_checked",
+            "stage": "after",
+            "action": "check",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 55,
+            "event": "operation_returned",
+            "stage": "return",
+            "action": "check"
+          }
+        ],
+        "receipt": {
+          "action": "check",
+          "outcome": "returned",
+          "identityChecksPassed": true
+        }
+      }
+    },
+    {
+      "sequence": 51,
+      "method": "guard.click",
+      "args": {
+        "case": "other_space_with_recorded_window_state",
+        "targetId": "850116239",
+        "name": "설정 저장"
+      },
+      "startedUtc": "2026-11-17T03:01:19.673Z",
+      "endedUtc": "2026-11-17T03:01:19.944Z",
+      "outcome": "returned",
+      "result": {
+        "status": {
+          "state": "active",
+          "busy": false,
+          "reasonCode": null,
+          "lookupRetriesRemaining": 1,
+          "mutationOutcome": "returned",
+          "mutationAttempted": true
+        },
+        "auditDelta": [
+          {
+            "sequence": 56,
+            "event": "operation_started",
+            "stage": "before",
+            "action": "click"
+          },
+          {
+            "sequence": 57,
+            "event": "identity_checked",
+            "stage": "before",
+            "action": "click",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 58,
+            "event": "identity_checked",
+            "stage": "after",
+            "action": "click",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 59,
+            "event": "operation_returned",
+            "stage": "return",
+            "action": "click"
+          }
+        ],
+        "receipt": {
+          "action": "click",
+          "outcome": "returned",
+          "identityChecksPassed": true
+        }
+      }
+    },
+    {
+      "sequence": 52,
+      "method": "guard.observe",
+      "args": {
+        "case": "other_space_with_recorded_window_state",
+        "targetId": "850116239",
+        "phase": "after"
+      },
+      "startedUtc": "2026-11-17T03:01:19.944Z",
+      "endedUtc": "2026-11-17T03:01:19.952Z",
+      "outcome": "returned",
+      "result": {
+        "snapshot_excerpt": {
+          "textbox_name": "Worker 이름",
+          "textbox_value": "ccuh-controlled-other-space",
+          "checkbox_name": "Worker 활성화",
+          "checkbox_checked": true,
+          "save_status": "저장됨: ccuh-controlled-other-space · 활성화 · 저장 4회",
+          "local_event_count": 13
+        },
+        "status": {
+          "state": "active",
+          "busy": false,
+          "reasonCode": null,
+          "lookupRetriesRemaining": 1,
+          "mutationOutcome": "returned",
+          "mutationAttempted": true
+        },
+        "auditDelta": [
+          {
+            "sequence": 60,
+            "event": "operation_started",
+            "stage": "before",
+            "action": "observe"
+          },
+          {
+            "sequence": 61,
+            "event": "identity_checked",
+            "stage": "before",
+            "action": "observe",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 62,
+            "event": "identity_checked",
+            "stage": "after",
+            "action": "observe",
+            "idMatches": true,
+            "urlMatches": true
+          },
+          {
+            "sequence": 63,
+            "event": "operation_returned",
+            "stage": "return",
+            "action": "observe"
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 53,
+      "method": "management.windows.get",
+      "args": {
+        "windowId": 850116242,
+        "populate": false
+      },
+      "startedUtc": "2026-11-17T03:01:32.082Z",
+      "endedUtc": "2026-11-17T03:01:32.086Z",
+      "outcome": "returned",
+      "result": {
+        "id": 850116242,
+        "state": "normal",
+        "focused": false
+      }
+    },
+    {
+      "sequence": 54,
+      "method": "tab.markHandoff",
+      "args": {
+        "targetId": "850116239"
+      },
+      "startedUtc": "2026-11-17T03:01:32.086Z",
+      "endedUtc": "2026-11-17T03:01:32.088Z",
+      "outcome": "returned"
+    },
+    {
+      "sequence": 55,
+      "method": "tab.markHandoff",
+      "args": {
+        "targetId": "850116244"
+      },
+      "startedUtc": "2026-11-17T03:01:32.088Z",
+      "endedUtc": "2026-11-17T03:01:32.090Z",
+      "outcome": "returned"
+    },
+    {
+      "sequence": 56,
+      "method": "management.windows.update",
+      "args": {
+        "windowId": 850116242,
+        "focused": true,
+        "phase": "explicit_user_inactive_tab_preparation_after_measurement"
+      },
+      "startedUtc": "2026-11-17T03:06:03.379Z",
+      "endedUtc": "2026-11-17T03:06:03.448Z",
+      "outcome": "returned",
+      "result": {"id": 850116242, "state": "normal", "focused": false}
+    },
+    {
+      "sequence": 57,
+      "method": "tab.markHandoff",
+      "args": {"targetId": "850116239", "phase": "after_explicit_user_window_preparation"},
+      "startedUtc": "2026-11-17T03:06:12.279Z",
+      "endedUtc": "2026-11-17T03:06:12.288Z",
+      "outcome": "returned"
+    },
+    {
+      "sequence": 58,
+      "method": "tab.markHandoff",
+      "args": {"targetId": "850116244", "phase": "after_explicit_user_window_preparation"},
+      "startedUtc": "2026-11-17T03:06:12.289Z",
+      "endedUtc": "2026-11-17T03:06:12.295Z",
+      "outcome": "returned"
+    },
+    {
+      "sequence": 59,
+      "method": "management.tabs.get",
+      "args": {"tabId": 850116239, "phase": "user_selected_inactive_precondition"},
+      "startedUtc": "2026-11-17T03:08:13.165Z",
+      "endedUtc": "2026-11-17T03:08:13.196Z",
+      "outcome": "returned",
+      "result": {"id": 850116239, "windowId": 850116242, "active": false, "exactAuthorizedUrl": true}
+    },
+    {
+      "sequence": 60,
+      "method": "management.tabs.get",
+      "args": {"tabId": 850116244, "phase": "user_selected_inactive_precondition"},
+      "startedUtc": "2026-11-17T03:08:13.196Z",
+      "endedUtc": "2026-11-17T03:08:13.197Z",
+      "outcome": "returned",
+      "result": {"id": 850116244, "windowId": 850116242, "active": true, "exactAuthorizedUrl": true}
+    },
+    {
+      "sequence": 61,
+      "method": "tab.markHandoff",
+      "args": {"targetId": "850116239", "phase": "user_selected_inactive_precondition_preservation"},
+      "startedUtc": "2026-11-17T03:08:13.198Z",
+      "endedUtc": "2026-11-17T03:08:13.203Z",
+      "outcome": "returned"
+    },
+    {
+      "sequence": 62,
+      "method": "tab.markHandoff",
+      "args": {"targetId": "850116244", "phase": "user_selected_inactive_precondition_preservation"},
+      "startedUtc": "2026-11-17T03:08:13.203Z",
+      "endedUtc": "2026-11-17T03:08:13.211Z",
+      "outcome": "returned"
+    }
+  ],
+  "guard_audit": [
+    {
+      "sequence": 1,
+      "event": "binding_started",
+      "stage": "binding"
+    },
+    {
+      "sequence": 2,
+      "event": "identity_checked",
+      "stage": "binding",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 3,
+      "event": "binding_completed",
+      "stage": "binding"
+    },
+    {
+      "sequence": 4,
+      "event": "operation_started",
+      "stage": "before",
+      "action": "observe"
+    },
+    {
+      "sequence": 5,
+      "event": "identity_checked",
+      "stage": "before",
+      "action": "observe",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 6,
+      "event": "identity_checked",
+      "stage": "after",
+      "action": "observe",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 7,
+      "event": "operation_returned",
+      "stage": "return",
+      "action": "observe"
+    },
+    {
+      "sequence": 8,
+      "event": "operation_started",
+      "stage": "before",
+      "action": "fill"
+    },
+    {
+      "sequence": 9,
+      "event": "identity_checked",
+      "stage": "before",
+      "action": "fill",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 10,
+      "event": "identity_checked",
+      "stage": "after",
+      "action": "fill",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 11,
+      "event": "operation_returned",
+      "stage": "return",
+      "action": "fill"
+    },
+    {
+      "sequence": 12,
+      "event": "operation_started",
+      "stage": "before",
+      "action": "check"
+    },
+    {
+      "sequence": 13,
+      "event": "identity_checked",
+      "stage": "before",
+      "action": "check",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 14,
+      "event": "identity_checked",
+      "stage": "after",
+      "action": "check",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 15,
+      "event": "operation_returned",
+      "stage": "return",
+      "action": "check"
+    },
+    {
+      "sequence": 16,
+      "event": "operation_started",
+      "stage": "before",
+      "action": "click"
+    },
+    {
+      "sequence": 17,
+      "event": "identity_checked",
+      "stage": "before",
+      "action": "click",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 18,
+      "event": "identity_checked",
+      "stage": "after",
+      "action": "click",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 19,
+      "event": "operation_returned",
+      "stage": "return",
+      "action": "click"
+    },
+    {
+      "sequence": 20,
+      "event": "operation_started",
+      "stage": "before",
+      "action": "observe"
+    },
+    {
+      "sequence": 21,
+      "event": "identity_checked",
+      "stage": "before",
+      "action": "observe",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 22,
+      "event": "identity_checked",
+      "stage": "after",
+      "action": "observe",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 23,
+      "event": "operation_returned",
+      "stage": "return",
+      "action": "observe"
+    },
+    {
+      "sequence": 24,
+      "event": "operation_started",
+      "stage": "before",
+      "action": "observe"
+    },
+    {
+      "sequence": 25,
+      "event": "identity_checked",
+      "stage": "before",
+      "action": "observe",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 26,
+      "event": "identity_checked",
+      "stage": "after",
+      "action": "observe",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 27,
+      "event": "operation_returned",
+      "stage": "return",
+      "action": "observe"
+    },
+    {
+      "sequence": 28,
+      "event": "operation_started",
+      "stage": "before",
+      "action": "fill"
+    },
+    {
+      "sequence": 29,
+      "event": "identity_checked",
+      "stage": "before",
+      "action": "fill",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 30,
+      "event": "identity_checked",
+      "stage": "after",
+      "action": "fill",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 31,
+      "event": "operation_returned",
+      "stage": "return",
+      "action": "fill"
+    },
+    {
+      "sequence": 32,
+      "event": "operation_started",
+      "stage": "before",
+      "action": "check"
+    },
+    {
+      "sequence": 33,
+      "event": "identity_checked",
+      "stage": "before",
+      "action": "check",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 34,
+      "event": "identity_checked",
+      "stage": "after",
+      "action": "check",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 35,
+      "event": "operation_returned",
+      "stage": "return",
+      "action": "check"
+    },
+    {
+      "sequence": 36,
+      "event": "operation_started",
+      "stage": "before",
+      "action": "click"
+    },
+    {
+      "sequence": 37,
+      "event": "identity_checked",
+      "stage": "before",
+      "action": "click",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 38,
+      "event": "identity_checked",
+      "stage": "after",
+      "action": "click",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 39,
+      "event": "operation_returned",
+      "stage": "return",
+      "action": "click"
+    },
+    {
+      "sequence": 40,
+      "event": "operation_started",
+      "stage": "before",
+      "action": "observe"
+    },
+    {
+      "sequence": 41,
+      "event": "identity_checked",
+      "stage": "before",
+      "action": "observe",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 42,
+      "event": "identity_checked",
+      "stage": "after",
+      "action": "observe",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 43,
+      "event": "operation_returned",
+      "stage": "return",
+      "action": "observe"
+    },
+    {
+      "sequence": 44,
+      "event": "operation_started",
+      "stage": "before",
+      "action": "observe"
+    },
+    {
+      "sequence": 45,
+      "event": "identity_checked",
+      "stage": "before",
+      "action": "observe",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 46,
+      "event": "identity_checked",
+      "stage": "after",
+      "action": "observe",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 47,
+      "event": "operation_returned",
+      "stage": "return",
+      "action": "observe"
+    },
+    {
+      "sequence": 48,
+      "event": "operation_started",
+      "stage": "before",
+      "action": "fill"
+    },
+    {
+      "sequence": 49,
+      "event": "identity_checked",
+      "stage": "before",
+      "action": "fill",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 50,
+      "event": "identity_checked",
+      "stage": "after",
+      "action": "fill",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 51,
+      "event": "operation_returned",
+      "stage": "return",
+      "action": "fill"
+    },
+    {
+      "sequence": 52,
+      "event": "operation_started",
+      "stage": "before",
+      "action": "check"
+    },
+    {
+      "sequence": 53,
+      "event": "identity_checked",
+      "stage": "before",
+      "action": "check",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 54,
+      "event": "identity_checked",
+      "stage": "after",
+      "action": "check",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 55,
+      "event": "operation_returned",
+      "stage": "return",
+      "action": "check"
+    },
+    {
+      "sequence": 56,
+      "event": "operation_started",
+      "stage": "before",
+      "action": "click"
+    },
+    {
+      "sequence": 57,
+      "event": "identity_checked",
+      "stage": "before",
+      "action": "click",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 58,
+      "event": "identity_checked",
+      "stage": "after",
+      "action": "click",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 59,
+      "event": "operation_returned",
+      "stage": "return",
+      "action": "click"
+    },
+    {
+      "sequence": 60,
+      "event": "operation_started",
+      "stage": "before",
+      "action": "observe"
+    },
+    {
+      "sequence": 61,
+      "event": "identity_checked",
+      "stage": "before",
+      "action": "observe",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 62,
+      "event": "identity_checked",
+      "stage": "after",
+      "action": "observe",
+      "idMatches": true,
+      "urlMatches": true
+    },
+    {
+      "sequence": 63,
+      "event": "operation_returned",
+      "stage": "return",
+      "action": "observe"
+    }
+  ],
+  "guard_status": {
+    "last_sampled_call": 52,
+    "last_sampled_utc": "2026-11-17T03:01:19.952Z",
+    "last_sampled_status": {
+      "state": "active",
+      "busy": false,
+      "reasonCode": null,
+      "lookupRetriesRemaining": 1,
+      "mutationOutcome": "returned",
+      "mutationAttempted": true
+    },
+    "audit_entries": 63,
+    "note": "The single runtime revision 2 facade completed the explicitly authorized immediate background sequence. No later guard mutation or own-app read occurred; subsequent calls were one owned-window metadata read and two fixture handoff marks."
+  },
+  "reporting": {
+    "completion_summary": "Verified normal save and recorded activation blocker",
+    "completion_summary_result": "Completion summary received.",
+    "summary_after_failure_before_additional_ui": true,
+    "later_evidence_dump": {
+      "code": "nodeRepl.write(JSON.stringify(controlledEvidence));",
+      "kind": "existing in-memory evidence only",
+      "new_native_or_ui_calls": 0,
+      "new_completion_summary_issued": false
+    },
+    "task_call_timestamp_scope": "UTC Date.toISOString start/end around each recorded API/facade invocation. Internal guard identity and locator calls have audit order but no independent native timestamps.",
+    "completion_summaries": [
+      {
+        "text": "Verified normal save and recorded activation blocker",
+        "result": "Completion summary received.",
+        "after_call": 21
+      },
+      {
+        "text": "Preserved the owned fixture tabs",
+        "result": "Completion summary received.",
+        "after_call": 23
+      },
+      {
+        "text": "Verified minimized save and recorded setup blocker",
+        "result": "Completion summary received.",
+        "after_call": 35
+      },
+      {
+        "text": "Retained the unfinished fixture tabs",
+        "result": "Completion summary received.",
+        "after_call": 37
+      },
+      {
+        "text": "Recorded probe caret setup blocker",
+        "result": "Completion summary received.",
+        "after_call": 43
+      },
+      {
+        "text": "Retained fixture after probe setup failure",
+        "result": "Completion summary received.",
+        "after_call": 45
+      },
+      {
+        "text": "Verified the immediate guarded save continuation",
+        "result": "Completion summary received.",
+        "after_call": 52
+      },
+      {
+        "text": "Recorded final fixture window and handoff",
+        "result": "Completion summary received.",
+        "after_call": 55
+      },
+      {
+        "text": "Recorded the owned window focus request",
+        "result": "Completion summary received.",
+        "after_call": 56
+      },
+      {
+        "text": "Preserved the owned dummy tabs",
+        "result": "Completion summary received.",
+        "after_call": 58
+      },
+      {
+        "text": "Confirmed and retained the inactive target fixture",
+        "result": "Completion summary received.",
+        "after_call": 62
+      }
+    ],
+    "completion_summary_note": "Separate summaries correspond to explicitly separated stopped/retention/follow-up segments; no hidden UI recovery was used.",
+    "additional_pure_state_read": {
+      "source": "Primary agent report",
+      "status": {
+        "state": "active",
+        "busy": false,
+        "mutationOutcome": "returned"
+      },
+      "new_native_or_ui_calls": 0,
+      "timestamp": "not_recorded"
+    },
+    "other_space_measurement_interval": {
+      "start_utc": "2026-11-17T03:01:14.648Z",
+      "final_observation_end_utc": "2026-11-17T03:01:19.952Z",
+      "duration_seconds": 5.304,
+      "os_preservation_evaluation": "Source reported probe_key_window=false and probe_is_frontmost=false for the task interval. The required foreground precondition was not met; preservation is not validated. Actor did not read the independent log."
+    }
+  },
+  "environment_observation": {
+    "system_foreground_application": "unmeasured",
+    "macos_space": "unmeasured",
+    "user_input_or_caret_interference": "unmeasured",
+    "independent_os_observer_log_read": false,
+    "target_active_and_window_focused_samples_prove_system_focus": false,
+    "strict_no_interference_or_no_transient_restore_claim": false,
+    "other_space_source_log_report_is_independent_actor_measurement": false,
+    "other_space_caret_text_key_space_preservation": "Not validated: source-reported independent OS logs show probe_key_window=false and probe_is_frontmost=false during the relevant interval; required foreground setup was not met.",
+    "actor_ax_editor_focus_establishes_os_key_focus": false,
+    "independent_source_log_foreground_precondition_met": false
+  },
+  "scope_controls": {
+    "post_measurement_user_preparation_focus_requests": 1,
+    "post_measurement_focus_scope": "Later explicit user preparation only: windows.update(850116242,{focused:true}) once, without state or bounds. No requery, retry, alternate activation, or personal-window inspection.",
+    "app_or_tab_inventory_requested": false,
+    "windows_get_all_requested": false,
+    "management_get_audit_trail_requested": false,
+    "personal_apps_or_personal_window_contents_read": false,
+    "events_endpoint_or_shell_http_used": false,
+    "original_page_source_read": false,
+    "screenshots_requested": false,
+    "focus_probe_used": true,
+    "cleanup_requested_or_performed": false,
+    "restore_or_minimize_attempted": true,
+    "extra_creation_after_error": false,
+    "alternate_tool_or_ax_recovery_after_error": false,
+    "state_files_deleted": false,
+    "existing_baseline_or_guarded_files_modified": false,
+    "current_disk_script_reloaded_after_definition": false,
+    "restore_or_minimize_scope": "Owned fixture window 850116242 only; one state:minimized request and one setup state:normal request. No focused field accompanied either update.",
+    "focus_probe_scope": "Only exact user-owned /private/tmp/CCUH Focus Probe.app; no personal app or global app inventory.",
+    "focus_probe_requery_after_error": true,
+    "additional_restore_retry_after_unconfirmed_restore": false,
+    "other_space_guard_calls": 5,
+    "focus_probe_requery_scope": "Exactly one subsequently and explicitly authorized own-app getAXState(disableDiffing:true); the prior failed attempt remains preserved."
+  },
+  "final_lifecycle": {
+    "last_observed_owned_window_state": "normal",
+    "last_observed_owned_window_state_at": "2026-11-17T03:06:03.448Z",
+    "latest_restore_request": {
+      "call": 34,
+      "requested": "normal",
+      "returned": "minimized",
+      "later_eventual_outcome": "A later read at call 38 returned normal. The transition time and causal link to the earlier state:normal request were not established; no update was repeated."
+    },
+    "target_last_directly_sampled_active": false,
+    "target_last_directly_sampled_active_at": "2026-11-17T03:08:13.196Z",
+    "dummy_last_sampled_active": true,
+    "dummy_last_sampled_active_at": "2026-11-17T03:08:13.197Z",
+    "tabs_marked_handoff": true,
+    "latest_target_mark_returned_at": "2026-11-17T03:08:13.203Z",
+    "latest_dummy_mark_returned_at": "2026-11-17T03:08:13.211Z",
+    "cleanup_performed": false,
+    "later_tab_or_window_lifecycle": "unmeasured after the final retention marks",
+    "probe": {
+      "path": "/private/tmp/CCUH Focus Probe.app",
+      "last_observed_text": "ccuh-caret-12345",
+      "last_own_app_observation_call": 46,
+      "fullscreen_toggle_issued": true,
+      "fullscreen_toggle_repeated": false,
+      "fullscreen_boolean": "unmeasured by actor; source reported true separately",
+      "last_field_setup_click_call": 47,
+      "caret_position": "not independently verified after the field click",
+      "own_app_read_after_background_start": false,
+      "cleanup_caret_restore_or_focus_restore_performed": false,
+      "later_state_after_background_save": "Not independently observed by actor. Source reported probe_key_window=false and probe_is_frontmost=false for the actual task interval; foreground caret preservation was not validated."
+    }
+  },
+  "limitations": [
+    "Normal, minimized, and the explicitly authorized own-app-setup continuation saves were verified through actual target DOM observations. Inactive-tab guarded saving was not performed.",
+    "Minimized state was sampled before and after its successful save; uninterrupted minimization and absence of transient restoration were not established.",
+    "The active:true management request was rejected and was not retried. Later known-ID samples showed target active and dummy inactive.",
+    "The state:normal setup request initially returned minimized, as did the immediate check. A separate later read returned normal without repeating the update; no causal or transition-time guarantee was established.",
+    "The initial own-app caret setup failed on a stale-state guard. That error is preserved separately from the later explicitly authorized fresh-state/click continuation.",
+    "The final UI-save interval was 5.304 seconds, including a 5.000-second initial guard observation. The source subsequently reported independent OS logs with probe_key_window=false and probe_is_frontmost=false; the required foreground caret and other-Space foreground setup was not met, so this interval does not validate preservation under that precondition.",
+    "The actor's own-app AX observations and source-reported fullscreen/selection log findings are separate evidence. No actual concurrent human typing was verified.",
+    "Pre/post URL identity checks do not eliminate navigation races or prove that the underlying host never collected other content.",
+    "Fixture wrapper bindings automatically returned only the authorized local pages' AX content; the runtime revision 2 browser guard itself used DOM snapshots without AX fallback.",
+    "The initial normal fixture displayed existing saved baseline state; a clean independent server-data baseline was not established.",
+    "This independent fixture test preserves the earlier unknown failure record and does not establish its original cause."
+  ],
+  "finalization_after_source_log_evaluation": {
+    "ui_calls_after_final_source_instruction_before_later_explicit_preparation": 0,
+    "facade_or_native_state_reset": false,
+    "existing_handoff_results_preserved": true,
+    "executed_revision_and_hash_unchanged": true,
+    "actual_call_timestamps_preserved": true,
+    "conclusion": "Actual target saves succeeded; foreground caret and other-Space foreground preparation were not established. No further UI operation was performed until the later separately authorized user preparation request."
+  },
+  "explicit_user_window_preparation": {
+    "scope": "After all prior measurements, the source thread relayed explicit user preparation to show only the owned two-tab fixture window. This is not an execution test or recovery of a missing target.",
+    "status": "focus_request_returned_unfocused_user_confirmation_pending",
+    "measurement_call_count_before_preparation": 55,
+    "total_calls_after_preparation": 58,
+    "window_id": 850116242,
+    "native_request_arguments": {"focused": true},
+    "window_update_call": 56,
+    "returned_window_state": "normal",
+    "returned_focused": false,
+    "actual_window_display_confirmed": false,
+    "user_confirmation": "pending",
+    "state_or_bounds_supplied": false,
+    "requery_retry_or_alternate_activation_attempted": false,
+    "other_windows_apps_or_tabs_read": false,
+    "guard_rebound_or_mutated": false,
+    "facade_or_native_state_reset": false,
+    "target_handoff_call": 57,
+    "dummy_handoff_call": 58,
+    "both_handoff_calls_returned": true,
+    "earlier_foreground_trial_result_changed": false,
+    "interpretation": "The single focus request returned focused:false. Actual visibility and activation remain unconfirmed pending user feedback; no permanent failure or successful display is inferred."
+  },
+  "user_selected_inactive_precondition": {
+    "scope": "User reported selecting the owned dummy tab; only the two known native tab IDs were read, followed by lifetime marks. No inactive save was performed in this preparation.",
+    "user_selection_report_source": "Source thread 00000000-0000-4000-8000-000000000002 relayed the actual user's confirmation",
+    "status": "sampled_precondition_met",
+    "started_utc": "2026-11-17T03:08:13.165Z",
+    "metadata_reads_ended_utc": "2026-11-17T03:08:13.197Z",
+    "owned_window_id": 850116242,
+    "target": {
+      "call": 59,
+      "id": 850116239,
+      "window_id": 850116242,
+      "active": false,
+      "exact_authorized_url_matches": true,
+      "returned_at_utc": "2026-11-17T03:08:13.196Z"
+    },
+    "dummy": {
+      "call": 60,
+      "id": 850116244,
+      "window_id": 850116242,
+      "active": true,
+      "exact_authorized_url_matches": true,
+      "returned_at_utc": "2026-11-17T03:08:13.197Z"
+    },
+    "both_owned_window_matches": true,
+    "target_inactive_and_dummy_active_at_samples": true,
+    "atomic_or_continuous_state_measurement": false,
+    "system_foreground_or_space_established": false,
+    "metadata_getter_calls": 2,
+    "screenshots_or_page_content_requested": false,
+    "window_or_tab_inventory_requested": false,
+    "tab_activation_attempted": false,
+    "new_guard_or_runtime3_trial_started": false,
+    "guard_operations_performed": 0,
+    "target_handoff_call": 61,
+    "dummy_handoff_call": 62,
+    "both_handoff_calls_returned": true,
+    "new_tabs_or_windows_created": 0,
+    "native_or_facade_reset": false,
+    "additional_ui_calls_after_completion_summary": 0,
+    "interpretation": "The known target was inactive and the known dummy active in the same owned window at the two sequential metadata samples. This preserves a prerequisite for a later trial, not evidence that an inactive-tab save or runtime revision 3 has been tested."
+  },
+  "case_continuation_authorization": {
+    "initial_stopped_segment": {
+      "calls": "1-21",
+      "reason": "inactive setup active:true rejected"
+    },
+    "retention_segment": {
+      "calls": "22-23",
+      "scope": "Explicitly authorized markHandoff only after the first completion"
+    },
+    "independent_follow_up": {
+      "calls": "24-35",
+      "scope": "Source thread explicitly authorized independent minimized/FocusProbe cases using the same still-active guard, without rebind or activation retry"
+    },
+    "final_retention_segment": {
+      "calls": "36-37",
+      "scope": "Explicitly authorized retention marks only after the setup blocker"
+    },
+    "source_of_follow_up_evidence": "Primary agent's actual-call reports in this team chat; later DOM observations are recorded as provided excerpts, without inventing full snapshots.",
+    "independent_other_space_follow_up": {
+      "calls": "38-43",
+      "scope": "Source thread explicitly authorized one owned-window state read and exact own-app setup without any restore retry, new tabs, or new facade. Background task calls were contingent on completed caret setup."
+    },
+    "last_retention_segment": {
+      "calls": "44-45",
+      "scope": "Explicitly authorized owned fixture handoff marks after the caret-setup failure; no other native/UI continuation."
+    },
+    "fresh_index_setup_and_background_continuation": {
+      "calls": "46-52",
+      "scope": "Source thread explicitly authorized one fresh own-app state read and one immediate fresh-field click plus the existing guard's five operations, preserving prior errors."
+    },
+    "final_read_only_metadata_and_retention": {
+      "calls": "53-55",
+      "scope": "Owned-window read only and two owned fixture handoff marks after measurement; no app read, focus restoration, cleanup, or new task mutation."
+    }
+  }
+}
