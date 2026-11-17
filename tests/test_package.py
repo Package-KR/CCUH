@@ -19,8 +19,10 @@ EXPECTED_ARCHIVE = {
     ".codex-plugin/plugin.json",
     "skills/ccuh/SKILL.md",
     "skills/ccuh/scripts/target-session.js",
+    "skills/ccuh/scripts/target-discovery.js",
     "skills/ccuh-doctor/SKILL.md",
     "skills/ccuh-doctor/scripts/doctor.py",
+    "skills/ccuh-doctor/scripts/recovery.py",
     "README.md",
     "README.ko.md",
     "LICENSE",
@@ -41,12 +43,14 @@ class PackageTests(unittest.TestCase):
             "---\nname: ccuh\ndescription: Keep an exact target.\n---\n# CCUH\n",
         )
         self.write("skills/ccuh/scripts/target-session.js", "throw new Error('must not execute fixture runtime');\n")
+        self.write("skills/ccuh/scripts/target-discovery.js", "throw new Error('must not execute fixture discovery');\n")
         self.write(
             "skills/ccuh-doctor/SKILL.md",
             "---\nname: ccuh-doctor\ndescription: Diagnose a selected failure.\n---\n"
             "Run `python3 <this-skill-directory>/scripts/doctor.py`.\n",
         )
         self.write("skills/ccuh-doctor/scripts/doctor.py", "print('fixture diagnostic')\n")
+        self.write("skills/ccuh-doctor/scripts/recovery.py", "print('fixture recovery')\n")
         self.write(
             "README.md",
             "# CCUH\n[한국어](README.ko.md)\nUser installation instructions.\n[MIT](LICENSE)\n",
@@ -107,7 +111,9 @@ class PackageTests(unittest.TestCase):
                 self.assertEqual(archive.read(path), (self.root / path).read_bytes())
             for helper in (
                 "skills/ccuh/scripts/target-session.js",
+                "skills/ccuh/scripts/target-discovery.js",
                 "skills/ccuh-doctor/scripts/doctor.py",
+                "skills/ccuh-doctor/scripts/recovery.py",
             ):
                 self.assertEqual(archive.read(helper), (self.root / helper).read_bytes())
 
@@ -117,18 +123,24 @@ class PackageTests(unittest.TestCase):
         with zipfile.ZipFile(output) as archive:
             archive.extractall(installed)
         shutil.rmtree(self.root)
-        result = subprocess.run(
-            [sys.executable, str(installed / "skills/ccuh-doctor/scripts/doctor.py")],
-            cwd=self.temporary.name,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.strip(), "fixture diagnostic")
+        for helper, expected in (
+            ("doctor.py", "fixture diagnostic"),
+            ("recovery.py", "fixture recovery"),
+        ):
+            with self.subTest(helper=helper):
+                result = subprocess.run(
+                    [sys.executable, str(installed / "skills/ccuh-doctor/scripts" / helper)],
+                    cwd=self.temporary.name,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout.strip(), expected)
 
     def test_builder_does_not_import_or_execute_the_helper(self):
         self.write("skills/ccuh-doctor/scripts/doctor.py", "raise RuntimeError('must not execute')\n")
+        self.write("skills/ccuh-doctor/scripts/recovery.py", "raise RuntimeError('must not execute recovery')\n")
         self.assertEqual(package.check_plugin(self.root), "0.1.2")
         self.assertTrue(package.build_plugin(self.root).is_file())
 

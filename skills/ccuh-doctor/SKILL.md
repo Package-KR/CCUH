@@ -1,11 +1,11 @@
 ---
 name: ccuh-doctor
-description: Diagnose Codex Computer Use or browser connection failures, including missing tools, startup errors, authentication failures, lost targets, and unknown timeout outcomes. Use when a user asks for CCUH connection diagnostics or Computer Use cannot connect.
+description: Diagnose Codex Computer Use connection failures and reversibly repair supported missing-executable overrides. Use for CCUH recovery requests, startup errors, authentication failures, lost targets, and unknown timeout outcomes.
 ---
 
 # CCUH connection diagnostics
 
-This is a user-facing feature bundled with CCUH. Use it on request or when a connection failure blocks a CCUH task. Normal UI tasks do not need a diagnostic run. The helper reads installation metadata or one selected response; it does not operate apps, change settings, or verify a live connection.
+This is a user-facing feature bundled with CCUH. Use it on request or when a connection failure blocks a CCUH task. Normal UI tasks do not need a diagnostic run. Diagnosis reads metadata or one selected response; the separate recovery helper changes only a specifically selected, supported environment source.
 
 ## Run a focused check
 
@@ -35,4 +35,14 @@ The CLI also accepts `--response-file -` for stdin and `--format json` for struc
 
 The helper returns 0 for completed metadata inspection or no detected response error, 1 for a detected failure/unknown timeout outcome, and 2 for invalid input. Handle these as diagnostic results, not reasons to rerun the command repeatedly.
 
-Do not automatically replace binaries, rewrite configuration, restart the app, expand permissions, inspect the current browser screen, or bypass authentication. Any actual UI connection check must follow the user's selected target and the current Computer Use instructions. The development lab and native measurement app are not required for this feature.
+## Recover a supported startup failure
+
+When recovery is authorized, use [the bundled recovery helper](scripts/recovery.py). It supports a `CODEX_CLI_PATH` override pointing to a missing executable. It preserves existing official and custom executables, verifies the real official CLI's code signature and team, writes a private rollback backup, and checks the plan's original-value/runtime preconditions before applying it.
+
+For the macOS future-process environment, prepare a concrete plan with `python3 "<installed-skill-directory>/scripts/recovery.py" --repair-plan --launchctl --plan-file "/private/tmp/ccuh-repair-plan.json"`. Inspect the result before applying the supported change with `--apply "/private/tmp/ccuh-repair-plan.json" --backup-file "/private/tmp/ccuh-repair-backup.json"`. Use fresh paths: plans and backups are never overwritten. `--restore BACKUP` is available when rollback is requested and its preconditions still hold. Pass the already selected `--response-file` when available; timeout/unresolved outcomes block repair.
+
+The launchctl backend affects future processes, not the current app/session. Do not restart an app with unconfirmed work. Report a required fresh process separately from the repair result, then verify the intended target through the documented Computer Use path. The `--environment-file` backend and `--startup-drill` are isolated launcher tests, not Codex config.toml repair or proof of native authentication recovery.
+
+The helper also gates independent optional-capability probes and permission waits with `--predispatch`; it does not rewrite UI requests, drop visibility settings to force foreground work, grant permissions, or retry pending native operations. A signature check failing inside a sandbox is unconfirmed, not proof of invalid signing; repair requires an execution context where verification succeeds.
+
+Do not replace binaries, rewrite unrelated configuration, expand permissions, or bypass authentication. Any actual UI connection check must follow the user's selected target and current Computer Use instructions. The development lab and native measurement app are not required for this feature.

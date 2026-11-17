@@ -1,6 +1,6 @@
 {
   "name": "ccuh",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "license": "MIT",
   "description": "Existing-target workflows and user-facing connection diagnostics for Codex Computer Use.",
   "skills": "./skills/"

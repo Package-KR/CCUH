@@ -1,0 +1,282 @@
+import importlib.util
+import io
+import json
+import os
+import plistlib
+import stat
+import subprocess
+import tempfile
+import unittest
+from contextlib import redirect_stdout
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
+
+
+SCRIPT = Path(__file__).resolve().parents[1] / "skills/ccuh-doctor/scripts/recovery.py"
+SPEC = importlib.util.spec_from_file_location("ccuh_recovery", SCRIPT)
+recovery = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(recovery)
+VERIFIED = {"verified": True, "binary_exists": True, "signing_team_matches": True, "binary_sha256": "fixture-digest"}
+
+
+class RecoveryFixtureTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        self.app = self.root / "Fixture.app"
+        self.binary = self.app / recovery.OFFICIAL_RELATIVE
+        self.binary.parent.mkdir(parents=True)
+        self.binary.write_text("fixture-not-an-official-runtime")
+        self.env_file = self.root / "launcher.json"
+        self.missing = str(self.root / "missing-codex")
+        self.original = {"KEEP": "unrelated-fixture-value", recovery.KEY: self.missing}
+        self.env_file.write_text(json.dumps(self.original))
+        self.store = recovery.Store("file", self.env_file)
+        self.plan_file = self.root / "plan.json"
+        self.backup_file = self.root / "backup.json"
+
+    def save_plan(self, category=None):
+        with patch.object(recovery, "runtime_evidence", return_value=VERIFIED):
+            plan = recovery.make_plan(self.store, self.app, category)
+        recovery.private_create(self.plan_file, plan)
+        return plan
+
+    def apply(self, category=None):
+        with patch.object(recovery, "runtime_evidence", return_value=VERIFIED):
+            return recovery.apply_plan(self.plan_file, self.backup_file, category)
+
+    def test_actual_fixture_edit_preserves_unrelated_keys_and_restores(self):
+        process_override_before = os.environ.get(recovery.KEY)
+        self.assertEqual(self.save_plan()["status"], "repair_available")
+        report = self.apply()
+        self.assertEqual(report["status"], "repair_applied")
+        self.assertEqual(json.loads(self.env_file.read_text()), {"KEEP": self.original["KEEP"]})
+        self.assertEqual(stat.S_IMODE(self.backup_file.stat().st_mode), 0o600)
+        self.assertFalse(report["native_authentication_recovered"])
+        self.assertFalse(report["current_process_environment_changed"])
+        self.assertNotIn(self.missing, json.dumps(report))
+        restored = recovery.restore_backup(self.backup_file)
+        self.assertEqual(restored["status"], "restore_applied")
+        self.assertEqual(json.loads(self.env_file.read_text()), self.original)
+        self.assertEqual(os.environ.get(recovery.KEY), process_override_before)
+
+    def test_existing_official_override_is_preserved(self):
+        self.env_file.write_text(json.dumps({recovery.KEY: str(self.binary)}))
+        plan = self.save_plan()
+        self.assertEqual(plan["status"], "no_change")
+        self.assertEqual(plan["reason"], "official_override_preserved")
+        with self.assertRaises(recovery.RecoveryError):
+            self.apply()
+        self.assertFalse(self.backup_file.exists())
+        self.assertEqual(self.store.snapshot()["value"], str(self.binary))
+
+    def test_existing_custom_override_is_preserved(self):
+        custom = self.root / "custom-cli"
+        custom.touch()
+        self.env_file.write_text(json.dumps({recovery.KEY: str(custom)}))
+        self.assertEqual(self.save_plan()["reason"], "existing_override_preserved")
+
+    def test_relative_override_is_not_assumed_missing(self):
+        self.env_file.write_text(json.dumps({recovery.KEY: "relative/codex"}))
+        self.assertEqual(self.save_plan()["reason"], "ambiguous_override_preserved")
+
+    def test_symlink_loop_override_is_preserved_as_unconfirmed(self):
+        loop = self.root / "loop"
+        loop.symlink_to(loop)
+        self.env_file.write_text(json.dumps({recovery.KEY: str(loop)}))
+        self.assertEqual(self.save_plan()["reason"], "override_path_unconfirmed_preserved")
+
+    def test_absent_override_is_no_change(self):
+        self.env_file.write_text("{}")
+        self.assertEqual(self.save_plan()["reason"], "no_override")
+
+    def test_unconfirmed_runtime_blocks_plan(self):
+        with patch.object(recovery, "runtime_evidence", return_value={"verified": False}):
+            plan = recovery.make_plan(self.store, self.app)
+        self.assertEqual(plan["status"], "blocked")
+        self.assertEqual(plan["reason"], "runtime_verification_unconfirmed")
+
+    def test_unknown_operation_blocks_planning_and_applying_without_changes(self):
+        for category in ("timeout", "operation_unresolved"):
+            with self.subTest(category=category):
+                with patch.object(recovery, "runtime_evidence", return_value=VERIFIED):
+                    blocked_plan = recovery.make_plan(self.store, self.app, category)
+                self.assertEqual(blocked_plan["reason"], "operation_completion_unconfirmed")
+        self.save_plan()
+        before = self.env_file.read_bytes()
+        for category in ("timeout", "operation_unresolved"):
+            with self.subTest(category=category):
+                with self.assertRaises(recovery.RecoveryError) as caught:
+                    self.apply(category)
+                self.assertEqual(caught.exception.code, "operation_or_diagnostic_blocks_apply")
+                self.assertEqual(self.env_file.read_bytes(), before)
+                self.assertFalse(self.backup_file.exists())
+
+    def test_authentication_failure_is_not_repaired_by_unsetting_override(self):
+        plan = self.save_plan("authentication_failed")
+        self.assertEqual(plan["status"], "blocked")
+        with self.assertRaises(recovery.RecoveryError):
+            self.apply()
+        self.assertEqual(self.store.snapshot()["value"], self.missing)
+
+    def test_changed_source_prevents_stale_plan_apply(self):
+        self.save_plan()
+        self.env_file.write_text(json.dumps({**self.original, "OTHER": "new"}))
+        with self.assertRaises(recovery.RecoveryError) as caught:
+            self.apply()
+        self.assertEqual(caught.exception.code, "source_changed")
+        self.assertFalse(self.backup_file.exists())
+
+    def test_override_becomes_existing_after_plan_so_it_is_preserved(self):
+        self.save_plan()
+        Path(self.missing).touch()
+        with self.assertRaises(recovery.RecoveryError) as caught:
+            self.apply()
+        self.assertEqual(caught.exception.code, "override_must_be_preserved")
+        self.assertEqual(self.store.snapshot()["value"], self.missing)
+
+    def test_runtime_change_prevents_apply(self):
+        self.save_plan()
+        with patch.object(recovery, "runtime_evidence", return_value={**VERIFIED, "binary_sha256": "changed"}):
+            with self.assertRaises(recovery.RecoveryError):
+                recovery.apply_plan(self.plan_file, self.backup_file)
+        self.assertFalse(self.backup_file.exists())
+
+    def test_existing_backup_is_not_overwritten(self):
+        self.save_plan()
+        self.backup_file.write_text("keep this backup")
+        with self.assertRaises(FileExistsError):
+            self.apply()
+        self.assertEqual(self.store.snapshot()["value"], self.missing)
+        self.assertEqual(self.backup_file.read_text(), "keep this backup")
+
+    def test_restore_does_not_overwrite_later_environment_edits(self):
+        self.save_plan()
+        self.apply()
+        self.env_file.write_text(json.dumps({"KEEP": "later change"}))
+        with self.assertRaises(recovery.RecoveryError) as caught:
+            recovery.restore_backup(self.backup_file)
+        self.assertEqual(caught.exception.code, "restore_source_changed")
+
+    def test_symlink_fixture_is_rejected(self):
+        link = self.root / "symlink.json"
+        link.symlink_to(self.env_file)
+        with self.assertRaises(recovery.RecoveryError):
+            recovery.Store("file", link).snapshot()
+
+    def test_startup_drill_executes_missing_path_then_mock_official_version(self):
+        # Real child processes; mock trust evidence only. This is not live
+        # official-runtime verification (the separate recorded drill is).
+        self.binary.write_text("#!/bin/sh\nprintf 'codex-cli 0.0.0-fixture\\n'\n")
+        self.binary.chmod(0o700)
+        with patch.object(recovery, "runtime_evidence", return_value=VERIFIED):
+            report = recovery.startup_drill(self.store, self.app, self.plan_file, self.backup_file)
+        self.assertEqual(report["before"]["errno"], "ENOENT")
+        self.assertEqual(report["after"]["exit_code"], 0)
+        self.assertEqual(report["after"]["version"], "codex-cli 0.0.0-fixture")
+        self.assertEqual(report["status"], "startup_recovered")
+        self.assertEqual(report["scope"], "isolated_child_process_startup")
+        self.assertFalse(report["native_authentication_recovered"])
+        recovery.restore_backup(self.backup_file)
+        self.assertEqual(json.loads(self.env_file.read_text()), self.original)
+
+    def test_timed_out_startup_has_unknown_outcome(self):
+        with patch.object(recovery.subprocess, "run", side_effect=subprocess.TimeoutExpired("fixture", 15)):
+            outcome = recovery.selected_startup(self.store, self.app)
+        self.assertEqual(outcome["operation_outcome"], "unknown")
+
+    def test_cli_apply_with_unresolved_response_is_blocked(self):
+        self.save_plan()
+        response = self.root / "error.json"
+        response.write_text(json.dumps({"isError": True, "content": [{"text": "CCUH: a previous native operation still has no confirmed completion."}]}))
+        output = io.StringIO()
+        with redirect_stdout(output):
+            result = recovery.main(["--apply", str(self.plan_file), "--backup-file", str(self.backup_file), "--response-file", str(response)])
+        self.assertEqual(result, 1)
+        self.assertEqual(json.loads(output.getvalue())["reason"], "operation_or_diagnostic_blocks_apply")
+        self.assertFalse(self.backup_file.exists())
+
+    def test_doctor_json_unknown_outcome_is_not_lost_when_used_for_recovery(self):
+        self.save_plan()
+        for category in ("operation_unresolved", "timeout"):
+            with self.subTest(category=category):
+                response = self.root / (category + ".json")
+                response.write_text(json.dumps({"schema_version": 1, "mode": "response", "category": category,
+                                                "connection_status": "unverified", "operation_outcome": "unknown",
+                                                "is_error_detected": True, "next_action": "redacted"}))
+                self.assertEqual(recovery.response_category(response), category)
+                output = io.StringIO()
+                with redirect_stdout(output):
+                    result = recovery.main(["--apply", str(self.plan_file), "--backup-file", str(self.backup_file), "--response-file", str(response)])
+                self.assertEqual(result, 1)
+                self.assertFalse(self.backup_file.exists())
+                self.assertEqual(self.store.snapshot()["value"], self.missing)
+
+
+class PredispatchTests(unittest.TestCase):
+    def test_unsupported_optional_probe_is_skipped_without_ui_request_rewrite(self):
+        request = {"kind": "optional_capability_probe", "capability": "visibility", "optional": True}
+        before = dict(request)
+        result = recovery.predispatch(request, [], "unknown")
+        self.assertEqual(result["decision"], "skip_optional_probe")
+        self.assertFalse(result["dispatch_allowed"])
+        self.assertFalse(result["request_modified"])
+        self.assertEqual(request, before)
+
+    def test_required_missing_capability_waits(self):
+        result = recovery.predispatch({"kind": "optional_capability_probe", "capability": "visibility"}, [], "granted")
+        self.assertEqual(result["decision"], "wait_for_supported_capability")
+
+    def test_permission_wait_does_not_grant_access(self):
+        for state in ("pending", "denied", "unknown"):
+            request = {"kind": "optional_capability_probe", "capability": "visibility", "requires_permission": True}
+            result = recovery.predispatch(request, ["visibility"], state)
+            self.assertEqual(result["decision"], "wait_for_permission")
+            self.assertFalse(result["dispatch_allowed"])
+
+    def test_does_not_strip_visibility_false_from_creation_request(self):
+        request = {"kind": "create_tab", "options": {"visible": False}}
+        self.assertEqual(recovery.predispatch(request, [], "granted")["decision"], "not_a_supported_recovery_probe")
+        self.assertFalse(request["options"]["visible"])
+
+    def test_pending_operation_blocks_even_supported_probe(self):
+        request = {"kind": "optional_capability_probe", "capability": "visibility"}
+        for category in ("timeout", "operation_unresolved"):
+            result = recovery.predispatch(request, ["visibility"], "granted", category)
+            self.assertEqual(result["decision"], "wait_for_operation_completion")
+            self.assertFalse(result["dispatch_allowed"])
+
+
+class LaunchEnvironmentTests(unittest.TestCase):
+    def test_launchctl_changes_future_environment_only_and_restores(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = {"value": str(root / "nonexistent-codex")}
+            original = state["value"]
+
+            def launchctl(command, **kwargs):
+                self.assertEqual(command[:1], ["/bin/launchctl"])
+                if command[1] == "unsetenv":
+                    state["value"] = None
+                elif command[1] == "setenv":
+                    state["value"] = command[3]
+                return SimpleNamespace(returncode=0, stdout=(state["value"] or "") + "\n", stderr="")
+
+            with patch.object(recovery.platform, "system", return_value="Darwin"), patch.object(recovery.subprocess, "run", side_effect=launchctl), patch.object(recovery, "runtime_evidence", return_value=VERIFIED):
+                store = recovery.Store("launchctl")
+                plan = recovery.make_plan(store, root / "App.app")
+                recovery.private_create(root / "plan.json", plan)
+                result = recovery.apply_plan(root / "plan.json", root / "backup.json")
+                self.assertIsNone(state["value"])
+                self.assertEqual(result["scope"], "future_process_launch_environment")
+                self.assertTrue(result["restart_or_new_session_required"])
+                self.assertFalse(result["current_process_environment_changed"])
+                self.assertFalse(result["native_authentication_recovered"])
+                recovery.restore_backup(root / "backup.json")
+                self.assertEqual(state["value"], original)
+
+
+if __name__ == "__main__":
+    unittest.main()

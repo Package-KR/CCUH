@@ -19,10 +19,15 @@ PACKAGE_FILES = (
     (".codex-plugin/plugin.json", ".codex-plugin/plugin.json"),
     ("skills/ccuh/SKILL.md", "skills/ccuh/SKILL.md"),
     ("skills/ccuh/scripts/target-session.js", "skills/ccuh/scripts/target-session.js"),
+    ("skills/ccuh/scripts/target-discovery.js", "skills/ccuh/scripts/target-discovery.js"),
     ("skills/ccuh-doctor/SKILL.md", "skills/ccuh-doctor/SKILL.md"),
     (
         "skills/ccuh-doctor/scripts/doctor.py",
         "skills/ccuh-doctor/scripts/doctor.py",
+    ),
+    (
+        "skills/ccuh-doctor/scripts/recovery.py",
+        "skills/ccuh-doctor/scripts/recovery.py",
     ),
     ("README.md", "README.md"),
     ("README.ko.md", "README.ko.md"),
@@ -139,7 +144,7 @@ def check_plugin(root: Path) -> str:
 
 
 def build_plugin(root: Path, output: Optional[Path] = None) -> Path:
-    """Write the nine allowlisted assets, with manifests at the ZIP's root."""
+    """Write the eleven allowlisted assets, with manifests at the ZIP's root."""
     root = Path(root).absolute()
     version, sources = _load_sources(root)
     destination = Path(output) if output is not None else root / "dist" / (

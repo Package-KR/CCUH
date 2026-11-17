@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "plugin_version": "0.0.6",
+  "status": "isolated_startup_repair_and_restore_verified",
+  "source": "skills/ccuh-doctor/scripts/recovery.py",
+  "original_drill_evidence": "/private/tmp/ccuh-recovery-startup.JDGJsX/evidence.json",
+  "failure_before_repair": {"operation": "Execute selected missing CODEX_CLI_PATH", "category": "startup_failed", "errno": "ENOENT"},
+  "repair": {
+    "action": "remove_stale_cli_override",
+    "scope": "isolated_launcher_fixture",
+    "private_plan_and_backup_created": true,
+    "backup_permissions": "0600",
+    "existing_other_keys_preserved": true,
+    "original_value_and_runtime_preconditions_checked": true
+  },
+  "actual_process_after_repair": {
+    "operation": "Verified official CLI child --version",
+    "exit_code": 0,
+    "version": "codex-cli 0.169.0-alpha.11.1",
+    "mach_o_signature_verification_passed": true,
+    "signing_team": "2DC432GLL2"
+  },
+  "rollback": {"requested_in_drill": true, "restored": true, "other_keys_preserved": true},
+  "actual_host_inspection": {
+    "current_process_override_exists_and_resolves_to_official_binary": true,
+    "selected_codex_config_override_exists_and_resolves_to_official_binary": true,
+    "launchctl_override_present": false,
+    "valid_host_settings_preserved": true,
+    "host_global_configuration_or_environment_changed": false
+  },
+  "verification_context": {
+    "real_cli_signature_verified_outside_filesystem_sandbox": true,
+    "sandbox_only_signature_error_was_not_treated_as_confirmed_invalid_signing": true,
+    "no_resigning_or_authentication_bypass": true
+  },
+  "limits": {
+    "native_authentication_recovered": false,
+    "current_computer_use_connection_proven_by_this_drill": false,
+    "original_native_authentication_failure_reproduced": false,
+    "launchctl_backend_changes_future_processes_only": true,
+    "launchctl_read_then_write_is_atomic_compare_and_swap": false
+  }
+}

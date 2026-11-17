@@ -29,6 +29,10 @@ automatically. --sample-state adds one-second samples of this probe's own
 editor text/selection, key-window, minimized/fullscreen, and foreground state.
 Prepare Foreground Caret explicitly activates only this dummy window and puts
 its caret at the end. It is a test-setup action, never automatic recovery.
+For a human typing test, keep this window on an ordinary Desktop (not full
+screen), empty the editor, and click Start typing test. After a 3-second
+countdown, type the displayed phrase yourself during the 20-second interval.
+The probe does not synthesize typing or identify physical input provenance.
 
 Options:
   --run-id ID  Correlate events with a test run (maximum 128 characters).
@@ -146,6 +150,13 @@ private final class FocusProbeDelegate: NSObject, NSApplicationDelegate, NSTextV
     private var previousFrontmost: Bool?
     private let sampleState: Bool
     private var sampleTimer: Timer?
+    private let typingTestPhrase = "ccuh human 12345 ccuh human 12345 ccuh human 12345"
+    private var typingPhase = "idle"
+    private var typingTextEventCount = 0
+    private var typingDeadlineNS: UInt64 = 0
+    private var typingTimer: Timer?
+    private var typingStatus: NSTextField!
+    private var startTypingButton: NSButton!
 
     init(log: EventLog, sampleState: Bool) {
         self.log = log
@@ -168,7 +179,7 @@ private final class FocusProbeDelegate: NSObject, NSApplicationDelegate, NSTextV
         ])
 
         window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 660, height: 380),
+            contentRect: NSRect(x: 0, y: 0, width: 760, height: 540),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
@@ -181,10 +192,14 @@ private final class FocusProbeDelegate: NSObject, NSApplicationDelegate, NSTextV
 
         let content = NSView()
         let instruction = NSTextField(wrappingLabelWithString:
-            "테스트 문자열만 입력하세요. 다른 앱·탭·Space로 이동해도 이 창은 포커스를 되찾지 않습니다. " +
-            "Enter test text only. Focus and text events are written to stdout; Space changes need separate observation."
+            "일반 Desktop Space 시험: Chrome은 Desktop A에 두고, 사용자가 Mission Control로 이 일반 창만 " +
+            "Desktop B로 옮기세요. 전체화면으로 대신하지 마세요. 입력칸을 비운 뒤 Start typing test를 " +
+            "누르고 문구를 실제 키보드로 입력하세요. 테스트 문자열만 입력하세요."
         )
         instruction.translatesAutoresizingMaskIntoConstraints = false
+        let phraseLabel = NSTextField(wrappingLabelWithString: "직접 입력할 문구: " + typingTestPhrase)
+        phraseLabel.font = NSFont.monospacedSystemFont(ofSize: 15, weight: .medium)
+        phraseLabel.translatesAutoresizingMaskIntoConstraints = false
 
         let fullScreenButton = NSButton(
             title: "Toggle Full Screen", target: self, action: #selector(toggleOwnFullScreen(_:))
@@ -196,6 +211,11 @@ private final class FocusProbeDelegate: NSObject, NSApplicationDelegate, NSTextV
         )
         prepareCaretButton.setAccessibilityLabel("Prepare Foreground Caret")
         prepareCaretButton.translatesAutoresizingMaskIntoConstraints = false
+        startTypingButton = NSButton(title: "Start typing test", target: self, action: #selector(startTypingTest(_:)))
+        startTypingButton.setAccessibilityLabel("Start typing test")
+        startTypingButton.translatesAutoresizingMaskIntoConstraints = false
+        typingStatus = NSTextField(wrappingLabelWithString: "대기 중 — 일반 Desktop에서 입력칸을 비운 후 시작하세요.")
+        typingStatus.translatesAutoresizingMaskIntoConstraints = false
 
         let scroll = NSScrollView()
         scroll.translatesAutoresizingMaskIntoConstraints = false
@@ -228,19 +248,30 @@ private final class FocusProbeDelegate: NSObject, NSApplicationDelegate, NSTextV
         }
         scroll.documentView = editor
         content.addSubview(instruction)
+        content.addSubview(phraseLabel)
         content.addSubview(fullScreenButton)
         content.addSubview(prepareCaretButton)
+        content.addSubview(startTypingButton)
+        content.addSubview(typingStatus)
         content.addSubview(scroll)
         NSLayoutConstraint.activate([
             instruction.topAnchor.constraint(equalTo: content.topAnchor, constant: 16),
             instruction.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
             instruction.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
-            fullScreenButton.topAnchor.constraint(equalTo: instruction.bottomAnchor, constant: 10),
+            phraseLabel.topAnchor.constraint(equalTo: instruction.bottomAnchor, constant: 10),
+            phraseLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
+            phraseLabel.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
+            fullScreenButton.topAnchor.constraint(equalTo: phraseLabel.bottomAnchor, constant: 10),
             fullScreenButton.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
             prepareCaretButton.centerYAnchor.constraint(equalTo: fullScreenButton.centerYAnchor),
             prepareCaretButton.leadingAnchor.constraint(equalTo: fullScreenButton.trailingAnchor, constant: 12),
-            prepareCaretButton.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -16),
-            scroll.topAnchor.constraint(equalTo: fullScreenButton.bottomAnchor, constant: 10),
+            startTypingButton.centerYAnchor.constraint(equalTo: fullScreenButton.centerYAnchor),
+            startTypingButton.leadingAnchor.constraint(equalTo: prepareCaretButton.trailingAnchor, constant: 12),
+            startTypingButton.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -16),
+            typingStatus.topAnchor.constraint(equalTo: fullScreenButton.bottomAnchor, constant: 10),
+            typingStatus.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
+            typingStatus.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
+            scroll.topAnchor.constraint(equalTo: typingStatus.bottomAnchor, constant: 10),
             scroll.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
             scroll.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
             scroll.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -16),
@@ -291,6 +322,88 @@ private final class FocusProbeDelegate: NSObject, NSApplicationDelegate, NSTextV
         window.makeFirstResponder(editor)
         editor.setSelectedRange(NSRange(location: editor.string.utf16.count, length: 0))
         recordOwnStateSample()
+    }
+
+    @objc private func startTypingTest(_ sender: Any?) {
+        guard typingTimer == nil else { return }
+        guard !window.styleMask.contains(.fullScreen), !window.isMiniaturized,
+              window.isKeyWindow,
+              NSWorkspace.shared.frontmostApplication?.processIdentifier == ProcessInfo.processInfo.processIdentifier,
+              editor.string.isEmpty else {
+            typingStatus.stringValue = "시작 불가 — 일반 창을 직접 클릭하고 입력칸을 비운 뒤 다시 시작하세요."
+            log.write("typing_test_not_ready", ownWindowState())
+            return
+        }
+        // An explicit click sets only our own editor responder. No app activation or later focus restoration.
+        guard window.makeFirstResponder(editor) else {
+            typingStatus.stringValue = "시작 불가 — 입력칸을 직접 클릭한 후 다시 시작하세요."
+            log.write("typing_test_not_ready", ownWindowState())
+            return
+        }
+        typingPhase = "countdown"
+        typingTextEventCount = 0
+        typingDeadlineNS = DispatchTime.now().uptimeNanoseconds + 3_000_000_000
+        startTypingButton.isEnabled = false
+        typingStatus.stringValue = "3초 뒤 시작 — 아직 입력하지 마세요."
+        logTypingCheckpoint("typing_test_countdown_started")
+        let timer = Timer(timeInterval: 0.2, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.updateTypingTest() }
+        }
+        typingTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func updateTypingTest() {
+        let now = DispatchTime.now().uptimeNanoseconds
+        if now < typingDeadlineNS {
+            let seconds = Int((typingDeadlineNS - now + 999_999_999) / 1_000_000_000)
+            typingStatus.stringValue = typingPhase == "countdown"
+                ? "\(seconds)초 뒤 시작 — 아직 입력하지 마세요."
+                : "직접 키보드로 입력하세요 — \(seconds)초 남음. 입력 중에는 다른 앱으로 이동하지 마세요."
+            return
+        }
+        if typingPhase == "countdown" {
+            guard editor.string.isEmpty, window.isKeyWindow, window.firstResponder === editor,
+                  !window.styleMask.contains(.fullScreen),
+                  NSWorkspace.shared.frontmostApplication?.processIdentifier == ProcessInfo.processInfo.processIdentifier else {
+                typingPhase = "interrupted"
+                typingStatus.stringValue = "준비 상태가 바뀌었습니다. 일반 창·빈 입력칸·입력 포커스를 확인하고 다시 시작하세요."
+                finishTypingTest(event: "typing_test_interrupted")
+                return
+            }
+            typingPhase = "typing"
+            typingDeadlineNS = now + 20_000_000_000
+            typingStatus.stringValue = "지금 직접 입력하세요 — 20초."
+            logTypingCheckpoint("typing_test_started")
+        } else {
+            typingPhase = "complete"
+            typingStatus.stringValue = editor.string == typingTestPhrase
+                ? "입력 구간 종료 — 문구 일치. 이제 Codex로 돌아오세요. 로그는 별도로 판정합니다."
+                : "입력 구간 종료 — 이제 Codex로 돌아오세요. 입력·포커스 로그는 별도로 판정합니다."
+            finishTypingTest(event: "typing_test_completed")
+        }
+    }
+
+    private func logTypingCheckpoint(_ event: String) {
+        var fields = ownWindowState()
+        fields["expected_text"] = typingTestPhrase
+        fields["phase_deadline_monotonic_ns"] = typingDeadlineNS
+        fields["planned_typing_seconds"] = 20
+        fields["planned_countdown_seconds"] = 3
+        fields["key_loss_count"] = keyLossCount
+        fields["foreground_loss_count"] = foregroundLossCount
+        fields["space_change_count"] = spaceChangeCount
+        fields["input_provenance"] = "not_inferred_user_must_type_physically"
+        fields["desktop_assignment"] = "not_identified_user_setup_required"
+        fields["matches_expected_text"] = editor.string == typingTestPhrase
+        log.write(event, fields)
+    }
+
+    private func finishTypingTest(event: String) {
+        typingTimer?.invalidate()
+        typingTimer = nil
+        startTypingButton.isEnabled = true
+        logTypingCheckpoint(event)
     }
 
     func windowWillEnterFullScreen(_ notification: Notification) {
@@ -352,6 +465,8 @@ private final class FocusProbeDelegate: NSObject, NSApplicationDelegate, NSTextV
         return [
             "text": editor.string,
             "text_utf16_length": editor.string.utf16.count,
+            "typing_phase": typingPhase,
+            "typing_text_event_count": typingTextEventCount,
             "selection_utf16": editor.selectedRanges.map { value in
                 let range = value.rangeValue
                 return ["location": range.location, "length": range.length]
@@ -359,7 +474,7 @@ private final class FocusProbeDelegate: NSObject, NSApplicationDelegate, NSTextV
         ]
     }
 
-    private func recordOwnStateSample() {
+    private func ownWindowState() -> [String: Any] {
         var fields = ownEditorState()
         fields["probe_key_window"] = window.isKeyWindow
         fields["probe_window_minimized"] = window.isMiniaturized
@@ -372,10 +487,15 @@ private final class FocusProbeDelegate: NSObject, NSApplicationDelegate, NSTextV
             fields["foreground_observation_available"] = false
             fields["probe_is_frontmost"] = NSNull()
         }
-        log.write("own_state_sample", fields)
+        return fields
+    }
+
+    private func recordOwnStateSample() {
+        log.write("own_state_sample", ownWindowState())
     }
 
     func textDidChange(_ notification: Notification) {
+        if typingPhase == "typing" { typingTextEventCount += 1 }
         log.write("text_changed", ownEditorState())
     }
 
@@ -393,6 +513,8 @@ private final class FocusProbeDelegate: NSObject, NSApplicationDelegate, NSTextV
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        typingTimer?.invalidate()
+        typingTimer = nil
         sampleTimer?.invalidate()
         sampleTimer = nil
         NotificationCenter.default.removeObserver(self)

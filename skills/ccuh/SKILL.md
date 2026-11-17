@@ -1,6 +1,6 @@
 ---
 name: ccuh
-description: Reuse an existing browser target during Codex Computer Use without replacement windows or forced macOS Spaces changes, and diagnose Computer Use connection failures. Use for CCUH-assisted tasks and reports of lost targets or input interference.
+description: Find and reuse an existing browser target by exact task URL during Codex Computer Use, preserve background work, and recover supported connection failures. Use for CCUH-assisted tasks and reports of lost targets or input interference.
 ---
 
 # CCUH
@@ -11,7 +11,8 @@ Keep the requested existing target bound while the user works elsewhere. Use the
 
 - Start with the user's exact tab mention or an already verified target reference and URL. Use the current session's documented browser interface. Follow its first-call requirements.
 - Record the available browser instance, tab/window identifiers, and expected task page. A browser app name alone does not identify the user's intended tab.
-- Use the narrowest documented target lookup. When the target is known, do not enumerate unrelated apps/tabs or capture the whole browser to find it. If the interface cannot resolve it without broadening observation, ask the user to identify that tab.
+- When no usable handle is available, obtain the current browser's documented management capability and define [the exact-URL discovery helper](scripts/target-discovery.js) in the same CUA runtime. Call `await CCUHDiscovery.discoverChrome(management, cua, {allowedUrls: [exactAuthorizedUrl]})`; its returned `tab` is the existing target for the guard. It queries only authorized exact URLs, checks a unique candidate's current metadata, and binds its returned provider ID. It does not require the user to supply a tab ID or bring the window forward.
+- Use the narrowest documented target lookup. Do not enumerate unrelated apps/tabs or capture the whole browser. If no exact candidate exists, stop without creating a replacement. If multiple task candidates match, ask the user to choose rather than guessing.
 - Initial binding can itself return page content. Choose the exact target before calling it. Keep subsequent reads, screenshots, and actions on that handle.
 - Record whether the tab was user-owned or created by the agent. Follow the host's documented tab lifecycle: an ephemeral agent-created tab may close at turn end, while a released user tab may stay open. Use a documented handoff mark only for an unfinished workflow that must continue from that live page. Do not classify automatic cleanup as failure to recognize a user's existing window.
 - If the tab navigates, check the permitted task page before reading content or acting. A matching tab ID alone is insufficient. If the runtime cannot guard a navigation race, disclose that strict content isolation is unverified rather than claiming it is enforced.
@@ -42,7 +43,7 @@ If the required documented methods or runtime capabilities are absent, report th
 
 Connection diagnosis is a user-facing optional feature included in this plugin. When a connection failure blocks the task or the user requests diagnosis, read the sibling [CCUH Doctor skill](../ccuh-doctor/SKILL.md) and use its bundled helper. Normal tasks do not need to run it. If that resource is absent, report a missing diagnostic component rather than inventing a command or installing it automatically.
 
-Use a response already supplied by the failed call or an explicitly selected diagnostic file. Do not collect unrelated logs or dump the environment. A successful environment check is not a successful connection or UI task. Diagnostics do not authorize configuration changes, restarts, broader observation, or authentication bypasses.
+Use a response already supplied by the failed call or an explicitly selected diagnostic file. Do not collect unrelated logs or dump the environment. A successful environment check is not a successful connection or UI task. For a supported repair, use the sibling skill's executable recovery workflow and preserve its backup and preconditions. Diagnosis alone does not authorize unrelated configuration changes, restarts, broader observation, or authentication bypasses.
 
 ## Finish with observable results
 

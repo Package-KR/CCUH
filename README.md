@@ -19,8 +19,8 @@ An experimental macOS companion plugin for Codex Computer Use.
 
 CCUH includes:
 
-- **ccuh:** Existing-target execution guard and workflow guidance. Checks target identity, limits retries, and blocks duplicate mutations after uncertain outcomes.
-- **ccuh-doctor:** Optional, read-only connection diagnostics.
+- **ccuh:** Exact-URL target discovery and guarded background browser work.
+- **ccuh-doctor:** Connection diagnostics and reversible repair of supported startup errors.
 - **Development tools:** Dummy screens, input measurement, and automated tests. Excluded from user packages.
 
 ## License
