@@ -23,6 +23,7 @@ EXPECTED_ARCHIVE = {
     "skills/ccuh-doctor/SKILL.md",
     "skills/ccuh-doctor/scripts/doctor.py",
     "skills/ccuh-doctor/scripts/recovery.py",
+    "skills/ccuh-doctor/scripts/desktop_recovery.py",
     "README.md",
     "README.ko.md",
     "LICENSE",
@@ -51,6 +52,7 @@ class PackageTests(unittest.TestCase):
         )
         self.write("skills/ccuh-doctor/scripts/doctor.py", "print('fixture diagnostic')\n")
         self.write("skills/ccuh-doctor/scripts/recovery.py", "print('fixture recovery')\n")
+        self.write("skills/ccuh-doctor/scripts/desktop_recovery.py", "print('fixture desktop recovery')\n")
         self.write(
             "README.md",
             "# CCUH\n[한국어](README.ko.md)\nUser installation instructions.\n[MIT](LICENSE)\n",
@@ -114,6 +116,7 @@ class PackageTests(unittest.TestCase):
                 "skills/ccuh/scripts/target-discovery.js",
                 "skills/ccuh-doctor/scripts/doctor.py",
                 "skills/ccuh-doctor/scripts/recovery.py",
+                "skills/ccuh-doctor/scripts/desktop_recovery.py",
             ):
                 self.assertEqual(archive.read(helper), (self.root / helper).read_bytes())
 
@@ -126,6 +129,7 @@ class PackageTests(unittest.TestCase):
         for helper, expected in (
             ("doctor.py", "fixture diagnostic"),
             ("recovery.py", "fixture recovery"),
+            ("desktop_recovery.py", "fixture desktop recovery"),
         ):
             with self.subTest(helper=helper):
                 result = subprocess.run(
@@ -141,6 +145,7 @@ class PackageTests(unittest.TestCase):
     def test_builder_does_not_import_or_execute_the_helper(self):
         self.write("skills/ccuh-doctor/scripts/doctor.py", "raise RuntimeError('must not execute')\n")
         self.write("skills/ccuh-doctor/scripts/recovery.py", "raise RuntimeError('must not execute recovery')\n")
+        self.write("skills/ccuh-doctor/scripts/desktop_recovery.py", "raise RuntimeError('must not execute desktop recovery')\n")
         self.assertEqual(package.check_plugin(self.root), "0.1.2")
         self.assertTrue(package.build_plugin(self.root).is_file())
 

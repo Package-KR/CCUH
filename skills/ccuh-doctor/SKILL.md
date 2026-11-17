@@ -1,6 +1,6 @@
 ---
 name: ccuh-doctor
-description: Diagnose Codex Computer Use connection failures and reversibly repair selected missing or ad-hoc CLI overrides. Use for CCUH recovery requests, startup errors, authentication failures, lost targets, and unknown timeout outcomes.
+description: Diagnose Codex Computer Use failures, reversibly repair selected CLI overrides, and restart Codex after a checkpoint and idle-work check. Use for CCUH recovery requests, startup or authentication failures, lost targets, and unknown timeout outcomes.
 ---
 
 # CCUH connection diagnostics
@@ -46,5 +46,15 @@ For the specific native error `-10000: Sender process is not authenticated`, an 
 The launchctl backend affects future processes, not the current app/session. It does not edit config.toml or other override sources; clearing an unrelated source does not establish repair. Do not restart an app with unconfirmed work. Report a required fresh process separately from the repair result, then repeat the same native read of the approved target through the documented Computer Use path. Only a successful native read establishes authentication recovery for that tested path. The helper deliberately leaves `current_connection: unverified` after changing a source. The `--environment-file` backend is an isolated launcher fixture, and `--startup-drill` proves only executable startup, not native authentication recovery.
 
 The helper also gates independent optional-capability probes and permission waits with `--predispatch`; it does not rewrite UI requests, drop visibility settings to force foreground work, grant permissions, or retry pending native operations. A signature check failing inside a sandbox is unconfirmed, not proof of invalid signing; repair requires an execution context where verification succeeds.
+
+## Restart the running Desktop after repair
+
+When restarting Codex is authorized, use [desktop_recovery.py](scripts/desktop_recovery.py) after repairing the actual selected source. Restarting only the engine may reuse a stale `CODEX_CLI_PATH` inherited by the Desktop parent. The helper requests normal termination of the exact Desktop instance, waits for it to exit, launches the official app without activation, and verifies a new official engine. It never force-quits or opens a second instance while the old app remains.
+
+Before preparing a plan, collect fresh status metadata from the actual Desktop, confirm other chats and background work are idle, and finish all native calls. An idle chat label alone does not establish that its background terminals stopped. When the available API cannot inspect them, use the user's explicit confirmation; do not interrupt another chat to make it idle. Any unknown mutation or pending native operation blocks restart. Save this chat's ID and completed stage in a private checkpoint. The current turn may be designated for restart only after that checkpoint is ready.
+
+Run `python3 "<installed-skill-directory>/scripts/desktop_recovery.py" --help` for the plan contract. Create fresh private checkpoint and idle-evidence files, then prepare a private plan with `--plan PLAN --receipt RECEIPT --expected-desktop-pid PID --expected-engine-pid PID --thread-id UUID --checkpoint FILE --idle-evidence FILE --background-work-confirmed-idle`. Review it and run `--execute PLAN`. A separate worker rechecks the source, signatures, process identities, and fresh evidence before termination and records its stages in the receipt. Preserve the checkpoint and receipt across the restart.
+
+The optional resume message is limited to the same existing chat and uses the public deep link and queue command. Queue acceptance does not prove the chat resumed; interrupted or unloaded chats may require the user to reopen them. Do not replay an uncertain mutation or repeatedly enqueue prompts. After reconnection, create fresh Computer Use handles and repeat the same approved target read in this chat. Only that read establishes native recovery. A new engine PID or a successful app launch alone is insufficient. Keep live Desktop restart verification separate from actual authentication-failure recovery evidence.
 
 Do not replace binaries, rewrite unrelated configuration, expand permissions, or bypass authentication. Any actual UI connection check must follow the user's selected target and current Computer Use instructions. The development lab and native measurement app are not required for this feature.

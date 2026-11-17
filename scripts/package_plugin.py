@@ -29,6 +29,10 @@ PACKAGE_FILES = (
         "skills/ccuh-doctor/scripts/recovery.py",
         "skills/ccuh-doctor/scripts/recovery.py",
     ),
+    (
+        "skills/ccuh-doctor/scripts/desktop_recovery.py",
+        "skills/ccuh-doctor/scripts/desktop_recovery.py",
+    ),
     ("README.md", "README.md"),
     ("README.ko.md", "README.ko.md"),
     ("LICENSE", "LICENSE"),
@@ -144,7 +148,7 @@ def check_plugin(root: Path) -> str:
 
 
 def build_plugin(root: Path, output: Optional[Path] = None) -> Path:
-    """Write the eleven allowlisted assets, with manifests at the ZIP's root."""
+    """Write the allowlisted assets, with manifests at the ZIP's root."""
     root = Path(root).absolute()
     version, sources = _load_sources(root)
     destination = Path(output) if output is not None else root / "dist" / (

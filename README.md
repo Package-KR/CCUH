@@ -20,7 +20,7 @@ An experimental macOS companion plugin for Codex Computer Use.
 CCUH includes:
 
 - **ccuh:** Exact-URL target discovery and guarded background browser work.
-- **ccuh-doctor:** Connection diagnostics and reversible repair of supported startup and ad-hoc CLI authentication errors.
+- **ccuh-doctor:** Connection diagnostics, reversible CLI repair, and Codex restart after a saved checkpoint and idle-work check.
 - **Development tools:** Dummy screens, input measurement, and automated tests. Excluded from the release ZIP.
 
 ## License
