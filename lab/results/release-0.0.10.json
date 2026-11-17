@@ -2,7 +2,15 @@
   "schema_version": 1,
   "version": "0.0.10",
   "release_kind": "public_preview",
-  "status": "final_validation_in_progress",
+  "status": "validation_complete_for_scoped_public_preview",
+  "local_installed_environment_metadata": {
+    "macos": "27.2.1",
+    "desktop_bundle_version": "26.1111.21308",
+    "desktop_bundle_build": "27194",
+    "chrome_bundle_version": "157.0.8103.79",
+    "cli_version_observed_in_startup_drill": "0.169.0-alpha.11.1",
+    "scope": "Installed bundle metadata during validation, not a minimum-version promise or proof of every running browser process version."
+  },
   "supported_environment": {
     "platform": "macOS",
     "browser": "Chrome through the host's documented browser Computer Use interface",
@@ -155,7 +163,30 @@
       "real_user_configuration_changed": false,
       "remote_public_install": "requires publication approval"
     },
-    "ci": "pending"
+    "ci": {
+      "status": "passed",
+      "source_commit": "3681504aab8e3baa40df7d06c8572673ea340289",
+      "url": "https://github.com/dijeungi/CCUH/actions/runs/44061769818",
+      "visibility": "private development repository",
+      "runner": "macos-15-intel",
+      "python_versions": ["3.9", "3.13"],
+      "node_version": "24",
+      "both_python_suites_browser_suites_and_zip_builds_passed": true
+    },
+    "source_zip_current_install": {
+      "release_assets": 12,
+      "all_bytes_identical": true,
+      "development_archive_sha256": "fc354296c9bb84d8c7a11b1f7c0829a2df083b1a9800d286c69be455e1fc0cfc",
+      "scope": "The proposed public snapshot changes repository URLs in metadata and README only; its runtime skill files retain the verified source bytes."
+    }
+  },
+  "publication": {
+    "current_development_repository_private": true,
+    "proposed_clean_public_repository": "dijeungi/CCUH-public",
+    "proposed_snapshot_files": 15,
+    "development_git_history_included": false,
+    "raw_diagnostic_logs_included": false,
+    "explicit_authorization_required_for_publication": true
   },
   "privacy_of_release_evidence": "This summary contains no user transcript, native page text, user filesystem paths, chat IDs or authentication material. Raw development diagnostics are retained separately.",
   "cleanup": {
