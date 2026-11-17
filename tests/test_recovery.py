@@ -214,6 +214,285 @@ class RecoveryFixtureTests(unittest.TestCase):
                 self.assertFalse(self.backup_file.exists())
                 self.assertEqual(self.store.snapshot()["value"], self.missing)
 
+    def test_response_file_read_is_bounded_before_size_validation(self):
+        reads = []
+        class BoundedReader(io.BytesIO):
+            def read(self, size=-1):
+                reads.append(size)
+                return super().read(size)
+        reader = BoundedReader(b"x" * 100)
+        with patch.object(recovery, "LIMIT", 32), patch.object(recovery.Path, "open", return_value=reader), patch.object(recovery.Path, "read_bytes", side_effect=AssertionError("unbounded read forbidden")):
+            with self.assertRaises(recovery.RecoveryError) as caught:
+                recovery.response_payload("selected-response.json")
+        self.assertEqual(caught.exception.code, "invalid_diagnostic_input")
+        self.assertEqual(reads, [33])
+
+    def test_response_file_at_limit_is_accepted_with_a_single_bounded_read(self):
+        reads = []
+        class BoundedReader(io.BytesIO):
+            def read(self, size=-1):
+                reads.append(size)
+                return super().read(size)
+        reader = BoundedReader(b'"ok"')
+        with patch.object(recovery, "LIMIT", 4), patch.object(recovery.Path, "open", return_value=reader):
+            payload, raw = recovery.response_payload("selected-response.json")
+        self.assertEqual(payload, "ok")
+        self.assertEqual(raw, b'"ok"')
+        self.assertEqual(reads, [5])
+
+
+class AdhocOverrideRecoveryTests(unittest.TestCase):
+    setUp = RecoveryFixtureTests.setUp
+
+    def candidate(self):
+        custom = self.root / "custom-adhoc-codex"
+        custom.write_bytes(b"\xcf\xfa\xed\xfeisolated-fixture-not-executable-code")
+        custom.chmod(0o700)
+        self.original = {"KEEP": "preserved", recovery.KEY: str(custom)}
+        self.env_file.write_text(json.dumps(self.original))
+        self.response = self.root / "native-error.json"
+        self.response.write_text(json.dumps({"error": {"code": -10000, "message": "Sender process is not authenticated"}}))
+        return custom
+
+    def codesign(self, command, **kwargs):
+        self.assertEqual(command[0], "/usr/bin/codesign")
+        self.assertIn(command[1], ("--verify", "--display"))
+        if command[1] == "--verify":
+            self.assertEqual(command[2], "--strict")
+        return SimpleNamespace(returncode=0, stdout="", stderr="Signature=adhoc\nTeamIdentifier=not set\n")
+
+    def save_adhoc_plan(self):
+        with patch.object(recovery, "runtime_evidence", return_value=VERIFIED), patch.object(recovery.platform, "system", return_value="Darwin"), patch.object(recovery.subprocess, "run", side_effect=self.codesign):
+            plan = recovery.make_plan(self.store, self.app, "authentication_failed", True, self.response)
+        recovery.private_create(self.plan_file, plan)
+        return plan
+
+    def apply_adhoc(self, candidate_signer=None, official=VERIFIED):
+        with patch.object(recovery, "runtime_evidence", return_value=official), patch.object(recovery.platform, "system", return_value="Darwin"), patch.object(recovery.subprocess, "run", side_effect=candidate_signer or self.codesign):
+            return recovery.apply_plan(self.plan_file, self.backup_file, "authentication_failed")
+
+    def test_opt_in_removes_only_override_and_restores_existing_adhoc_path(self):
+        custom = self.candidate()
+        before = custom.read_bytes()
+        process_before = os.environ.get(recovery.KEY)
+        plan = self.save_adhoc_plan()
+        self.assertEqual(plan["operation"], "remove_adhoc_cli_override")
+        self.assertEqual(plan["status"], "repair_available")
+        self.assertEqual(plan["candidate"]["resolved_path"], str(custom.resolve()))
+        report = self.apply_adhoc()
+        self.assertEqual(report["action"], "remove_adhoc_cli_override")
+        self.assertFalse(report["native_authentication_recovered"])
+        self.assertEqual(report["current_connection"], "unverified")
+        self.assertEqual(json.loads(self.env_file.read_text()), {"KEEP": "preserved"})
+        self.assertEqual(custom.read_bytes(), before)
+        self.assertEqual(os.environ.get(recovery.KEY), process_before)
+        recovery.restore_backup(self.backup_file)
+        self.assertEqual(json.loads(self.env_file.read_text()), self.original)
+        self.assertNotIn(str(custom), json.dumps(report))
+
+    def test_default_mode_preserves_existing_adhoc_override(self):
+        custom = self.candidate()
+        with patch.object(recovery, "runtime_evidence", return_value=VERIFIED), patch.object(recovery.subprocess, "run", side_effect=AssertionError("unexpected signing or execution")):
+            plan = recovery.make_plan(self.store, self.app)
+        self.assertEqual(plan["reason"], "existing_override_preserved")
+        self.assertEqual(self.store.snapshot()["value"], str(custom))
+
+    def test_exact_error_evidence_is_required_not_a_generic_auth_category(self):
+        self.candidate()
+        for payload in [
+            {"schema_version": 1, "mode": "response", "category": "authentication_failed"},
+            {"error": {"code": -10001, "message": "Sender process is not authenticated"}},
+            {"error": {"code": -10000, "message": "Unrelated authentication error"}},
+            {"error": {"code": -10000.0, "message": "Sender process is not authenticated"}},
+            {"content": [{"text": "-10000 Sender process is not authenticated"}]},
+        ]:
+            self.response.write_text(json.dumps(payload))
+            with self.subTest(payload=payload), self.assertRaises(recovery.RecoveryError) as caught:
+                recovery.native_authentication_evidence(self.response)
+            self.assertEqual(caught.exception.code, "exact_native_authentication_evidence_required")
+        for selected in (None, "-"):
+            with self.assertRaises(recovery.RecoveryError) as caught:
+                recovery.native_authentication_evidence(selected)
+            self.assertEqual(caught.exception.code, "native_authentication_evidence_file_required")
+
+    def test_actual_mcp_error_text_is_supported_without_printing_its_contents(self):
+        self.candidate()
+        self.response.write_text(json.dumps({"isError": True, "content": [{"type": "text", "text": "SkyComputerUseError (-10000): Sender process is not authenticated; private-caller-detail"}]}))
+        evidence = recovery.native_authentication_evidence(self.response)
+        self.assertEqual(evidence["sha256"], recovery.digest(self.response.read_bytes()))
+        self.assertNotIn("private-caller-detail", json.dumps(evidence))
+
+    def test_changed_evidence_blocks_apply_even_when_new_error_is_still_exact(self):
+        self.candidate()
+        self.save_adhoc_plan()
+        self.response.write_text(self.response.read_text() + "\n")
+        with self.assertRaises(recovery.RecoveryError) as caught:
+            self.apply_adhoc()
+        self.assertEqual(caught.exception.code, "native_authentication_evidence_changed")
+        self.assertFalse(self.backup_file.exists())
+        self.assertIn(recovery.KEY, json.loads(self.env_file.read_text()))
+
+    def test_unknown_outcome_in_fresh_evidence_blocks_apply(self):
+        self.candidate()
+        self.save_adhoc_plan()
+        payload = json.loads(self.response.read_text())
+        payload["operation_outcome"] = "unknown"
+        self.response.write_text(json.dumps(payload))
+        with self.assertRaises(recovery.RecoveryError) as caught:
+            self.apply_adhoc()
+        self.assertEqual(caught.exception.code, "operation_completion_unconfirmed")
+        self.assertFalse(self.backup_file.exists())
+
+    def test_nested_completion_uncertainty_precedes_exact_native_auth_evidence(self):
+        self.candidate()
+        native = {"code": -10000, "message": "Sender process is not authenticated"}
+        cases = [
+            ({"result": {"operation_outcome": "unknown", "error": native}}, "operation_unresolved"),
+            ({"timeout": True, "error": native}, "timeout"),
+            ({"result": {"error": {"timeout": True}}, "error": native}, "timeout"),
+            ({"nested": [{"deep": [{"operation_outcome": "unknown"}]}], "error": native}, "operation_unresolved"),
+            ({"nested": [{"category": "timeout"}], "error": native}, "timeout"),
+            ({"nested": [{"timedOut": True}], "error": native}, "timeout"),
+            ({"error": {"code": -10000, "message": "Sender process is not authenticated; request timed out"}}, "timeout"),
+            ({"isError": True, "content": [{"text": "-10000 Sender process is not authenticated; result unknown"}]}, "timeout"),
+        ]
+        for payload, expected in cases:
+            with self.subTest(payload=payload):
+                self.response.write_text(json.dumps(payload))
+                self.assertEqual(recovery.payload_category(payload), expected)
+                with self.assertRaises(recovery.RecoveryError) as caught:
+                    recovery.native_authentication_evidence(self.response)
+                self.assertEqual(caught.exception.code, "operation_completion_unconfirmed")
+                with patch.object(recovery, "runtime_evidence", return_value=VERIFIED), patch.object(recovery, "adhoc_candidate_evidence") as candidate_probe:
+                    with self.assertRaises(recovery.RecoveryError) as caught:
+                        recovery.make_plan(self.store, self.app, "authentication_failed", True, self.response)
+                self.assertEqual(caught.exception.code, "operation_completion_unconfirmed")
+                candidate_probe.assert_not_called()
+                self.assertFalse(self.backup_file.exists())
+
+    def test_nested_unknown_or_timeout_in_saved_evidence_blocks_apply(self):
+        native = {"code": -10000, "message": "Sender process is not authenticated"}
+        for payload in [
+            {"result": {"operation_outcome": "unknown", "error": native}},
+            {"timeout": True, "error": native},
+        ]:
+            with self.subTest(payload=payload):
+                self.candidate()
+                if self.plan_file.exists():
+                    self.plan_file.unlink()
+                self.save_adhoc_plan()
+                self.response.write_text(json.dumps(payload))
+                with self.assertRaises(recovery.RecoveryError) as caught:
+                    self.apply_adhoc()
+                self.assertEqual(caught.exception.code, "operation_completion_unconfirmed")
+                self.assertFalse(self.backup_file.exists())
+                self.assertEqual(json.loads(self.env_file.read_text()), self.original)
+
+    def test_evidence_is_rechecked_after_signature_verification(self):
+        self.candidate()
+        self.save_adhoc_plan()
+        def runtime_verification(app):
+            self.response.write_text(self.response.read_text() + "\n")
+            return VERIFIED
+        with patch.object(recovery, "runtime_evidence", side_effect=runtime_verification), patch.object(recovery.platform, "system", return_value="Darwin"), patch.object(recovery.subprocess, "run", side_effect=self.codesign):
+            with self.assertRaises(recovery.RecoveryError) as caught:
+                recovery.apply_plan(self.plan_file, self.backup_file)
+        self.assertEqual(caught.exception.code, "native_authentication_evidence_changed")
+        self.assertFalse(self.backup_file.exists())
+
+    def test_candidate_content_change_blocks_apply(self):
+        custom = self.candidate()
+        self.save_adhoc_plan()
+        custom.write_bytes(custom.read_bytes() + b"changed")
+        with self.assertRaises(recovery.RecoveryError) as caught:
+            self.apply_adhoc()
+        self.assertEqual(caught.exception.code, "adhoc_candidate_changed_or_unconfirmed")
+        self.assertFalse(self.backup_file.exists())
+
+    def test_candidate_resolved_path_change_blocks_apply_even_with_identical_bytes(self):
+        custom = self.candidate()
+        second = self.root / "other-adhoc-codex"
+        second.write_bytes(custom.read_bytes())
+        second.chmod(0o700)
+        link = self.root / "selected-cli"
+        link.symlink_to(custom)
+        self.env_file.write_text(json.dumps({recovery.KEY: str(link)}))
+        self.save_adhoc_plan()
+        link.unlink()
+        link.symlink_to(second)
+        with self.assertRaises(recovery.RecoveryError) as caught:
+            self.apply_adhoc()
+        self.assertEqual(caught.exception.code, "adhoc_candidate_changed_or_unconfirmed")
+        self.assertFalse(self.backup_file.exists())
+
+    def test_adhoc_signature_must_verify_and_have_no_team_identifier(self):
+        custom = self.candidate()
+        cases = [
+            (1, 0, "Signature=adhoc\nTeamIdentifier=not set\n", False),
+            (0, 1, "Signature=adhoc\nTeamIdentifier=not set\n", False),
+            (0, 0, "Signature=adhoc\nTeamIdentifier=ANOTHERTEAM\n", False),
+            (0, 0, "Signature=Developer ID\nTeamIdentifier=not set\n", False),
+            (0, 0, "TeamIdentifier=not set\n", False),
+            (0, 0, "Signature=adhoc\nTeamIdentifier=not set\n", True),
+            (0, 0, "Signature=adhoc\n", True),
+        ]
+        for verify_exit, display_exit, details, expected in cases:
+            def signing(command, **kwargs):
+                return SimpleNamespace(returncode=verify_exit if command[1] == "--verify" else display_exit, stdout="", stderr=details)
+            with self.subTest(details=details, verify=verify_exit, display=display_exit), patch.object(recovery.platform, "system", return_value="Darwin"), patch.object(recovery.subprocess, "run", side_effect=signing):
+                self.assertEqual(recovery.adhoc_candidate_evidence(str(custom))["verified"], expected)
+
+    def test_non_macho_or_nonexecutable_candidates_never_invoke_codesign(self):
+        custom = self.candidate()
+        for content, mode in [(b"not-a-mach-o", 0o700), (b"\xcf\xfa\xed\xfecontent", 0o600)]:
+            custom.write_bytes(content)
+            custom.chmod(mode)
+            with patch.object(recovery.platform, "system", return_value="Darwin"), patch.object(recovery.subprocess, "run", side_effect=AssertionError("must not launch")):
+                self.assertFalse(recovery.adhoc_candidate_evidence(str(custom))["verified"])
+
+    def test_changed_source_or_official_runtime_blocks_adhoc_apply(self):
+        self.candidate()
+        self.save_adhoc_plan()
+        with self.assertRaises(recovery.RecoveryError) as caught:
+            self.apply_adhoc(official={**VERIFIED, "binary_sha256": "changed"})
+        self.assertEqual(caught.exception.code, "runtime_verification_unconfirmed")
+        self.env_file.write_text(json.dumps({**self.original, "LATER": "change"}))
+        with self.assertRaises(recovery.RecoveryError) as caught:
+            self.apply_adhoc()
+        self.assertEqual(caught.exception.code, "source_changed")
+        self.assertFalse(self.backup_file.exists())
+
+    def test_plan_operation_and_reason_cannot_be_mixed(self):
+        self.candidate()
+        plan = self.save_adhoc_plan()
+        plan["reason"] = "missing_override"
+        self.plan_file.write_text(json.dumps(plan))
+        with self.assertRaises(recovery.RecoveryError) as caught:
+            self.apply_adhoc()
+        self.assertEqual(caught.exception.code, "plan_not_applicable")
+        self.assertFalse(self.backup_file.exists())
+
+    def test_cli_opt_in_is_only_valid_with_repair_plan(self):
+        output = io.StringIO()
+        with redirect_stdout(output):
+            result = recovery.main(["--restore", "not-read.json", "--remove-adhoc-cli-override"])
+        self.assertEqual(result, 1)
+        self.assertEqual(json.loads(output.getvalue())["reason"], "adhoc_removal_requires_repair_plan")
+
+    def test_cli_plan_requires_opt_in_then_apply_rechecks_saved_evidence(self):
+        self.candidate()
+        with patch.object(recovery, "runtime_evidence", return_value=VERIFIED), patch.object(recovery.platform, "system", return_value="Darwin"), patch.object(recovery.subprocess, "run", side_effect=self.codesign):
+            output = io.StringIO()
+            with redirect_stdout(output):
+                planned = recovery.main(["--repair-plan", "--remove-adhoc-cli-override", "--environment-file", str(self.env_file), "--app-path", str(self.app), "--plan-file", str(self.plan_file), "--response-file", str(self.response)])
+            self.assertEqual(planned, 0)
+            self.assertEqual(json.loads(output.getvalue())["status"], "repair_available")
+            output = io.StringIO()
+            with redirect_stdout(output):
+                applied = recovery.main(["--apply", str(self.plan_file), "--backup-file", str(self.backup_file)])
+            self.assertEqual(applied, 0)
+            self.assertFalse(json.loads(output.getvalue())["native_authentication_recovered"])
+
 
 class PredispatchTests(unittest.TestCase):
     def test_unsupported_optional_probe_is_skipped_without_ui_request_rewrite(self):

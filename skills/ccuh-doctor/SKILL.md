@@ -1,6 +1,6 @@
 ---
 name: ccuh-doctor
-description: Diagnose Codex Computer Use connection failures and reversibly repair supported missing-executable overrides. Use for CCUH recovery requests, startup errors, authentication failures, lost targets, and unknown timeout outcomes.
+description: Diagnose Codex Computer Use connection failures and reversibly repair selected missing or ad-hoc CLI overrides. Use for CCUH recovery requests, startup errors, authentication failures, lost targets, and unknown timeout outcomes.
 ---
 
 # CCUH connection diagnostics
@@ -35,13 +35,15 @@ The CLI also accepts `--response-file -` for stdin and `--format json` for struc
 
 The helper returns 0 for completed metadata inspection or no detected response error, 1 for a detected failure/unknown timeout outcome, and 2 for invalid input. Handle these as diagnostic results, not reasons to rerun the command repeatedly.
 
-## Recover a supported startup failure
+## Recover a supported CLI selection failure
 
-When recovery is authorized, use [the bundled recovery helper](scripts/recovery.py). It supports a `CODEX_CLI_PATH` override pointing to a missing executable. It preserves existing official and custom executables, verifies the real official CLI's code signature and team, writes a private rollback backup, and checks the plan's original-value/runtime preconditions before applying it.
+When recovery is authorized, use [the bundled recovery helper](scripts/recovery.py). By default it supports only a `CODEX_CLI_PATH` override pointing to a missing executable. It preserves existing official and custom executables, verifies the real official CLI's code signature and team, writes a private rollback backup, and checks the plan's original-value/runtime preconditions before applying it.
 
 For the macOS future-process environment, prepare a concrete plan with `python3 "<installed-skill-directory>/scripts/recovery.py" --repair-plan --launchctl --plan-file "/private/tmp/ccuh-repair-plan.json"`. Inspect the result before applying the supported change with `--apply "/private/tmp/ccuh-repair-plan.json" --backup-file "/private/tmp/ccuh-repair-backup.json"`. Use fresh paths: plans and backups are never overwritten. `--restore BACKUP` is available when rollback is requested and its preconditions still hold. Pass the already selected `--response-file` when available; timeout/unresolved outcomes block repair.
 
-The launchctl backend affects future processes, not the current app/session. Do not restart an app with unconfirmed work. Report a required fresh process separately from the repair result, then verify the intended target through the documented Computer Use path. The `--environment-file` backend and `--startup-drill` are isolated launcher tests, not Codex config.toml repair or proof of native authentication recovery.
+For the specific native error `-10000: Sender process is not authenticated`, an existing ad-hoc CLI override can also be removed with an explicit opt-in. First confirm which source selected that CLI for the failed call. Prepare the same plan command with `--remove-adhoc-cli-override --response-file "/path/to/observed-native-error.json"`. The evidence must contain the exact native error; a generic login/authentication category is insufficient. The helper requires a valid executable Mach-O with a verified ad-hoc signature and no Team ID, and rechecks the evidence, candidate hash/signature, official runtime, and selected source before applying. A failed signature check leaves the override preserved. The executable itself is never changed or deleted. Inspect and apply the resulting private plan with the same `--apply` command above; retain its rollback backup.
+
+The launchctl backend affects future processes, not the current app/session. It does not edit config.toml or other override sources; clearing an unrelated source does not establish repair. Do not restart an app with unconfirmed work. Report a required fresh process separately from the repair result, then repeat the same native read of the approved target through the documented Computer Use path. Only a successful native read establishes authentication recovery for that tested path. The helper deliberately leaves `current_connection: unverified` after changing a source. The `--environment-file` backend is an isolated launcher fixture, and `--startup-drill` proves only executable startup, not native authentication recovery.
 
 The helper also gates independent optional-capability probes and permission waits with `--predispatch`; it does not rewrite UI requests, drop visibility settings to force foreground work, grant permissions, or retry pending native operations. A signature check failing inside a sandbox is unconfirmed, not proof of invalid signing; repair requires an execution context where verification succeeds.
 

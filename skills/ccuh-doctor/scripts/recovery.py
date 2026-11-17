@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Conservative recovery for a missing CODEX_CLI_PATH, with private rollback.
+"""Conservative CODEX_CLI_PATH recovery, with private rollback.
 
 File stores are isolated launcher fixtures, not Codex configuration files.
 The launchctl backend changes only future processes' environment. Neither
 backend repairs an existing native connection or restarts an application.
+Existing executables stay unchanged by default. Explicit ad-hoc override
+removal requires exact native authentication evidence and reverified signing.
 """
 
 import argparse
@@ -199,10 +201,12 @@ def runtime_evidence(app_path):
     return result
 
 
-def response_category(path):
-    if path is None:
-        return None
-    raw = sys.stdin.buffer.read(LIMIT + 1) if path == "-" else Path(path).read_bytes()
+def response_payload(path):
+    if path == "-":
+        raw = sys.stdin.buffer.read(LIMIT + 1)
+    else:
+        with Path(path).open("rb") as handle:
+            raw = handle.read(LIMIT + 1)
     if not raw.strip() or len(raw) > LIMIT:
         raise RecoveryError("invalid_diagnostic_input")
     text = raw.decode("utf-8")
@@ -210,6 +214,33 @@ def response_category(path):
         payload = json.loads(text)
     except (ValueError, RecursionError):
         payload = text
+    return payload, raw
+
+
+def payload_category(payload):
+    # Completion uncertainty takes precedence over even an exact auth error.
+    # Walk every nested dict/list, not only the outer MCP response envelope.
+    pending = [(None, payload)]
+    unresolved = False
+    timeout_text = re.compile(r"\btimeout\b|\btimed out\b|result[_ ]unknown|outcome[_ ]unknown", re.IGNORECASE)
+    while pending:
+        field, value = pending.pop()
+        if isinstance(value, dict):
+            for key, child in value.items():
+                name = key.lower().replace("_", "")
+                if name in ("timeout", "timedout") and child is True:
+                    return "timeout"
+                if name in ("category", "status") and child == "timeout":
+                    return "timeout"
+                if (name == "operationoutcome" and child == "unknown") or (name == "category" and child == "operation_unresolved"):
+                    unresolved = True
+                pending.append((name, child))
+        elif isinstance(value, list):
+            pending.extend((field, child) for child in value)
+        elif isinstance(value, str) and field in (None, "message", "error", "text", "stderr") and timeout_text.search(value):
+            return "timeout"
+    if unresolved:
+        return "operation_unresolved"
     if isinstance(payload, dict):
         # Keep a known unknown outcome when consuming doctor's redacted output.
         if payload.get("operation_outcome") == "unknown":
@@ -224,6 +255,79 @@ def response_category(path):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module.classify_response(payload)["category"]
+
+
+def response_category(path):
+    return None if path is None else payload_category(response_payload(path)[0])
+
+
+def native_authentication_evidence(path):
+    """Read one replayable error artifact, never infer evidence from a category.
+
+    Accept a native error object, an MCP isError text block, or a raw error
+    string. The code and sender-authentication message must occur together.
+    This verifies supplied evidence, not its provenance or the native caller.
+    """
+    if not path or path == "-":
+        raise RecoveryError("native_authentication_evidence_file_required")
+    selected = Path(path).absolute()
+    owned_regular_file(selected)
+    payload, raw = response_payload(selected)
+    if payload_category(payload) in ("timeout", "operation_unresolved"):
+        raise RecoveryError("operation_completion_unconfirmed")
+    message_pattern = re.compile(r"\bsender process (?:is )?not authenticated\b", re.IGNORECASE)
+
+    def error_text(value):
+        return isinstance(value, str) and bool(re.search(r"(?<![\d.])-10000(?![\d.])", value)) and bool(message_pattern.search(value))
+
+    def confirmed(value):
+        if not isinstance(value, dict):
+            return False
+        if isinstance(value.get("code"), int) and not isinstance(value.get("code"), bool) and value["code"] == -10000 and isinstance(value.get("message"), str) and message_pattern.search(value["message"]):
+            return True
+        if value.get("isError") is True and isinstance(value.get("content"), list):
+            if any(isinstance(item, dict) and error_text(item.get("text")) for item in value["content"]):
+                return True
+        return any(confirmed(value[key]) for key in ("error", "result") if isinstance(value.get(key), dict))
+
+    if not (error_text(payload) if isinstance(payload, str) else confirmed(payload)):
+        raise RecoveryError("exact_native_authentication_evidence_required")
+    return {"path": str(selected), "sha256": digest(raw), "category": "authentication_failed"}
+
+
+def adhoc_candidate_evidence(value):
+    """Only a valid, executable Mach-O with explicit ad-hoc signing qualifies.
+
+    Missing TeamIdentifier alone is insufficient. Failed codesign verification
+    (including sandbox errors) remains unconfirmed and must preserve the path.
+    """
+    result = {"verified": False}
+    try:
+        candidate = Path(value).expanduser()
+        if not candidate.is_absolute() or platform.system() != "Darwin":
+            return result
+        candidate = candidate.resolve(strict=True)
+        if not candidate.is_file() or not os.access(candidate, os.X_OK):
+            return result
+        with candidate.open("rb") as handle:
+            if handle.read(4) not in (b"\xfe\xed\xfa\xce", b"\xce\xfa\xed\xfe", b"\xfe\xed\xfa\xcf", b"\xcf\xfa\xed\xfe", b"\xca\xfe\xba\xbe", b"\xbe\xba\xfe\xca", b"\xca\xfe\xba\xbf", b"\xbf\xba\xfe\xca"):
+                return result
+        verified = subprocess.run(["/usr/bin/codesign", "--verify", "--strict", str(candidate)], capture_output=True, timeout=15)
+        shown = subprocess.run(["/usr/bin/codesign", "--display", "--verbose=4", str(candidate)], capture_output=True, text=True, timeout=15)
+        signature = re.search(r"^Signature=(.+)$", shown.stderr, flags=re.MULTILINE)
+        team = re.search(r"^TeamIdentifier=(.*)$", shown.stderr, flags=re.MULTILINE)
+        adhoc = bool(signature) and signature.group(1).strip() == "adhoc"
+        no_team = team is None or team.group(1).strip() == "not set"
+        if verified.returncode != 0 or shown.returncode != 0 or not adhoc or not no_team:
+            return result
+        hasher = hashlib.sha256()
+        with candidate.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(LIMIT), b""):
+                hasher.update(chunk)
+        return {"verified": True, "resolved_path": str(candidate), "binary_sha256": hasher.hexdigest(),
+                "signature": "adhoc", "team_identifier_absent": True}
+    except (OSError, ValueError, TypeError, RuntimeError, subprocess.TimeoutExpired):
+        return result
 
 
 def response_block(category):
@@ -250,13 +354,28 @@ def assess_override(value, official):
     return "missing_override"
 
 
-def make_plan(store, app_path, category=None):
+def make_plan(store, app_path, category=None, remove_adhoc=False, response_path=None):
     current = store.snapshot()
     app = Path(app_path).resolve()
     reason = assess_override(current["value"], app / OFFICIAL_RELATIVE)
     blocked = response_block(category)
     runtime = runtime_evidence(app)
-    if blocked:
+    operation = "remove_adhoc_cli_override" if remove_adhoc else "remove_stale_cli_override"
+    native_evidence = candidate = None
+    if remove_adhoc:
+        if category in ("operation_unresolved", "timeout"):
+            raise RecoveryError("operation_completion_unconfirmed")
+        native_evidence = native_authentication_evidence(response_path)
+        if category not in (None, "authentication_failed"):
+            status, reason = "blocked", "diagnostic_requires_other_recovery"
+        elif reason != "existing_override_preserved":
+            status = "no_change"
+        elif not runtime.get("verified"):
+            status, reason = "blocked", "runtime_verification_unconfirmed"
+        else:
+            candidate = adhoc_candidate_evidence(current["value"])
+            status, reason = ("repair_available", "native_authentication_error_with_adhoc_override") if candidate.get("verified") else ("blocked", "adhoc_candidate_verification_unconfirmed")
+    elif blocked:
         status, reason = "blocked", blocked
     elif reason != "missing_override":
         status = "no_change"
@@ -264,10 +383,11 @@ def make_plan(store, app_path, category=None):
         status, reason = "blocked", "runtime_verification_unconfirmed"
     else:
         status, reason = "repair_available", "missing_override"
-    return {"schema_version": 1, "operation": "remove_stale_cli_override", "status": status, "reason": reason,
+    return {"schema_version": 1, "operation": operation, "status": status, "reason": reason,
             "created_at": time.time(), "uid": os.getuid(), "source": store.descriptor(), "app_path": str(app),
             "source_fingerprint": current["fingerprint"], "override_fingerprint": value_digest(current["value"]),
             "runtime": runtime, "diagnostic_category": category,
+            "native_evidence": native_evidence, "candidate": candidate,
             "scope": "isolated_launcher_fixture" if store.kind == "file" else "future_process_launch_environment",
             "current_process_environment_changed": False, "current_connection": "unverified",
             "restart_or_new_session_required": store.kind == "launchctl"}
@@ -280,9 +400,14 @@ def validate_private(path):
 
 def apply_plan(plan_path, backup_path, category=None):
     plan = validate_private(plan_path)
-    if response_block(category) or response_block(plan.get("diagnostic_category")):
+    operation = plan.get("operation")
+    adhoc = operation == "remove_adhoc_cli_override"
+    def blocks(selected):
+        return response_block(selected) and not (adhoc and selected == "authentication_failed")
+    if blocks(category) or blocks(plan.get("diagnostic_category")):
         raise RecoveryError("operation_or_diagnostic_blocks_apply")
-    if plan.get("schema_version") != 1 or plan.get("operation") != "remove_stale_cli_override" or plan.get("status") != "repair_available":
+    expected_reason = "native_authentication_error_with_adhoc_override" if adhoc else "missing_override"
+    if plan.get("schema_version") != 1 or operation not in ("remove_stale_cli_override", "remove_adhoc_cli_override") or plan.get("status") != "repair_available" or plan.get("reason") != expected_reason:
         raise RecoveryError("plan_not_applicable")
     if plan.get("uid") != os.getuid() or not 0 <= time.time() - plan["created_at"] <= PLAN_TTL:
         raise RecoveryError("plan_expired_or_wrong_user")
@@ -291,11 +416,24 @@ def apply_plan(plan_path, backup_path, category=None):
         current = store.snapshot()
         if current["fingerprint"] != plan["source_fingerprint"] or value_digest(current["value"]) != plan["override_fingerprint"]:
             raise RecoveryError("source_changed")
-        if assess_override(current["value"], Path(plan["app_path"]) / OFFICIAL_RELATIVE) != "missing_override":
+        expected_override = "existing_override_preserved" if adhoc else "missing_override"
+        if assess_override(current["value"], Path(plan["app_path"]) / OFFICIAL_RELATIVE) != expected_override:
             raise RecoveryError("override_must_be_preserved")
+        if adhoc:
+            evidence = plan.get("native_evidence")
+            candidate = plan.get("candidate")
+            if not isinstance(evidence, dict) or not isinstance(candidate, dict) or not candidate.get("verified"):
+                raise RecoveryError("plan_not_applicable")
         runtime = runtime_evidence(plan["app_path"])
         if not runtime.get("verified") or runtime.get("binary_sha256") != plan["runtime"].get("binary_sha256"):
             raise RecoveryError("runtime_verification_unconfirmed")
+        if adhoc:
+            if adhoc_candidate_evidence(current["value"]) != candidate:
+                raise RecoveryError("adhoc_candidate_changed_or_unconfirmed")
+            # Re-read the exact artifact after potentially slow signature checks,
+            # just before preparing the backup/change. This is not atomic CAS.
+            if native_authentication_evidence(evidence.get("path")) != evidence:
+                raise RecoveryError("native_authentication_evidence_changed")
         if store.kind == "file":
             after_data = dict(current["data"])
             after_data.pop(KEY, None)
@@ -304,14 +442,14 @@ def apply_plan(plan_path, backup_path, category=None):
             after_fingerprint = value_digest(None)
         backup = {"schema_version": 1, "uid": os.getuid(), "source": store.descriptor(), "original_override": current["value"],
                   "before_fingerprint": current["fingerprint"], "after_fingerprint": after_fingerprint,
-                  "scope": plan["scope"], "applied": False}
+                  "scope": plan["scope"], "operation": operation, "applied": False}
         private_create(backup_path, backup)
         observed = store.change(current, None)
         backup["applied"] = True
         atomic_replace(backup_path, encode(backup), 0o600)
         if observed["fingerprint"] != after_fingerprint:
             raise RecoveryError("repair_outcome_unknown")
-    return {"status": "repair_applied", "action": "remove_stale_cli_override", "backup_created": True,
+    return {"status": "repair_applied", "action": operation, "backup_created": True,
             "scope": plan["scope"], "current_process_environment_changed": False, "current_connection": "unverified",
             "restart_or_new_session_required": store.kind == "launchctl", "native_authentication_recovered": False}
 
@@ -404,11 +542,14 @@ def main(argv=None):
     parser.add_argument("--evidence-file")
     parser.add_argument("--app-path", default="/Applications/ChatGPT.app")
     parser.add_argument("--response-file", help="One supplied diagnostic response (or - for stdin); unresolved/timeouts block mutation.")
+    parser.add_argument("--remove-adhoc-cli-override", action="store_true", help="Opt in only with --repair-plan: remove an existing verified ad-hoc CLI override after exact native -10000 authentication evidence.")
     parser.add_argument("--request-file")
     parser.add_argument("--available-capability", action="append", default=[])
     parser.add_argument("--permission-state", choices=("unknown", "pending", "denied", "granted"), default="unknown")
     args = parser.parse_args(argv)
     try:
+        if args.remove_adhoc_cli_override and not args.repair_plan:
+            raise RecoveryError("adhoc_removal_requires_repair_plan")
         category = response_category(args.response_file)
         if args.predispatch:
             if not args.request_file:
@@ -435,7 +576,7 @@ def main(argv=None):
                     raise RecoveryError("backup_file_required")
                 report = startup_drill(store, args.app_path, args.plan_file, args.backup_file)
             else:
-                plan = make_plan(store, args.app_path, category)
+                plan = make_plan(store, args.app_path, category, args.remove_adhoc_cli_override, args.response_file)
                 private_create(args.plan_file, plan)
                 report = {key: plan[key] for key in ("status", "reason", "scope", "current_process_environment_changed", "current_connection", "restart_or_new_session_required")}
         if args.evidence_file:
