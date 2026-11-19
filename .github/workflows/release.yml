@@ -148,6 +148,7 @@ jobs:
         run: |
           set -euo pipefail
           gh release view "$CATALOG_TAG" --repo "$GITHUB_REPOSITORY" --json tagName >/dev/null
+          git fetch --no-tags origin "refs/tags/$CATALOG_TAG:refs/tags/$CATALOG_TAG"
           python3 - <<'PY'
           import json
           import os
