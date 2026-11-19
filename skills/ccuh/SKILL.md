@@ -1,66 +1,47 @@
 ---
 name: ccuh
-description: Find and reuse an existing browser target by exact task URL during Codex Computer Use, preserve background work, and recover supported connection failures. Use for CCUH-assisted tasks and reports of lost targets or input interference.
+description: Computer Use로 앱이나 브라우저를 관찰하고 조작할 때 함께 참조해 작업에 맞는 CCUH 보조 지침을 선택한다. Computer Use를 쓰지 않는 일반 질문이나 코드 작업에는 적용하지 않는다.
 ---
 
 # CCUH
 
-Keep the requested existing target bound while the user works elsewhere. Use the bundled executable target-session guard for its supported browser path, and the read-only diagnostic helper for blocked connections. The guard enforces calls through its own facade; it does not control raw host tools or implicit OS focus changes.
+공식 Computer Use 스킬과 함께 사용한다. Agent는 이 문서의 선택 기준에 따라 필요한 보조 지침을 읽고, 공식 Computer Use로 사용자 작업을 수행한다. 사용자가 매번 CCUH를 따로 지정하게 하지 않는다.
 
-## Check the host browser capability
+## 작업 시작
 
-Before looking up a target, confirm that this session provides a documented browser runtime and its initialization instructions. A generic JavaScript tool or native app tool alone does not establish browser support. Follow only the host's supplied initialization procedure; if it already provides `cua`, reuse it. A non-UI `typeof cua` check may confirm an existing binding, but do not call global inventory methods to bootstrap discovery.
+1. 사용자가 요청한 작업, 대상과 허용 범위를 파악한다. 이미 확정된 요청과 승인을 반복해서 묻지 않는다.
+2. 현재 호스트의 공식 Computer Use 초기화 절차와 사용 지침을 읽고, 아래 표에서 필요한 보조 지침을 선택한다. 해당 지침은 첫 UI 관찰이나 입력 전에 읽는다.
+3. 선택한 지침을 적용해 공식 도구로 작업한다. 요청한 효과를 같은 대상에서 확인하고, 공식 정리 절차를 따른 뒤 완료를 보고한다.
 
-If the browser binding or its documented initialization is unavailable, stop this browser route and report `setup_unavailable`, the missing prerequisite, and that the requested UI change is unverified. Do not guess an import, inject runtime environment flags, switch to native whole-browser input, create a tab to test connectivity, or restart Codex to manufacture that capability. An initialization error such as `CUA_REPL_ENABLED_SURFACES is required` does not by itself establish a CLI authentication failure or authorize CLI repair. CCUH supplies guards for an available host browser interface; it does not enable a missing host surface.
+## 보조 지침 선택 기준
 
-## Bind the existing target
+경로는 이 `SKILL.md`가 있는 폴더를 기준으로 한다. 여러 조건에 해당하면 필요한 지침을 모두 적용한다.
 
-- Start with the user's exact tab mention or an already verified target reference and URL. Use the current session's documented browser interface. Follow its first-call requirements.
-- Record the available browser instance, tab/window identifiers, and expected task page. A browser app name alone does not identify the user's intended tab.
-- When no usable handle is available, obtain the current browser's documented management capability and define [the exact-URL discovery helper](scripts/target-discovery.js) in the same CUA runtime. Call `await CCUHDiscovery.discoverChrome(management, cua, {allowedUrls: [exactAuthorizedUrl]})`; its returned `tab` is the existing target for the guard. It queries only authorized exact URLs, checks a unique candidate's current metadata, and binds its returned provider ID. It does not require the user to supply a tab ID or bring the window forward.
-- Use the narrowest documented target lookup. Do not enumerate unrelated apps/tabs or capture the whole browser. If no exact candidate exists, stop without creating a replacement. If multiple task candidates match, ask the user to choose rather than guessing.
-- Initial binding can itself return page content. Choose the exact target before calling it. Keep subsequent reads, screenshots, and actions on that handle.
-- Record whether the tab was user-owned or created by the agent. Follow the host's documented tab lifecycle: an ephemeral agent-created tab may close at turn end, while a released user tab may stay open. Use a documented handoff mark only for an unfinished workflow that must continue from that live page. Do not classify automatic cleanup as failure to recognize a user's existing window.
-- If the tab navigates, check the permitted task page before reading content or acting. A matching tab ID alone is insufficient. If the runtime cannot guard a navigation race, disclose that strict content isolation is unverified rather than claiming it is enforced.
+| 적용 조건 | 읽을 지침 | 역할 |
+| --- | --- | --- |
+| 처음 UI를 관찰하거나 조작하기 전. 연결, 실행 담당이나 진행 상태가 바뀐 경우에도 적용 | [실행 상태](references/execution-state.md) | 실행 주체, 알려진 충돌, 결과 불명확, 종료와 재연결 |
+| 처음 대상을 선택하거나 UI를 관찰하기 전. 요청 대상, 창, 문서나 탭이 바뀌면 다시 확인 | [작업 대상](references/target.md) | 정확한 대상, 기존 대상 재사용, 요청 범위와 창 상태 지원 확인 |
+| 처음 UI를 관찰하거나 조작하기 전. 입력 방법이나 사용자 간섭 조건이 바뀌면 다시 판단 | [사용자 작업 보호](references/user-work-protection.md) | 키보드 입력, 마우스, 화면과 클립보드 보호 |
+| 클릭, 키보드 입력, 값 변경이나 스크롤 등 입력을 보내기 전 | [입력 대상](references/input-target.md) | 최신 관측에서 얻은 입력 대상 사용 |
+| 오류가 작업을 막거나, 전달한 변경의 결과가 불명확하거나, 사용자가 진단을 요청한 경우 | [doctor](../ccuh-doctor/SKILL.md) | 진단과 조치 담당 구분, 지원되는 복구 절차 |
 
-## Reuse rather than replace
+## 선택한 지침의 적용
 
-After the host's required first call and its returned browser documentation, load [the executable target-session guard](scripts/target-session.js) in the same CUA JavaScript session. When the documented JavaScript runtime supports local file imports, import the installed helper directly instead of copying its source. This loads CCUH's helper, not a replacement host runtime:
+- 읽기만 하는 작업에는 앞의 세 지침을 적용한다. 실제 입력이 생기면 입력 대상 지침도 추가한다. 정상 작업마다 doctor를 실행하지 않는다.
+- 같은 내용이 현재 맥락에 있으면 매 조작마다 문서를 다시 읽지 않는다. 읽은 규칙은 계속 적용하며, 대상과 상태가 바뀌면 해당 조건을 다시 확인한다.
+- 요약이나 재개 후 필요한 지침이 맥락에서 사라졌다면 다음 UI 작업 전에 다시 읽는다. 지침을 읽었다는 기록만으로 현재 규칙을 확인했다고 간주하지 않는다.
+- doctor가 단독 진단에서 UI 관찰이나 복구 조작으로 넘어가더라도 같은 선택 기준을 적용한다. 오류 응답 분석만으로 진단할 수 있으면 UI에 접근하지 않는다.
 
-```javascript
-var ccuhSkillDirectory = "/absolute/path/to/installed/ccuh";
-var ccuhFileUrl = (await import("node:url")).pathToFileURL;
-await import(ccuhFileUrl(`${ccuhSkillDirectory}/scripts/target-session.js`).href);
-// Only when exact-URL discovery is needed:
-await import(ccuhFileUrl(`${ccuhSkillDirectory}/scripts/target-discovery.js`).href);
-```
+## 항상 지킬 보호 원칙
 
-Use the actual directory containing this `SKILL.md`. If file imports are unsupported, read and define the linked self-contained source without changing its text. Both helpers perform no UI actions when loaded, and their source checks reject accidental copy changes. If loading fails, correct the helper definition before any CCUH binding or action; do not reset the runtime or its reservations. Do not import an undocumented host runtime or edit installed host code.
+- 사용자가 지정한 작업 대상을 유지한다. 찾기 실패를 다른 창, 탭이나 브라우저로 조용히 대체하지 않는다. 사용자가 요청한 새 대상 생성과 이동은 구분한다.
+- 기본 모드는 사용자 작업을 방해하지 않는 방법을 선택한다. 감시 모드는 실제 작업 창을 보여주는 옵션이며 작업 기능과 실행 권한을 바꾸지 않는다. 지원되지 않는 조작을 감시 모드로 우회하지 않는다.
+- 현재 호스트의 실행 주체와 세션 계약, 공식 도구의 지원 조건을 따른다. 최신 관측에 근거해 조작하고 확인된 점유와 충돌을 우회하지 않는다.
+- 전달 전 거절과 전달 후 결과 불명확을 구분한다. 실행 여부가 불명확한 변경은 재전송하지 않으며, reset이나 다른 연결 및 채팅으로 기존 보호 상태를 우회하지 않는다.
+- 실제 간섭이나 중단 신호가 확인되면 후속 조작을 멈추고 상태를 분류한다. 전후 확인만으로 연속 무간섭을 보장하거나 확인하지 않은 작업 결과를 완료로 보고하지 않는다.
 
-For a documented browser tab that exposes `url()`, `playwright.domSnapshot()`, and Playwright locators, bind `await CCUH.bindBrowserTab(existingTab, {targetId: existingTab.id, allowedUrls: [exactAuthorizedUrl]})`. This browser adapter uses DOM snapshots and has no native AX or screenshot fallback. Its `fill(label, value)`, `click(buttonName)`, `check(checkboxName, value)`, and `observe()` methods execute against that same tab. Labels and names must come from the observed target UI. Pass only explicitly authorized exact URLs; no wildcard widening.
+## 필요한 지침을 읽을 수 없을 때
 
-Use the returned facade for supported reads and mutations. It checks target identity before dispatch, withholds observations until identity is rechecked, limits metadata retry, serializes operations, and locks an uncertain mutation. It exposes no tab creation, activation, restore, or global-input method. A receipt means a method returned with identity checks passed, not that the requested UI result is complete; verify that result with `observe()`.
+선택한 파일이 실제 묶음에 존재하고 읽을 수 있는지 확인한다. 필수 지침이 없거나 읽을 수 없으면 적용했다고 간주하지 않는다. 해당 지침이 필요한 UI 관찰과 조작을 시작하지 않고, 누락된 지침과 마지막으로 확인한 단계를 짧게 알린다.
 
-If the required documented methods or runtime capabilities are absent, report this guarded route as unsupported rather than pretending it executed. Keep the returned facade: the runtime rejects a second binding of the same target ID and refuses to replace a different runtime revision. Do not reset the JavaScript session or start another chat to bypass an unresolved task; reservations are local to that runtime and cannot enforce locks across those boundaries. `suspend("user_space_changed")` and `interference("focus_changed")` stop later facade calls when the user or independent observer reports interference; the JavaScript guard itself does not monitor OS Spaces. URL pre/post checks do not eliminate a navigation race or prove that the host never collected other data.
-
-- Distinguish lookup failure, confirmed absence, capture failure, and a pending/unknown result. An error or empty screenshot does not prove that the window closed.
-- After a lookup failure, allow at most one narrow recheck of the same target using current metadata. If still unresolved, stop and report the blocker.
-- For an existing-target task, do not recover by creating a new tab/window, opening the URL again, launching a second browser instance, or silently switching browser profiles. An explicit request to create a new workspace is a separate task.
-- A timeout does not prove an action was cancelled. Do not repeat a creation or mutation whose result is unknown. If no returned handle or narrow request metadata can resolve that outcome, report it as unknown and stop rather than searching unrelated windows.
-
-## Preserve the user's Space and input
-
-- Treat the user's Space switch as their choice. Keep the same target and use only the supported background path. If that path fails, pause this task with a concrete limitation.
-- Do not use app activation, window raising, restoring a minimized window, tab activation, new-tab shortcuts, or global input to recover this workflow. Do not widen a failed tab-scoped operation into a whole-app capture.
-- Do not take focus and then restore it as a substitute for preserving input. If the runtime takes focus during connection or an action, report the interference and stop that path.
-- Visibility/background options do not establish that typing focus, the selected tab, or the current Space will remain unchanged. Keep minimized, occluded, inactive-tab, and other-Space behavior separate.
-
-## Diagnose a blocked connection
-
-Connection diagnosis is a user-facing optional feature included in this plugin. When a connection failure blocks the task or the user requests diagnosis, read the sibling [CCUH Doctor skill](../ccuh-doctor/SKILL.md) and use its bundled helper. Normal tasks do not need to run it. If that resource is absent, report a missing diagnostic component rather than inventing a command or installing it automatically.
-
-Use a response already supplied by the failed call or an explicitly selected diagnostic file. Do not collect unrelated logs or dump the environment. A successful environment check is not a successful connection or UI task. For a supported repair, use the sibling skill's executable recovery workflow and preserve its backup and preconditions. Diagnosis alone does not authorize unrelated configuration changes, restarts, broader observation, or authentication bypasses.
-
-## Finish with observable results
-
-Verify the requested change in the target UI using the current Computer Use instructions. Report completion only when that target state is visible. Otherwise report the last confirmed stage and why the same target could not be used. Do not claim zero focus changes or zero unrelated observations unless independent measurements support that claim.
+없는 지침을 대신하려고 실패작이나 다른 설치본의 코드를 가져오거나 플러그인 설정과 보호 상태를 임의로 바꾸지 않는다.
