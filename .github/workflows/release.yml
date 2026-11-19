@@ -1,6 +1,8 @@
 name: Publish CCUH release
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -40,15 +42,19 @@ jobs:
           version_tag = re.compile(rf"v({number})\.({number})\.({number})")
           release_commit = re.compile(r"^(feat|fix)(?:\([^)]+\))?!?:\s")
           prefix = "codex plugin marketplace add "
-          continuation = " && codex plugin add ccuh@ccuh-preview"
+          package = json.loads(manifest.read_text(encoding="utf-8"))
+          catalog = json.loads(marketplace.read_text(encoding="utf-8"))
+          plugin, = catalog["plugins"]
+          if plugin["name"] != package["name"]:
+              raise SystemExit("The CCUH catalog and package names differ")
+          continuation = f" && codex plugin add {plugin['name']}@{catalog['name']}"
           install = re.compile(rf"^{re.escape(prefix)}\S+ --ref (\S+){re.escape(continuation)}$", re.MULTILINE)
           command = f"{prefix}{repository} --ref main{continuation}"
 
-          def write_outputs(catalog_tag, tag="", resume=False):
+          def write_outputs(catalog_tag, tag=""):
               with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
                   print(f"catalog_tag={catalog_tag}", file=output)
                   print(f"tag={tag}", file=output)
-                  print(f"resume={str(resume).lower()}", file=output)
 
           def read_command(*args):
               return subprocess.check_output(args, text=True).strip()
@@ -67,57 +73,55 @@ jobs:
               return ref
 
           last_tag = read_command("gh", "release", "view", "--repo", repository, "--json", "tagName", "--jq", ".tagName")
-          major, minor, patch = parse_version(last_tag)
+          last_version = parse_version(last_tag)
           last_ref = require_main_tag(last_tag)
-          package = json.loads(manifest.read_text(encoding="utf-8"))
-          plugins = json.loads(marketplace.read_text(encoding="utf-8"))["plugins"]
-          source, = (plugin["source"] for plugin in plugins if plugin["name"] == "ccuh")
           pending_tag = f"v{package['version']}"
-          resume = pending_tag != last_tag
 
-          if resume:
+          if pending_tag != last_tag:
               # A prior run can push main and the tag before publishing the release.
-              if parse_version(pending_tag) <= (major, minor, patch):
+              pending_version = parse_version(pending_tag)
+              if pending_version <= last_version:
                   raise SystemExit("The manifest version is behind the latest published release")
               ref = require_main_tag(pending_tag)
               if read_command("git", "log", "-1", "--format=%s", ref) != f"chore: CCUH {pending_tag} 릴리스 준비":
                   raise SystemExit(f"{pending_tag} is not a prepared CCUH release")
               tagged_package = json.loads(read_command("git", "show", f"{ref}:{manifest}"))
-              if f"v{tagged_package['version']}" != pending_tag or any(
+              if tagged_package["name"] != plugin["name"] or f"v{tagged_package['version']}" != pending_tag or any(
                   install.findall(read_command("git", "show", f"{ref}:{path}")) != ["main"] for path in readmes
               ):
                   raise SystemExit(f"Version files at {pending_tag} are out of sync")
-              tag = pending_tag
-              print(f"Resuming publication of {tag}")
-          elif source.get("ref") != last_tag:
-              print(f"Resuming marketplace update to {last_tag}")
+              print(f"Resuming publication of {pending_tag}")
+              subprocess.run([
+                  "gh", "release", "create", pending_tag, "--repo", repository, "--verify-tag",
+                  "--title", f"CCUH {pending_tag}", "--generate-notes",
+              ], check=True)
+              last_tag, last_ref, last_version = pending_tag, ref, pending_version
+
+          major, minor, patch = last_version
+          subjects = read_command("git", "log", "--format=%s", f"{last_ref}..HEAD").splitlines()
+          types = {match.group(1) for subject in subjects if (match := release_commit.match(subject))}
+          if "feat" in types:
+              version = f"{major}.{minor + 1}.0"
+          elif "fix" in types:
+              version = f"{major}.{minor}.{patch + 1}"
+          else:
+              print(f"No fix or feat commits since {last_tag}")
               write_outputs(last_tag)
               raise SystemExit(0)
-          else:
-              subjects = read_command("git", "log", "--format=%s", f"{last_ref}..HEAD").splitlines()
-              types = {match.group(1) for subject in subjects if (match := release_commit.match(subject))}
-              if "feat" in types:
-                  version = f"{major}.{minor + 1}.0"
-              elif "fix" in types:
-                  version = f"{major}.{minor}.{patch + 1}"
-              else:
-                  print(f"No fix or feat commits since {last_tag}")
-                  write_outputs(last_tag)
-                  raise SystemExit(0)
 
-              tag = f"v{version}"
-              updated = {}
-              for path in readmes:
-                  revised, count = install.subn(command, path.read_text(encoding="utf-8"))
-                  if count != 1:
-                      raise SystemExit(f"Expected exactly one CCUH install command in {path}")
-                  updated[path] = revised
-              package["version"] = version
-              manifest.write_text(json.dumps(package, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-              for path, revised in updated.items():
-                  path.write_text(revised, encoding="utf-8")
+          tag = f"v{version}"
+          updated = {}
+          for path in readmes:
+              revised, count = install.subn(command, path.read_text(encoding="utf-8"))
+              if count != 1:
+                  raise SystemExit(f"Expected exactly one CCUH install command in {path}")
+              updated[path] = revised
+          package["version"] = version
+          manifest.write_text(json.dumps(package, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          for path, revised in updated.items():
+              path.write_text(revised, encoding="utf-8")
 
-          write_outputs(tag, tag, resume)
+          write_outputs(tag, tag)
           PY
 
       - name: Publish the matching tag and release
@@ -125,22 +129,19 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
-          RESUME: ${{ steps.version.outputs.resume }}
         run: |
           set -euo pipefail
 
-          if [[ "$RESUME" != true ]]; then
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add -- .codex-plugin/plugin.json README.md README.ko.md
-            git commit -m "chore: CCUH ${RELEASE_TAG} 릴리스 준비"
-            git push --atomic --no-follow-tags origin HEAD:refs/heads/main "HEAD:refs/tags/$RELEASE_TAG"
-          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- .codex-plugin/plugin.json README.md README.ko.md
+          git commit -m "chore: CCUH ${RELEASE_TAG} 릴리스 준비"
+          git push --atomic --no-follow-tags origin HEAD:refs/heads/main "HEAD:refs/tags/$RELEASE_TAG"
 
           gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
             --title "CCUH $RELEASE_TAG" --generate-notes
 
-      - name: Point the marketplace to the published release
+      - name: Copy the published release into the marketplace
         env:
           GH_TOKEN: ${{ github.token }}
           CATALOG_TAG: ${{ steps.version.outputs.catalog_tag }}
@@ -150,23 +151,41 @@ jobs:
           python3 - <<'PY'
           import json
           import os
+          import shutil
+          import subprocess
+          import tempfile
           from pathlib import Path
 
           path = Path(".agents/plugins/marketplace.json")
+          bundle = Path("plugins/CCUH")
           catalog = json.loads(path.read_text(encoding="utf-8"))
-          plugin, = (plugin for plugin in catalog["plugins"] if plugin["name"] == "ccuh")
-          plugin["source"] = {
-              "source": "url",
-              "url": f"https://github.com/{os.environ['GITHUB_REPOSITORY']}.git",
-              "ref": os.environ["CATALOG_TAG"],
-          }
+          plugin, = catalog["plugins"]
+          tag = os.environ["CATALOG_TAG"]
+          archive = subprocess.check_output([
+              "git", "archive", "--format=tar", f"refs/tags/{tag}", "--",
+              ".codex-plugin", "assets", "hooks", "skills", "LICENSE",
+          ])
+          with tempfile.TemporaryDirectory() as directory:
+              root = Path(directory)
+              subprocess.run(["tar", "-xf", "-", "-C", directory], input=archive, check=True)
+              package = json.loads((root / ".codex-plugin/plugin.json").read_text(encoding="utf-8"))
+              if package["name"] != plugin["name"] or f"v{package['version']}" != tag:
+                  raise SystemExit(f"The CCUH package at {tag} does not match the catalog")
+              for icon in ("logo", "composerIcon"):
+                  if not (root / package["interface"][icon]).is_file():
+                      raise SystemExit(f"The CCUH package at {tag} is missing its {icon}")
+              if bundle.exists():
+                  shutil.rmtree(bundle)
+              shutil.copytree(root, bundle)
+
+          plugin["source"] = {"source": "local", "path": f"./{bundle.as_posix()}"}
           path.write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
           PY
 
-          if ! git diff --quiet -- .agents/plugins/marketplace.json; then
+          git add -A -- .agents/plugins/marketplace.json plugins/CCUH
+          if ! git diff --cached --quiet -- .agents/plugins/marketplace.json plugins/CCUH; then
             git config user.name 'github-actions[bot]'
             git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add -- .agents/plugins/marketplace.json
             git commit -m "chore: CCUH 마켓플레이스를 ${CATALOG_TAG}로 갱신"
             git push --no-follow-tags origin HEAD:refs/heads/main
           fi
