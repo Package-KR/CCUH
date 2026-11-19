@@ -1,49 +1,34 @@
-<div align="center">
-
 # CCUH
 
-**Codex Computer Use Helpers**
+[한국어](README.ko.md)
 
-A Codex plugin for existing Chrome tab workflows and supported Computer Use recovery.
+CCUH (Codex Computer Use Helpers) helps Codex check the target and input path before a Computer Use task. It uses the official Computer Use feature in Codex desktop.
 
-[English](README.md) | [한국어](README.ko.md)
+The current 0.1.0 preview is available on the [`release` branch](https://github.com/dijeungi/CCUH/tree/release).
 
-</div>
+## Install in Codex
 
-<!-- ccuh-current-preview -->
-> **CCUH 0.1.0 Preview**
-> Get the current Computer Use plugin with automatic hooks from the [release branch](https://github.com/dijeungi/CCUH/tree/release), or [download the ZIP](https://github.com/dijeungi/CCUH/archive/refs/heads/release.zip). The release branch includes installation instructions.
+Send this request once in a Codex chat.
 
-
-## About
-
-CCUH is a **Codex plugin** containing two skills and executable helper scripts. Adding the plugin installs both:
-
-- **ccuh:** Finds an existing Chrome tab by exact URL and guards supported actions through the host's documented browser Computer Use API.
-- **ccuh-doctor:** Diagnoses selected connection errors, supports reversible CLI repairs, and can restart Codex with approval after checkpoint and idle-work checks.
-
-**How it works.** Codex selects a skill, reads its `SKILL.md`, and runs the bundled helper scripts. The plugin does not patch Codex or intercept every Computer Use call.
-
-```mermaid
-flowchart LR
-  U["User request"] --> C["Codex: skill selection"]
-  subgraph P["CCUH plugin"]
-    S["ccuh<br/>Target check and guard"]
-    D["ccuh-doctor<br/>Diagnosis and supported recovery"]
-  end
-  C -->|"Browser task"| S
-  C -->|"Connection error"| D
-  S --> B["Official Computer Use"]
-  B --> T["Existing Chrome tab"]
+```text
+$skill-installer Install both skills/ccuh and skills/ccuh-doctor from the release branch of dijeungi/CCUH.
 ```
 
-**Add and use.** Add the registered CCUH plugin to Codex. In a new chat, select Chrome and ask:
+Start a new Codex chat after installation. Select either skill from the Skills menu, or let Codex choose it when a request matches its description.
 
-> Use ccuh to update … in the existing https://example.com/settings tab; stop if supported background control is unavailable.
+- **`ccuh`** checks the target app or tab and helps choose a supported way to observe or interact with it.
+- **`ccuh-doctor`** helps diagnose connection or permission errors and clarify the next action when a result is uncertain.
 
-**Requirements.** macOS and a working Chrome Computer Use connection in the current chat. Doctor requires Python 3.9+. [Official Chrome setup](https://learn.chatgpt.com/docs/chrome-extension)
+## Optional automatic hooks
 
-**Preview limits.** CCUH cannot lock OS focus or Spaces, or guarantee atomic capture/input that prevents unrelated content collection. Supported test cases and compatibility limits are recorded in [VERIFICATION.json](VERIFICATION.json).
+The hook preview loads CCUH guidance before supported Computer Use calls. It requires macOS, the Codex CLI, and Python 3.9 or newer.
+
+```sh
+codex plugin marketplace add dijeungi/CCUH --ref release
+codex plugin add ccuh@ccuh-preview
+```
+
+Review the CCUH hooks in **Settings → Hooks**, then open a new chat. [Hook preview guide](https://github.com/dijeungi/CCUH/tree/release#설치)
 
 ## License
 
