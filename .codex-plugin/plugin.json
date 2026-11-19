@@ -5,6 +5,8 @@
   "hooks": "./hooks/hooks.json",
   "skills": "./skills/",
   "interface": {
-    "displayName": "CCUH"
+    "displayName": "CCUH",
+    "logo": "./assets/ccuh-blue-shield.svg",
+    "composerIcon": "./assets/ccuh-blue-shield.svg"
   }
 }
