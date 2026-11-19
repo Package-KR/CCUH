@@ -10,9 +10,8 @@
         "displayName": "CCUH"
       },
       "source": {
-        "source": "url",
-        "url": "https://github.com/Package-KR/CCUH.git",
-        "ref": "v0.1.1"
+        "source": "local",
+        "path": "./plugins/CCUH"
       },
       "policy": {
         "installation": "AVAILABLE"

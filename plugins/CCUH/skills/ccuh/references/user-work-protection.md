@@ -1,0 +1,43 @@
+# Protecting the user's work
+
+Read this before the first UI observation. Reapply it when the input method or visibility changes. Stay within the scope confirmed by the [target](target.md) and [execution state](execution-state.md) guidance.
+
+## Default mode
+
+Choose a method that lets the user keep using the keyboard and mouse on the same computer. Use a default input method that does not rely on showing the work window or taking the user's focus.
+
+1. Check what the current official tool offers for the target, including observation, setting element values, clicking, and scrolling. The existence of an API alone is insufficient evidence that it works in the background or avoids interference.
+2. Among methods supported for this target and window state, choose one that leaves the user's input and screen undisturbed. Distinguish confirmed capabilities from what has been verified in practice.
+3. If that method cannot produce the requested effect, diagnose the limitations of the current approach. Do not silently switch to activating a window, sending global keystrokes, or using another app. Report completion only for work whose support has been confirmed.
+
+Every supported task must be possible in default mode. Mark support for a platform or app as confirmed only after verifying that it meets this requirement.
+
+## What to protect during input and observation
+
+| Area | How to choose a method |
+| --- | --- |
+| Keyboard and input focus | Prefer an official method that sends input to the exact element. Avoid global keystrokes if they could reach the app the user is using. Taking focus and restoring it still counts as interference. |
+| Mouse | Prefer an official method that targets the intended element without moving the pointer or sending a global click. Use coordinate-based input only through a supported method that leaves the user's actions undisturbed, and only after confirming the actual receiving window and current coordinate system. |
+| Screen and workspace | In default mode, keep windows out of the foreground and leave the user's desktop and Space unchanged. For hidden, minimized, or obscured windows, check the tool's actual observation and input support for the current window state before proceeding. |
+| Clipboard | Leave the user's shared clipboard unread and unchanged as an input method unless the user has asked you to work with the clipboard itself. If the official tool provides per-target clipboard isolation, verify what it guarantees. If direct input fails, avoid falling back to paste from the shared clipboard. Saving and restoring it still does not establish that the user's work was undisturbed. |
+
+Before sending the next input, check the [input target](input-target.md). If the API replaces the existing value, construct the new value within the requested scope and preserve unrelated edits made by the user.
+
+## Watch mode
+
+- Watch mode is off by default. Enable it only at the user's request. Show the actual app or browser window you are working in using the official display feature.
+- Show the actual work window. If the host lacks support for displaying it, state the limitation and avoid presenting a recreation, a set of screenshots, or another window as the work window.
+- Watch mode changes visibility only. The input permissions, target scope, stopping conditions, and supported tasks are the same as in default mode. Do not introduce user intervention or step-by-step approval as a requirement of watch mode.
+- If the display method would change the user's focus or workspace, check for a display method that preserves both. Respect the current host's restrictions on activation and forced restoration when showing the window.
+
+In the Codex desktop IAB, prepare the work tab and use the official `visibility.set(true)` call. If the app offers an official feature to show the tab in its panel, use the bound tab's `providerTabId` to request display in the same chat. Use the identifier for an existing tab because passing only a URL may open a new one. A panel request marked `queued` has been accepted. While the app is processing the request, `visibility.get()` may briefly return `true`. Verify that the same work tab is selected and actually visible in the current chat's panel. If display remains unconfirmed, do not repeat the request or open another window.
+
+## When input conflicts with the user's work
+
+The user's activity in another app alone is insufficient reason to mark the task as failed. Distinguish the official tool's signals for user interruption or control handoff from concurrent edits to the same target and actual focus or input interference.
+
+Stop further input if you confirm interference or interruption. Follow the [execution state](execution-state.md) guidance to check the outcome of any input already sent. Do not resend input whose outcome is unclear. While the user is still entering input, avoid overwriting the same element or taking back control from the user.
+
+## Verify the result
+
+Check the requested effect and any observable signs of interference on the same target. Matching before-and-after states are insufficient evidence that focus, mouse, screen, or clipboard activity stayed unchanged throughout the task. Treat any protection that was not independently measured as unverified.
