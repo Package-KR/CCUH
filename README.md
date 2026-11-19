@@ -2,7 +2,17 @@
 
 CCUH (Codex Computer Use Helpers)는 Codex 데스크톱의 공식 Computer Use가 앱이나 브라우저를 조작할 때 작업 보호 지침을 연결합니다. 두 스킬은 올바른 작업 대상과 입력 경로를 확인하고, 오류가 나면 가능한 복구와 사용자 조치를 구분합니다.
 
-## 설치
+## Codex에 스킬 추가
+
+Codex 채팅에서 아래 요청을 한 번 보내세요.
+
+```text
+$skill-installer dijeungi/CCUH의 release 브랜치에서 skills/ccuh와 skills/ccuh-doctor를 함께 설치해 줘.
+```
+
+설치 후 새 채팅에서 `ccuh`는 Computer Use 작업에, `ccuh-doctor`는 오류 진단에 쓸 수 있습니다. 요청이 스킬 설명에 맞으면 Codex가 스킬을 선택할 수도 있습니다.
+
+## 자동 연동 플러그인 설치
 
 macOS의 Codex 데스크톱에서 공식 Computer Use를 활성화하고 Python 3.9 이상을 준비하세요. 아래 명령은 Codex CLI에서 실행합니다.
 
