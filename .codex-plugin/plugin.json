@@ -1,7 +1,10 @@
 {
   "name": "ccuh",
-  "version": "0.0.11",
-  "license": "MIT",
-  "description": "Existing-target workflows and user-facing connection diagnostics for Codex Computer Use.",
-  "skills": "./skills/"
+  "version": "0.1.0",
+  "description": "Computer Use 작업에 필요한 보호 지침과 오류 진단을 연결하는 Codex Computer Use Helpers",
+  "hooks": "./hooks/hooks.json",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "CCUH"
+  }
 }
