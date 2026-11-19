@@ -100,7 +100,7 @@ flowchart TD
 The CCUH plugin installs both `ccuh` and `ccuh-doctor` along with the automatic integration hooks. On macOS, enable official Computer Use in Codex desktop and make sure the app can run `node`. Paste this line into a terminal with the Codex CLI.
 
 ```sh
-codex plugin marketplace add dijeungi/CCUH --ref v0.1.1 && codex plugin add ccuh@ccuh-preview
+codex plugin marketplace add Package-KR/CCUH --ref v0.1.1 && codex plugin add ccuh@ccuh-preview
 ```
 
 After installation, review and trust the CCUH hooks in **Settings → Hooks** and continue in your existing chat. Open a new chat only if CCUH doesn't load automatically for a supported Computer Use call.

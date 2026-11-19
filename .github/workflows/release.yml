@@ -44,13 +44,15 @@ jobs:
               raise SystemExit(f"Invalid plugin version in {manifest}")
 
           tag = f"v{version}"
-          prefix = "codex plugin marketplace add dijeungi/CCUH --ref "
+          repository = os.environ["GITHUB_REPOSITORY"]
+          prefix = "codex plugin marketplace add "
           continuation = " && codex plugin add ccuh@ccuh-preview"
-          install = re.compile(rf"^{re.escape(prefix)}\S+{re.escape(continuation)}$", re.MULTILINE)
+          install = re.compile(rf"^{re.escape(prefix)}\S+ --ref \S+{re.escape(continuation)}$", re.MULTILINE)
+          command = f"{prefix}{repository} --ref {tag}{continuation}"
           updated = {}
           for path in (Path("README.md"), Path("README.ko.md")):
               text = path.read_text(encoding="utf-8")
-              revised, count = install.subn(f"{prefix}{tag}{continuation}", text)
+              revised, count = install.subn(command, text)
               if count != 1:
                   raise SystemExit(f"Expected exactly one CCUH install command in {path}")
               if revised != text:

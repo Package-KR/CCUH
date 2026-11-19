@@ -101,7 +101,7 @@ flowchart TD
 CCUH 플러그인을 설치하면 `ccuh`와 `ccuh-doctor` 스킬, 자동 연동 훅이 함께 설치됩니다. macOS용 Codex 데스크톱에서 공식 Computer Use를 활성화하고 앱에서 `node`를 실행할 수 있는지 확인하세요. Codex CLI가 있는 터미널에 아래 한 줄을 붙여 넣으세요.
 
 ```sh
-codex plugin marketplace add dijeungi/CCUH --ref v0.1.1 && codex plugin add ccuh@ccuh-preview
+codex plugin marketplace add Package-KR/CCUH --ref v0.1.1 && codex plugin add ccuh@ccuh-preview
 ```
 
 설치 후 **설정 → Hooks**에서 CCUH 훅을 검토하고 신뢰한 뒤 기존 채팅에서 계속 작업하세요. 지원되는 Computer Use 호출에 CCUH가 자동으로 적용되지 않을 때만 새 채팅을 여세요.
