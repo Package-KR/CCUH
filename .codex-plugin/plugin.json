@@ -1,6 +1,6 @@
 {
   "name": "CCUH",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Computer Use 작업에 필요한 보호 지침과 오류 진단을 연결하는 Codex Computer Use Helpers",
   "hooks": "./hooks/hooks.json",
   "skills": "./skills/",
