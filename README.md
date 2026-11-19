@@ -103,7 +103,7 @@ The CCUH plugin installs both `ccuh` and `ccuh-doctor` along with the automatic 
 codex plugin marketplace add dijeungi/CCUH --ref main && codex plugin add ccuh@ccuh-preview
 ```
 
-After installation, review and trust the CCUH hooks in **Settings → Hooks**, then start a new chat. CCUH applies automatically on supported Computer Use calls. [Review and trust hooks](https://learn.chatgpt.com/docs/hooks#review-and-trust-hooks)
+After installation, review and trust the CCUH hooks in **Settings → Hooks** and continue in your existing chat. Open a new chat only if CCUH doesn't load automatically for a supported Computer Use call.
 
 ## Usage
 

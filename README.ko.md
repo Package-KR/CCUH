@@ -104,7 +104,7 @@ CCUH 플러그인을 설치하면 `ccuh`와 `ccuh-doctor` 스킬, 자동 연동 
 codex plugin marketplace add dijeungi/CCUH --ref main && codex plugin add ccuh@ccuh-preview
 ```
 
-설치 후 **설정 → Hooks**에서 CCUH 훅을 검토하고 신뢰한 뒤 새 채팅을 시작하세요. 지원되는 Computer Use 호출에서 CCUH가 자동으로 적용됩니다. [훅 검토와 신뢰](https://learn.chatgpt.com/docs/hooks#review-and-trust-hooks)
+설치 후 **설정 → Hooks**에서 CCUH 훅을 검토하고 신뢰한 뒤 기존 채팅에서 계속 작업하세요. 지원되는 Computer Use 호출에 CCUH가 자동으로 적용되지 않을 때만 새 채팅을 여세요.
 
 ## 사용
 
