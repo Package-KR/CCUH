@@ -1,11 +1,14 @@
 {
-  "name": "ccuh-preview",
+  "name": "CCUH",
   "interface": {
     "displayName": "CCUH"
   },
   "plugins": [
     {
-      "name": "ccuh",
+      "name": "CCUH",
+      "interface": {
+        "displayName": "CCUH"
+      },
       "source": {
         "source": "url",
         "url": "https://github.com/Package-KR/CCUH.git",
