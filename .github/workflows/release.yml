@@ -1,13 +1,6 @@
 name: Publish CCUH release
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .codex-plugin/plugin.json
-      - .github/workflows/release.yml
-      - README.md
-      - README.ko.md
   workflow_dispatch:
 
 permissions:
@@ -25,70 +18,112 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
+          fetch-depth: 0
 
-      - name: Sync the install tag in both READMEs
+      - name: Calculate the release version and sync the READMEs
         id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           python3 - <<'PY'
           import json
           import os
           import re
+          import subprocess
           from pathlib import Path
 
-          manifest = Path(".codex-plugin/plugin.json")
-          version = json.loads(manifest.read_text(encoding="utf-8"))["version"]
-          number = r"(?:0|[1-9][0-9]*)"
-          suffix = r"[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*"
-          pattern = rf"{number}\.{number}\.{number}(?:-{suffix})?(?:\+{suffix})?"
-          if not isinstance(version, str) or not re.fullmatch(pattern, version):
-              raise SystemExit(f"Invalid plugin version in {manifest}")
-
-          tag = f"v{version}"
           repository = os.environ["GITHUB_REPOSITORY"]
+          manifest = Path(".codex-plugin/plugin.json")
+          readmes = (Path("README.md"), Path("README.ko.md"))
+          number = r"(?:0|[1-9][0-9]*)"
+          version_tag = re.compile(rf"v({number})\.({number})\.({number})")
+          release_commit = re.compile(r"^(feat|fix)(?:\([^)]+\))?!?:\s")
           prefix = "codex plugin marketplace add "
           continuation = " && codex plugin add ccuh@ccuh-preview"
-          install = re.compile(rf"^{re.escape(prefix)}\S+ --ref \S+{re.escape(continuation)}$", re.MULTILINE)
-          command = f"{prefix}{repository} --ref {tag}{continuation}"
-          updated = {}
-          for path in (Path("README.md"), Path("README.ko.md")):
-              text = path.read_text(encoding="utf-8")
-              revised, count = install.subn(command, text)
-              if count != 1:
-                  raise SystemExit(f"Expected exactly one CCUH install command in {path}")
-              if revised != text:
+          install = re.compile(rf"^{re.escape(prefix)}\S+ --ref (\S+){re.escape(continuation)}$", re.MULTILINE)
+
+          def read_command(*args):
+              return subprocess.check_output(args, text=True).strip()
+
+          def parse_version(tag):
+              match = version_tag.fullmatch(tag)
+              if not match:
+                  raise SystemExit(f"Expected a vMAJOR.MINOR.PATCH tag, got {tag}")
+              return tuple(map(int, match.groups()))
+
+          def require_main_tag(tag):
+              ref = f"refs/tags/{tag}"
+              result = subprocess.run(["git", "merge-base", "--is-ancestor", ref, "HEAD"])
+              if result.returncode:
+                  raise SystemExit(f"Expected {tag} in main history")
+              return ref
+
+          last_tag = read_command("gh", "release", "view", "--repo", repository, "--json", "tagName", "--jq", ".tagName")
+          major, minor, patch = parse_version(last_tag)
+          last_ref = require_main_tag(last_tag)
+          package = json.loads(manifest.read_text(encoding="utf-8"))
+          pending_tag = f"v{package['version']}"
+          resume = pending_tag != last_tag
+
+          if resume:
+              # A prior run can push main and the tag before publishing the release.
+              if parse_version(pending_tag) <= (major, minor, patch):
+                  raise SystemExit("The manifest version is behind the latest published release")
+              ref = require_main_tag(pending_tag)
+              if read_command("git", "log", "-1", "--format=%s", ref) != f"chore: CCUH {pending_tag} 릴리스 준비":
+                  raise SystemExit(f"{pending_tag} is not a prepared CCUH release")
+              tagged_package = json.loads(read_command("git", "show", f"{ref}:{manifest}"))
+              if f"v{tagged_package['version']}" != pending_tag or any(
+                  install.findall(read_command("git", "show", f"{ref}:{path}")) != [pending_tag] for path in readmes
+              ):
+                  raise SystemExit(f"Version files at {pending_tag} are out of sync")
+              tag = pending_tag
+              print(f"Resuming publication of {tag}")
+          else:
+              subjects = read_command("git", "log", "--format=%s", f"{last_ref}..HEAD").splitlines()
+              types = {match.group(1) for subject in subjects if (match := release_commit.match(subject))}
+              if "feat" in types:
+                  version = f"{major}.{minor + 1}.0"
+              elif "fix" in types:
+                  version = f"{major}.{minor}.{patch + 1}"
+              else:
+                  print(f"No fix or feat commits since {last_tag}")
+                  raise SystemExit(0)
+
+              tag = f"v{version}"
+              command = f"{prefix}{repository} --ref {tag}{continuation}"
+              updated = {}
+              for path in readmes:
+                  revised, count = install.subn(command, path.read_text(encoding="utf-8"))
+                  if count != 1:
+                      raise SystemExit(f"Expected exactly one CCUH install command in {path}")
                   updated[path] = revised
-          for path, revised in updated.items():
-              path.write_text(revised, encoding="utf-8")
+              package["version"] = version
+              manifest.write_text(json.dumps(package, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+              for path, revised in updated.items():
+                  path.write_text(revised, encoding="utf-8")
 
           with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
               print(f"tag={tag}", file=output)
-              print(f"prerelease={str('-' in version.split('+', 1)[0]).lower()}", file=output)
+              print(f"resume={str(resume).lower()}", file=output)
           PY
 
       - name: Publish the matching tag and release
+        if: steps.version.outputs.tag != ''
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
-          PRERELEASE: ${{ steps.version.outputs.prerelease }}
+          RESUME: ${{ steps.version.outputs.resume }}
         run: |
           set -euo pipefail
 
-          if ! git diff --quiet -- README.md README.ko.md; then
+          if [[ "$RESUME" != true ]]; then
             git config user.name 'github-actions[bot]'
             git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add -- README.md README.ko.md
-            git commit -m "docs: CCUH 설치 버전을 ${RELEASE_TAG}로 동기화"
+            git add -- .codex-plugin/plugin.json README.md README.ko.md
+            git commit -m "chore: CCUH ${RELEASE_TAG} 릴리스 준비"
+            git push --atomic --no-follow-tags origin HEAD:refs/heads/main "HEAD:refs/tags/$RELEASE_TAG"
           fi
 
-          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json tagName >/dev/null 2>&1; then
-            git push --no-follow-tags origin HEAD:refs/heads/main
-            exit 0
-          fi
-
-          git push --atomic --no-follow-tags origin HEAD:refs/heads/main "HEAD:refs/tags/$RELEASE_TAG"
-          flags=()
-          if [[ "$PRERELEASE" == true ]]; then
-            flags+=(--prerelease)
-          fi
           gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
-            --title "CCUH $RELEASE_TAG" --generate-notes "${flags[@]}"
+            --title "CCUH $RELEASE_TAG" --generate-notes
