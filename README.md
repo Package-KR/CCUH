@@ -31,12 +31,10 @@ CCUH provides two skills that help Codex confirm the target and input method for
       <td>
         <details>
           <summary>Apps, tabs, and windows</summary>
-          <ul>
-            <li><strong>Reuse open apps and windows</strong> — Confirm and reuse the requested window or document when it is already open.</li>
-            <li><strong>Find and rediscover browser tabs</strong> — Use the official lookup to find the requested tab and distinguish a missing tab from a lost connection.</li>
-            <li><strong>Verify scope and outcome</strong> — Check the requested target and scope before and after observing or acting, and confirm the requested effect.</li>
-            <li><strong>Check window state and support</strong> — Confirm that the requested action is supported in the current window state, such as a hidden or minimized window or an app with multiple windows.</li>
-          </ul>
+          <div><strong>Reuse open apps and windows</strong> — Confirm and reuse the requested window or document when it is already open.</div>
+          <div><strong>Find and rediscover browser tabs</strong> — Use the official lookup to find the requested tab and distinguish a missing tab from a lost connection.</div>
+          <div><strong>Verify scope and outcome</strong> — Check the requested target and scope before and after observing or acting, and confirm the requested effect.</div>
+          <div><strong>Check window state and support</strong> — Confirm that the requested action is supported in the current window state, such as a hidden or minimized window or an app with multiple windows.</div>
         </details>
       </td>
     </tr>
@@ -45,11 +43,9 @@ CCUH provides two skills that help Codex confirm the target and input method for
       <td>
         <details>
           <summary>Background input and focus</summary>
-          <ul>
-            <li><strong>Choose a background input method</strong> — Use an input method supported by the current window that avoids interfering with the user's work.</li>
-            <li><strong>Click and scroll in inactive windows</strong> — Check whether the official tool supports the action in that window and whether it could interfere with the user's input.</li>
-            <li><strong>Respond to focus and input interference</strong> — Stop further actions and check the task state when actual interference or a user interruption is confirmed.</li>
-          </ul>
+          <div><strong>Choose a background input method</strong> — Use an input method supported by the current window that avoids interfering with the user's work.</div>
+          <div><strong>Click and scroll in inactive windows</strong> — Check whether the official tool supports the action in that window and whether it could interfere with the user's input.</div>
+          <div><strong>Respond to focus and input interference</strong> — Stop further actions and check the task state when actual interference or a user interruption is confirmed.</div>
         </details>
       </td>
     </tr>
@@ -62,12 +58,10 @@ CCUH provides two skills that help Codex confirm the target and input method for
       <td>
         <details>
           <summary>Execution and change status</summary>
-          <ul>
-            <li><strong>Check who can operate native apps</strong> — Before starting UI work, check which chat and agent the host allows to act.</li>
-            <li><strong>Manage duplicate connections and concurrent input</strong> — Reuse the selected connection, check whether the tool is busy, and handle conflicting changes sequentially.</li>
-            <li><strong>Protect changes with unclear outcomes</strong> — Hold off on resending the change and check its status through an official route.</li>
-            <li><strong>Clean up and reconnect</strong> — Verify the outcome before following the official cleanup procedure. Use the official recovery procedure when a disconnect is confirmed.</li>
-          </ul>
+          <div><strong>Check who can operate native apps</strong> — Before starting UI work, check which chat and agent the host allows to act.</div>
+          <div><strong>Manage duplicate connections and concurrent input</strong> — Reuse the selected connection, check whether the tool is busy, and handle conflicting changes sequentially.</div>
+          <div><strong>Protect changes with unclear outcomes</strong> — Hold off on resending the change and check its status through an official route.</div>
+          <div><strong>Clean up and reconnect</strong> — Verify the outcome before following the official cleanup procedure. Use the official recovery procedure when a disconnect is confirmed.</div>
         </details>
       </td>
     </tr>
@@ -76,11 +70,9 @@ CCUH provides two skills that help Codex confirm the target and input method for
       <td>
         <details>
           <summary>Errors and recovery</summary>
-          <ul>
-            <li><strong>Check the error</strong> — Use official tool errors and state to distinguish initialization, authentication, permission, connection, and target issues.</li>
-            <li><strong>Recover</strong> — Codex uses supported procedures such as reconnecting within existing approvals. The user handles steps that require them, such as identity verification or granting permission.</li>
-            <li><strong>Duplicate submission example</strong> — If the response times out after clicking Submit, check whether the same page shows a successful submission. If the outcome remains unclear, do not submit again.</li>
-          </ul>
+          <div><strong>Check the error</strong> — Use official tool errors and state to distinguish initialization, authentication, permission, connection, and target issues.</div>
+          <div><strong>Recover</strong> — Codex uses supported procedures such as reconnecting within existing approvals. The user handles steps that require them, such as identity verification or granting permission.</div>
+          <div><strong>Duplicate submission example</strong> — If the response times out after clicking Submit, check whether the same page shows a successful submission. If the outcome remains unclear, do not submit again.</div>
         </details>
       </td>
     </tr>
@@ -112,8 +104,6 @@ codex plugin marketplace add dijeungi/CCUH --ref main && codex plugin add ccuh@c
 ```
 
 After installation, review and trust the CCUH hooks in **Settings → Hooks**, then start a new chat. CCUH applies automatically on supported Computer Use calls. [Review and trust hooks](https://learn.chatgpt.com/docs/hooks#review-and-trust-hooks)
-
-If you downloaded the [preview ZIP](https://github.com/dijeungi/CCUH/archive/refs/heads/main.zip), replace `dijeungi/CCUH --ref main` in the line above with the absolute path to the extracted folder, enclosed in double quotes.
 
 ## Usage
 

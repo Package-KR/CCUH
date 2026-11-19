@@ -10,7 +10,8 @@
 
 ## 프로젝트 소개
 
-CCUH는 Codex가 Computer Use 작업에서 대상과 입력 방법을 확인하고, 오류나 불확실한 작업 결과에 대응하도록 돕는 두 가지 스킬입니다. 실제 화면 조작은 Codex 데스크톱의 공식 Computer Use로 수행합니다.
+CCUH는 Codex 데스크톱에서 작업 대상과 입력 방법을 확인하도록 돕는 두 가지 스킬입니다.\
+공식 Computer Use가 화면을 조작하고, CCUH는 오류나 불확실한 결과에 대처할 방법을 안내합니다.
 
 ## 기능 안내
 
@@ -31,12 +32,10 @@ CCUH는 Codex가 Computer Use 작업에서 대상과 입력 방법을 확인하�
       <td>
         <details>
           <summary>앱, 탭과 창 상태</summary>
-          <ul>
-            <li><strong>기존 앱과 창 재사용</strong> — 이미 열려 있는 앱이나 문서를 요청하면 해당 창과 문서를 확인한 뒤 재사용합니다.</li>
-            <li><strong>브라우저 탭 탐색과 재탐색</strong> — 공식 조회로 요청한 탭을 찾고, 탭 부재와 연결 끊김을 구분합니다.</li>
-            <li><strong>대상 범위와 결과 확인</strong> — 관찰과 조작 전후에 요청한 대상과 범위가 유지되는지 살피고, 요청한 결과가 반영됐는지 확인합니다.</li>
-            <li><strong>창 상태와 지원 여부 확인</strong> — 숨김, 최소화, 다중 창 등 현재 창 상태에서 요청한 작업이 지원되는지 확인합니다.</li>
-          </ul>
+          <div><strong>기존 앱과 창 재사용</strong> — 이미 열려 있는 앱이나 문서를 요청하면 해당 창과 문서를 확인한 뒤 재사용합니다.</div>
+          <div><strong>브라우저 탭 탐색과 재탐색</strong> — 공식 조회로 요청한 탭을 찾고, 탭 부재와 연결 끊김을 구분합니다.</div>
+          <div><strong>대상 범위와 결과 확인</strong> — 관찰과 조작 전후에 요청한 대상과 범위가 유지되는지 살피고, 요청한 결과가 반영됐는지 확인합니다.</div>
+          <div><strong>창 상태와 지원 여부 확인</strong> — 숨김, 최소화, 다중 창 등 현재 창 상태에서 요청한 작업이 지원되는지 확인합니다.</div>
         </details>
       </td>
     </tr>
@@ -45,11 +44,9 @@ CCUH는 Codex가 Computer Use 작업에서 대상과 입력 방법을 확인하�
       <td>
         <details>
           <summary>백그라운드 입력과 포커스</summary>
-          <ul>
-            <li><strong>백그라운드 입력 경로 선택</strong> — 현재 창에서 지원되는 입력 방법 중 사용자 작업을 방해하지 않는 경로를 고릅니다.</li>
-            <li><strong>비활성 창의 클릭과 스크롤</strong> — 조작 전에 공식 도구가 해당 창에서 동작을 지원하는지, 사용자 입력에 간섭할 수 있는지 확인합니다.</li>
-            <li><strong>포커스와 입력 간섭 대응</strong> — 실제 간섭이나 사용자 중단 신호가 확인되면 후속 조작을 멈추고 작업 상태를 확인합니다.</li>
-          </ul>
+          <div><strong>백그라운드 입력 경로 선택</strong> — 현재 창에서 지원되는 입력 방법 중 사용자 작업을 방해하지 않는 경로를 고릅니다.</div>
+          <div><strong>비활성 창의 클릭과 스크롤</strong> — 조작 전에 공식 도구가 해당 창에서 동작을 지원하는지, 사용자 입력에 간섭할 수 있는지 확인합니다.</div>
+          <div><strong>포커스와 입력 간섭 대응</strong> — 실제 간섭이나 사용자 중단 신호가 확인되면 후속 조작을 멈추고 작업 상태를 확인합니다.</div>
         </details>
       </td>
     </tr>
@@ -62,12 +59,10 @@ CCUH는 Codex가 Computer Use 작업에서 대상과 입력 방법을 확인하�
       <td>
         <details>
           <summary>실행 주체와 변경 상태</summary>
-          <ul>
-            <li><strong>일반 앱의 실행 주체 확인</strong> — UI 작업을 시작하기 전에 현재 호스트가 허용한 작업 채팅과 실행 주체를 확인합니다.</li>
-            <li><strong>중복 연결과 동시 입력 관리</strong> — 선택한 연결을 재사용하고, 충돌하는 변경은 도구의 점유 상태를 확인해 순서대로 처리합니다.</li>
-            <li><strong>결과가 불명확한 변경 보호</strong> — 변경의 성공 여부가 불명확하면 재전송을 보류하고 공식 경로로 상태를 확인합니다.</li>
-            <li><strong>정상 종료와 재연결</strong> — 작업 결과를 확인한 뒤 공식 절차로 정리하고, 연결 끊김이 확인되면 공식 절차로 복구합니다.</li>
-          </ul>
+          <div><strong>일반 앱의 실행 주체 확인</strong> — UI 작업을 시작하기 전에 현재 호스트가 허용한 작업 채팅과 실행 주체를 확인합니다.</div>
+          <div><strong>중복 연결과 동시 입력 관리</strong> — 선택한 연결을 재사용하고, 충돌하는 변경은 도구의 점유 상태를 확인해 순서대로 처리합니다.</div>
+          <div><strong>결과가 불명확한 변경 보호</strong> — 변경의 성공 여부가 불명확하면 재전송을 보류하고 공식 경로로 상태를 확인합니다.</div>
+          <div><strong>정상 종료와 재연결</strong> — 작업 결과를 확인한 뒤 공식 절차로 정리하고, 연결 끊김이 확인되면 공식 절차로 복구합니다.</div>
         </details>
       </td>
     </tr>
@@ -76,11 +71,9 @@ CCUH는 Codex가 Computer Use 작업에서 대상과 입력 방법을 확인하�
       <td>
         <details>
           <summary>오류 확인과 복구</summary>
-          <ul>
-            <li><strong>오류 확인</strong> — 공식 도구의 오류와 상태를 읽어 초기화, 인증, 권한, 연결과 대상 문제를 구분합니다.</li>
-            <li><strong>복구</strong> — Codex는 기존 승인 범위에서 재연결 등 지원되는 절차를 따릅니다. 본인 인증이나 직접 승인이 필요한 단계는 사용자가 진행합니다.</li>
-            <li><strong>중복 제출 방지 예시</strong> — 제출 버튼을 누른 뒤 응답 시간이 초과되면 같은 페이지에서 제출 여부를 확인합니다. 결과가 불명확하면 다시 제출하지 않습니다.</li>
-          </ul>
+          <div><strong>오류 확인</strong> — 공식 도구의 오류와 상태를 읽어 초기화, 인증, 권한, 연결과 대상 문제를 구분합니다.</div>
+          <div><strong>복구</strong> — Codex는 기존 승인 범위에서 재연결 등 지원되는 절차를 따릅니다. 본인 인증이나 직접 승인이 필요한 단계는 사용자가 진행합니다.</div>
+          <div><strong>중복 제출 방지 예시</strong> — 제출 버튼을 누른 뒤 응답 시간이 초과되면 같은 페이지에서 제출 여부를 확인합니다. 결과가 불명확하면 다시 제출하지 않습니다.</div>
         </details>
       </td>
     </tr>
@@ -112,8 +105,6 @@ codex plugin marketplace add dijeungi/CCUH --ref main && codex plugin add ccuh@c
 ```
 
 설치 후 **설정 → Hooks**에서 CCUH 훅을 검토하고 신뢰한 뒤 새 채팅을 시작하세요. 지원되는 Computer Use 호출에서 CCUH가 자동으로 적용됩니다. [훅 검토와 신뢰](https://learn.chatgpt.com/docs/hooks#review-and-trust-hooks)
-
-[프리뷰 ZIP](https://github.com/dijeungi/CCUH/archive/refs/heads/main.zip)을 받았다면, 위 명령의 `dijeungi/CCUH --ref main`을 압축을 푼 폴더의 절대 경로로 바꾸고 경로를 큰따옴표로 감싸세요.
 
 ## 사용
 
