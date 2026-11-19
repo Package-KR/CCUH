@@ -1,43 +1,43 @@
-# 사용자 작업 보호
+# Protecting the user's work
 
-첫 UI 관찰 전에 읽고, 입력 방법이나 표시 상태가 바뀌면 다시 적용한다. [작업 대상](target.md)과 [실행 상태](execution-state.md)가 확인된 범위에서만 사용한다.
+Read this before the first UI observation. Reapply it when the input method or visibility changes. Stay within the scope confirmed by the [target](target.md) and [execution state](execution-state.md) guidance.
 
-## 기본 모드
+## Default mode
 
-사용자가 같은 컴퓨터에서 키보드와 마우스를 계속 사용할 수 있는 경로를 선택한다. 작업 창을 보이게 하거나 사용자의 포커스를 가져오는 것을 기본 입력 수단으로 삼지 않는다.
+Choose a method that lets the user keep using the keyboard and mouse on the same computer. Use a default input method that does not rely on showing the work window or taking the user's focus.
 
-1. 현재 공식 도구가 대상에 제공하는 관찰, 요소 값 설정, 클릭과 스크롤 등의 방법을 확인한다. API가 존재한다는 사실만으로 배경 동작과 무간섭을 보장한다고 판단하지 않는다.
-2. 대상과 현재 창 상태에서 지원되는 방법 중 사용자 입력과 화면을 방해하지 않는 방법을 고른다. 확인된 기능과 실제 검증 범위를 구분한다.
-3. 그 방법으로 요청한 효과를 낼 수 없다면 현재 경로의 제약을 진단한다. 창 활성화, 전역 키 입력이나 다른 앱으로 몰래 대체하지 않는다. 지원이 확인되지 않은 작업을 완료했다고 보고하지 않는다.
+1. Check what the current official tool offers for the target, including observation, setting element values, clicking, and scrolling. The existence of an API alone is insufficient evidence that it works in the background or avoids interference.
+2. Among methods supported for this target and window state, choose one that leaves the user's input and screen undisturbed. Distinguish confirmed capabilities from what has been verified in practice.
+3. If that method cannot produce the requested effect, diagnose the limitations of the current approach. Do not silently switch to activating a window, sending global keystrokes, or using another app. Report completion only for work whose support has been confirmed.
 
-모든 지원 작업은 기본 모드에서 수행할 수 있어야 한다. 이 요구사항을 아직 검증하지 못한 플랫폼과 앱은 지원이 확인된 것으로 표시하지 않는다.
+Every supported task must be possible in default mode. Mark support for a platform or app as confirmed only after verifying that it meets this requirement.
 
-## 입력과 화면에서 보호할 것
+## What to protect during input and observation
 
-| 대상 | 선택 기준 |
+| Area | How to choose a method |
 | --- | --- |
-| 키보드와 입력 포커스 | 정확히 지정한 요소에 입력하는 공식 방법을 우선한다. 전역 키 입력이 현재 사용자의 앱으로 전달될 수 있으면 사용하지 않는다. 포커스를 가져온 뒤 돌려놓는 방식도 간섭으로 본다. |
-| 마우스 | 포인터 이동이나 전역 클릭 없이 대상을 지정하는 공식 방법을 우선한다. 좌표 입력은 실제 수신 창과 현재 좌표계가 확인되고 사용자 조작을 방해하지 않는 지원 경로에서만 사용한다. |
-| 화면과 작업 공간 | 기본 모드에서 창을 전면으로 올리거나 데스크톱과 Space를 이동시키지 않는다. 숨김, 최소화와 가려짐은 일괄 금지 대신 해당 도구의 실제 관찰과 입력 지원 조건으로 판단한다. |
-| 클립보드 | 클립보드 자체를 다루라는 요청이 아닌 한, 입력 수단으로 사용자의 공유 클립보드를 읽거나 변경하지 않는다. 공식 도구가 대상별 격리를 제공하면 그 계약을 확인한다. 직접 입력이 실패했다는 이유로 공유 클립보드 붙여넣기로 전환하지 않으며, 저장 후 복원했더라도 무간섭이었다고 주장하지 않는다. |
+| Keyboard and input focus | Prefer an official method that sends input to the exact element. Avoid global keystrokes if they could reach the app the user is using. Taking focus and restoring it still counts as interference. |
+| Mouse | Prefer an official method that targets the intended element without moving the pointer or sending a global click. Use coordinate-based input only through a supported method that leaves the user's actions undisturbed, and only after confirming the actual receiving window and current coordinate system. |
+| Screen and workspace | In default mode, keep windows out of the foreground and leave the user's desktop and Space unchanged. For hidden, minimized, or obscured windows, check the tool's actual observation and input support for the current window state before proceeding. |
+| Clipboard | Leave the user's shared clipboard unread and unchanged as an input method unless the user has asked you to work with the clipboard itself. If the official tool provides per-target clipboard isolation, verify what it guarantees. If direct input fails, avoid falling back to paste from the shared clipboard. Saving and restoring it still does not establish that the user's work was undisturbed. |
 
-다음 입력 전에는 [입력 대상](input-target.md)을 확인한다. 값 설정이 기존 내용을 대체하는 API라면 요청한 변경 범위에 맞게 값을 구성하고, 관련 없는 사용자 편집을 덮어쓰지 않는다.
+Before sending the next input, check the [input target](input-target.md). If the API replaces the existing value, construct the new value within the requested scope and preserve unrelated edits made by the user.
 
-## 감시 모드
+## Watch mode
 
-- 기본값은 꺼짐이다. 사용자가 켜 달라고 한 경우에만 현재 작업 중인 실제 앱 창이나 브라우저 작업 창을 공식 표시 기능으로 보여준다.
-- 별도 재현 화면, 스크린샷 모음이나 다른 창을 작업 창인 것처럼 보여주지 않는다. 호스트가 실제 창 표시를 지원하지 않으면 그 제약을 명시한다.
-- 표시 여부만 바뀐다. 입력 권한, 대상 범위, 중단 기준과 지원 작업의 집합은 기본 모드와 같다. 사용자 개입이나 단계별 승인을 요구하는 모드로 바꾸지 않는다.
-- 창 표시가 사용자 포커스나 작업 공간을 바꾸는 경로라면 무간섭을 유지하는 표시 방법을 확인한다. 현재 호스트가 금지하는 활성화나 강제 복원을 표시 옵션으로 우회하지 않는다.
+- Watch mode is off by default. Enable it only at the user's request. Show the actual app or browser window you are working in using the official display feature.
+- Show the actual work window. If the host lacks support for displaying it, state the limitation and avoid presenting a recreation, a set of screenshots, or another window as the work window.
+- Watch mode changes visibility only. The input permissions, target scope, stopping conditions, and supported tasks are the same as in default mode. Do not introduce user intervention or step-by-step approval as a requirement of watch mode.
+- If the display method would change the user's focus or workspace, check for a display method that preserves both. Respect the current host's restrictions on activation and forced restoration when showing the window.
 
-Codex 데스크톱의 IAB에서는 작업 탭을 준비한 뒤 공식 `visibility.set(true)`를 사용한다. 앱 패널에 표시하는 공식 기능이 있다면 이미 바인딩한 탭의 `providerTabId`로 같은 채팅의 패널에 표시를 요청할 수 있다. URL만 넘기면 새 탭이 열릴 수 있으므로 기존 탭 표시에는 식별자를 사용한다. 패널 요청의 `queued`는 접수 상태다. `visibility.get()`의 `true`도 앱이 표시 요청을 처리 중일 때 잠시 반환될 수 있다. 현재 채팅에서 같은 작업 탭이 선택되고 실제 패널에 표시된 것을 확인한다. 확인되지 않은 표시 요청을 반복하거나 다른 창을 열지 않는다.
+In the Codex desktop IAB, prepare the work tab and use the official `visibility.set(true)` call. If the app offers an official feature to show the tab in its panel, use the bound tab's `providerTabId` to request display in the same chat. Use the identifier for an existing tab because passing only a URL may open a new one. A panel request marked `queued` has been accepted. While the app is processing the request, `visibility.get()` may briefly return `true`. Verify that the same work tab is selected and actually visible in the current chat's panel. If display remains unconfirmed, do not repeat the request or open another window.
 
-## 사용자 입력과 충돌했을 때
+## When input conflicts with the user's work
 
-사용자가 다른 앱을 쓰는 것만으로 작업을 실패 처리하지 않는다. 공식 도구의 사용자 중단과 제어 인계 신호, 같은 대상의 동시 편집, 실제 포커스와 입력 간섭을 구분한다.
+The user's activity in another app alone is insufficient reason to mark the task as failed. Distinguish the official tool's signals for user interruption or control handoff from concurrent edits to the same target and actual focus or input interference.
 
-간섭이나 중단이 확인되면 후속 입력을 멈춘다. 이미 전달된 입력의 결과는 [실행 상태](execution-state.md)에 따라 확인하고, 결과가 불명확하면 재전송하지 않는다. 사용자가 이어서 입력하는 동안 같은 요소를 덮어쓰거나 사용자 제어를 다시 빼앗지 않는다.
+Stop further input if you confirm interference or interruption. Follow the [execution state](execution-state.md) guidance to check the outcome of any input already sent. Do not resend input whose outcome is unclear. While the user is still entering input, avoid overwriting the same element or taking back control from the user.
 
-## 결과 확인
+## Verify the result
 
-같은 대상에서 요청 효과와 확인 가능한 간섭 신호를 확인한다. 전후 상태가 같다는 것만으로 작업 중 포커스, 마우스, 화면과 클립보드가 한 번도 바뀌지 않았다고 주장하지 않는다. 독립 측정이 없는 보호 효과는 검증되지 않은 것으로 남긴다.
+Check the requested effect and any observable signs of interference on the same target. Matching before-and-after states are insufficient evidence that focus, mouse, screen, or clipboard activity stayed unchanged throughout the task. Treat any protection that was not independently measured as unverified.

@@ -1,54 +1,54 @@
-# 진단과 책임 인계
+# Diagnosis and handoff
 
-## 진단에 사용할 근거
+## Evidence for diagnosis
 
-1. 현재 공식 도구가 반환한 오류 종류, 코드, 실패한 단계와 진행 상태를 먼저 확인한다. 일반 실패, 빈 응답이나 timeout만으로 인증 오류, 대상 부재 또는 변경 미실행을 단정하지 않는다.
-2. 이미 선택한 앱, 창, 문서나 탭과 연결의 최소 식별 정보를 함께 확인한다. 진단을 이유로 무관한 앱, 탭, 채팅, 전체 로그나 환경 파일을 수집하지 않는다. 비밀값을 요청하거나 원문 오류에 포함된 비밀값을 다시 출력하지 않는다.
-3. 마지막으로 확인한 단계, 시도한 변경, 도구 전달 여부와 실제 효과의 확인 여부를 구분한다. 상태 확인 조회가 실패했어도 앞선 변경의 미확정 상태를 지우지 않는다.
-4. 근거가 부족하면 원인은 미확인으로 남긴다. 필요한 추가 확인은 선택한 연결의 공식 상태 확인과 해당 호스트의 문서화된 절차로 한정한다. 문서나 도구를 사용할 수 없으면 그 제약을 보고하며 별도 진단 엔진이나 임의 OS 수리를 만들지 않는다.
+1. Start with the error type, code, failing step, and progress reported by the current official tool. A generic failure, empty response, or timeout alone does not establish an authentication error, a missing target, or whether a change ran.
+2. Check the app, window, document, or tab already selected and the minimum details needed to identify the connection. Leave unrelated apps, tabs, and chats outside the investigation. Avoid collecting full logs or environment files. Never ask for secrets or repeat secrets from a raw error response.
+3. Keep the last verified step, the attempted change, whether it reached the tool, and whether its actual effect was verified separate. If a status check fails, preserve the unresolved state of any earlier change.
+4. If the evidence is insufficient, leave the cause unconfirmed. Limit additional checks to the official status check for the selected connection and the host's documented procedures. If documentation or tooling is unavailable, report that limitation. Do not build a separate diagnostic engine or improvise OS repairs.
 
-오류 이름과 코드는 현재 호스트의 공식 계약으로 해석한다. 아래 예시를 다른 호스트의 같은 의미나 고정된 코드 목록으로 일반화하지 않는다.
+Interpret error names and codes according to the current host's official contract. Treat the examples below as illustrations. Do not assume they have the same meaning on other hosts or treat them as a fixed code list.
 
-## 실패 상태 분류
+## Failure categories
 
-| 분류 | 구분할 근거 | 다음 판단 |
+| Category | Evidence to check | What to do next |
 | --- | --- | --- |
-| 도구나 기능 부재 | 현재 세션에 필요한 공식 도구나 기능이 제공되지 않음 | 호출 수단 부재와 대상 앱 부재를 구분한다. 이미 허용된 공식 연결 경로가 있는지 확인하며, 기존 승인과 공식 절차를 확인하지 않은 설치나 연결 추가를 시작하지 않는다. |
-| 초기화 문제 | 공식 응답이 세션 미시작, 초기화 누락이나 버전 불일치를 명시함 | 예를 들어 `noActiveSession`을 곧바로 인증 실패로 바꾸지 않는다. 현재 호스트의 초기화 순서와 지원 조건을 확인하고, 복구에 새 앱 실행이나 다른 범위 접근이 포함되는지도 판단한다. |
-| 인증 문제 | 공식 응답이 호출 주체 인증이나 계정 로그인의 실패를 명시함 | 예를 들어 `senderProcessNotAuthenticated`와 계정 로그인을 구분한다. 일반 연결 실패를 근거로 다시 로그인하거나 인증 정보를 요구하지 않는다. 공식 복구에서 실제로 필요한 담당을 정한다. |
-| OS 권한 문제 | 공식 도구나 OS가 접근 권한 미승인 또는 승인 대기를 명시함 | 예를 들어 `permissionsNotGranted`와 `permissionsPending`을 구분한다. 필요한 권한과 승인 주체만 안내하며, 권한 초기화나 광범위한 설정 변경을 추측으로 수행하지 않는다. |
-| 연결 끊김 | 선택한 연결에서 전송 종료나 연결 단절이 확인됨 | 변수 참조 누락이나 대상 조회 실패와 구분한다. 앞선 변경의 상태를 유지한 채 공식 재연결 조건을 확인한다. 연결 복구는 앞선 변경의 성공이나 미실행을 증명하지 않는다. |
-| 대상 부재 또는 대상 불명 | 공식 조회가 대상을 찾지 못했거나, 여러 후보를 구분할 정보가 부족함 | 도구가 찾지 못했다는 응답과 실제 앱 부재를 구분한다. 필요한 식별 정보만 확인하고, 새 창이나 복제 문서를 만들어 기존 대상인 것처럼 대신하지 않는다. |
-| 미지원 | 현재 공식 경로가 플랫폼, 창 상태, 요소나 요청 동작을 지원하지 않는다고 확인됨 | 같은 대상에서 요청 범위와 사용자 작업 보호를 지키는 공식 대안을 확인한다. API의 존재만으로 지원을 추정하거나 별도 입력 엔진으로 대체하지 않는다. |
-| 정책상 거절 | 공식 응답이 조직 정책, 안전 제한이나 명시적인 사용 거절을 알림 | OS 권한 누락이나 기술 오류로 바꾸지 않는다. 다른 앱, 별칭이나 연결로 우회하지 않고 허용되지 않은 범위를 보고한다. |
-| 사용자 중단 또는 제어 인계 | 공식 도구의 사용자 중단, 개입이나 인계 신호가 확인됨 | 후속 입력을 멈추고 사용자의 제어를 다시 빼앗지 않는다. 중단 응답만으로 이미 전달한 변경이 취소됐거나 요청 작업이 끝났다고 판단하지 않는다. |
-| 결과 미확정 | 전달한 변경의 응답이 끊겼거나 실제 효과를 확인할 수 없음 | 같은 변경을 재전송하지 않는다. 지원되는 상태 확인과 취소가 무엇을 확정하는지 확인하고 [실행 상태 지침](../../ccuh/references/execution-state.md)을 따른다. |
+| Tool or capability unavailable | The current session lacks the required official tool or capability. | Distinguish a missing way to call the tool from a missing target app. Look for an official connection route already authorized. Before installing anything or adding a connection, verify prior approval and the official procedure. |
+| Initialization issue | The official response explicitly identifies a session that has not started, a missing initialization step, or a version mismatch. | For example, do not assume `noActiveSession` means authentication failed. Check the current host's initialization sequence and support conditions. Determine whether recovery would launch another app or require access beyond the current scope. |
+| Authentication issue | The official response explicitly identifies failure to authenticate the caller or to sign in to an account. | For example, distinguish `senderProcessNotAuthenticated` from account sign-in. A generic connection failure alone does not justify signing in again or asking for credentials. Identify who actually needs to act in the official recovery procedure. |
+| OS permission issue | The official tool or OS explicitly reports that access permission was not granted or is pending. | For example, distinguish `permissionsNotGranted` from `permissionsPending`. Explain only which permission is required and who must grant it. Avoid resetting permissions or making broad settings changes based on a guess. |
+| Connection lost | Transport closure or disconnection is confirmed for the selected connection. | Distinguish disconnection from a missing variable reference or failed target lookup. Check the official reconnection conditions while preserving the earlier change's state. Restoring a connection does not establish whether the earlier change succeeded or ran at all. |
+| Target missing or unclear | An official lookup could not find the target or there is insufficient information to distinguish multiple candidates. | Distinguish the tool's failure to find a target from the app actually being absent. Verify only the identifying details needed. Keep the original target and avoid substituting a new window or duplicate document. |
+| Unsupported | The current official route is confirmed to lack support for the platform, window state, element, or requested action. | Look for an official alternative for the same target that stays within the request scope and protects the user's work. An API's existence alone does not establish support. Do not substitute a separate input engine. |
+| Denied by policy | The official response reports an organizational policy, a safety restriction, or an explicit denial of use. | Keep the denial distinct from a missing OS permission or a technical failure. Report the scope that was denied and respect it across apps, aliases, and connections. |
+| User interruption or control handoff | The official tool confirms a user interruption, intervention, or handoff signal. | Stop further input and leave control with the user. An interruption alone does not establish that a change already sent was canceled or that the requested task is complete. |
+| Unclear outcome | The response to a change already sent was interrupted or its actual effect cannot be verified. | Do not resend the same change. Determine what supported status checks and cancellation can establish, then follow the [execution-state guidance](../../ccuh/references/execution-state.md). |
 
-여러 분류가 함께 성립할 수 있다. 연결이 끊기면서 앞선 변경이 미확정이면 둘 다 유지한다. 오류 문구와 상태 근거가 충돌하면 편한 원인 하나로 합치지 않는다.
+More than one category can apply. If a connection drops while an earlier change's outcome is unclear, retain both states. If the error wording and the observed state conflict, keep both pieces of evidence and leave the cause unresolved.
 
-## 조치 담당과 승인 범위
+## Who acts and what is authorized
 
-| 담당 | 해당하는 조치 | 수행 경계 |
+| Who acts | Applicable actions | Limits |
 | --- | --- | --- |
-| AI 직접 처리 | 기존 오류와 상태 분석, 선택한 연결의 공식 상태 확인, 이미 허용된 범위의 문서화된 초기화나 재연결, 미실행이 확인된 단계의 재개 | 원래 요청과 현재 승인, 도구의 보호 상태가 허용하는 조치만 한다. 복구라는 이유로 입력을 재전송하거나 사용자 작업을 방해하지 않는다. 이미 받은 승인을 반복해서 요청하지 않는다. |
-| 추가 승인이 필요한 AI 처리 | 기존 승인에 포함되지 않은 설치, 연결 추가, 설정 변경이나 요청 범위 확대 중 공식 도구로 AI가 처리할 수 있는 조치 | 먼저 기존 승인의 범위를 확인한다. 승인이 부족하면 필요한 변경, 대상과 이유를 구체적으로 제시하고 해당 조치 직전에 승인을 받는다. 진단 요청만으로 변경이 승인됐다고 보지 않는다. |
-| 사용자 직접 처리 | 서비스가 본인에게 요구하는 본인확인, 비밀번호나 인증번호 등 비밀 입력, OS나 도구가 사용자 직접 수행을 요구하는 승인 | 실제로 직접 수행해야 하는 단계만 넘긴다. AI가 처리할 수 있는 나머지 초기화, 확인과 작업 재개까지 사용자에게 맡기지 않는다. 비밀값을 채팅으로 보내 달라고 하지 않는다. |
+| AI directly | Analyze existing errors and state, check the selected connection's official status, carry out documented initialization or reconnection within the existing authorization, and resume a step confirmed not to have run. | Act only within the original request, current approval, and tool safeguards. Recovery does not justify resending input or interfering with the user's work. Reuse approvals already granted. |
+| AI after additional approval | Use official tools to install, add a connection, change settings, or expand the request scope when the existing approval does not cover it and the AI can perform the action. | First check the scope of existing approval. If more is needed, explain exactly what would change, the target, and why. Get approval immediately before the action. A request for diagnosis alone does not authorize a change. |
+| User directly | Complete an identity check that the service requires them to perform, enter a secret such as a password or verification code, or grant approval that the OS or tool requires them to provide directly. | Hand off only the step they have to perform. The AI handles any remaining initialization, verification, and resumption it can perform. Never ask the user to send a secret in chat. |
 
-조치의 위험이나 이름만으로 담당을 고정하지 않는다. 공식 도구로 수행 가능하고 기존 승인이 있으면 AI가 처리하며, 도구가 본인 수행을 요구하거나 AI가 접근할 수 없는 단계는 사용자에게 넘긴다. 정책상 금지된 조치는 승인을 받으면 가능한 조치로 표현하지 않는다.
+Do not assign an action based on its risk or name alone. If the AI has authorization and can use the official tool, it acts. Hand off steps that require the user or that the AI cannot access. Policy prohibitions still apply even if the user gives approval.
 
-## 복구와 재개
+## Recovery and resumption
 
-1. 복구 전에 현재 작업이 진행 중인지, 변경이 전달됐는지와 결과가 미확정인지 확인한다. 진행 중인 작업의 지원되는 대기나 상태 확인을 새 작업 실행으로 대체하지 않는다.
-2. 공식 절차와 기존 승인 안에서 가능한 조치를 수행한다. 재시도의 조건과 중단 기준은 공식 계약과 확인된 상태를 따른다. 새 근거 없이 같은 실패를 반복하거나 reset, 재연결, 담당 변경과 보호 기록 삭제로 도구의 제한을 우회하지 않는다.
-3. 사용자 직접 단계가 필요하면 지금 해야 할 행동 한 개와 필요한 이유를 알려 주고 그 단계에서 제어를 넘긴다. 여러 설정을 한꺼번에 바꾸라고 하거나 원래 작업 전체를 다시 요청하게 하지 않는다.
-4. 사용자 조치 뒤에는 공식 상태 확인으로 해당 문제가 해결됐는지 확인한다. 사용자가 조치를 마쳤다는 말만으로 연결 복구, 변경 취소나 요청 효과를 확정하지 않는다. 확인할 수 없으면 그 상태를 미확인으로 남긴다.
-5. 같은 대상의 현재 효과와 남은 작업을 대조해 이미 수행된 부분은 반복하지 않는다. 미실행이 확인되고 공식 도구의 보호 상태와 기존 승인이 허용하는 단계만 이어간다. 결과 미확정 상태가 남으면 같은 변경을 다시 보내지 않는다.
+1. Before recovery, establish whether the work is in progress, whether any change was sent, and whether its outcome is still unclear. Use the supported wait or status check for work in progress. Starting a new execution does not serve as a status check.
+2. Carry out the actions available within the official procedure and existing approval. Follow the official contract and verified state for retry conditions and when to stop. Avoid repeating a failed action without new evidence. Do not use resets, reconnects, a change of operator, or deletion of safeguard records to bypass tool restrictions.
+3. If a step requires the user, give them the one action to take now and the reason, then hand over control for that step. Avoid asking them to change multiple settings at once or resubmit the original task.
+4. After the user acts, use an official status check to verify whether it resolved the issue. The user's confirmation that they performed the step does not establish that the connection recovered, a change was canceled, or the requested effect occurred. Leave the state unverified if it cannot be checked.
+5. Compare the effect currently visible on the same target with the remaining work and skip steps that already ran. Resume only steps confirmed not to have run and allowed by the official tool's safeguards and existing approval. If the outcome is still unclear, do not resend the same change.
 
-새 UI 관찰이나 복구 입력이 필요하면 [일반 실행 지침](../../ccuh/SKILL.md)으로 돌아가 [작업 대상](../../ccuh/references/target.md), [사용자 작업 보호](../../ccuh/references/user-work-protection.md), [입력 대상](../../ccuh/references/input-target.md)과 [실행 상태](../../ccuh/references/execution-state.md)를 먼저 적용한다. 진단이나 복구를 이유로 기본 모드와 감시 모드의 기능과 권한을 바꾸지 않는다.
+If you need a new UI observation or recovery input, return to the [main skill](../../ccuh/SKILL.md) and first apply [Work target](../../ccuh/references/target.md), [User work protection](../../ccuh/references/user-work-protection.md), [Input target](../../ccuh/references/input-target.md), and [Execution state](../../ccuh/references/execution-state.md). Keep the capabilities and permissions of default and watch modes in effect during diagnosis and recovery.
 
-## 인계와 보고
+## Handoff and reporting
 
-- 확인된 오류와 근거, 마지막으로 확인한 대상과 단계, 시도한 조치, 미확정 변경의 유무를 구분해 짧게 전달한다. 추정한 원인을 확인된 사실로 적지 않는다.
-- 다음 담당이 AI인지, 추가 승인 뒤 AI인지 또는 사용자 직접 수행인지 밝힌다. 사용자에게 조치가 필요하면 지금 해야 할 행동 한 개만 안내한다.
-- 진단 결과와 원래 작업의 완료 여부를 구분한다. 원인을 분류했거나 연결을 복구했다는 이유로 요청 작업을 완료했다고 보고하지 않는다.
-- 공식 상태 확인이나 복구 수단이 없어 이어갈 수 없으면 구체적인 제약과 남은 단계를 남긴다. 다른 담당에게 넘길 때도 미확정 상태와 재전송 금지를 함께 전달한다.
+- Briefly distinguish the confirmed error and evidence, the last verified target and step, actions attempted, and any changes with unclear outcomes. Label suspected causes as such.
+- Say whether the AI can act now, the AI needs additional approval, or the user must act directly. When the user needs to act, give them only the one action to take now.
+- Report diagnosis and the original task's completion separately. Classifying the cause or restoring the connection does not by itself complete the requested task.
+- If official status checks or recovery are unavailable and work cannot continue, record the specific limitation and the remaining step. Carry forward any unresolved state and the restriction on resending changes in the handoff.

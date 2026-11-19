@@ -1,25 +1,25 @@
-# 입력 대상 확인과 갱신
+# Confirm and refresh the input target
 
-클릭, 키보드 입력, 값 변경과 스크롤 등 UI 입력을 보내기 전에 적용한다. 공식 Computer Use의 최신 관찰과 입력 대상 계약을 사용하며 자체 참조 토큰이나 만료 저장소를 만들지 않는다.
+Apply this guidance before sending UI input such as clicking, typing, changing a value, or scrolling. Use the latest official Computer Use observation and follow its input-target contract. Do not create separate reference tokens or an expiration store.
 
-## 입력 대상 선택
+## Select the input target
 
-- [작업 대상 확인](target.md)에 따라 요청한 창, 문서나 탭이 맞는지 확인한 상태에서 입력 대상을 고른다. 다른 대상이나 이전 연결에서 얻은 요소 번호와 좌표를 가져오지 않는다.
-- 현재 공식 API가 지원하는 요소 번호, 노드 ID, 의미 기반 locator나 좌표를 사용한다. 최신 관찰에서 실제로 확인한 정보에 근거하고 번호, 역할, 이름이나 위치를 추측하지 않는다. 좌표 입력은 해당 대상의 최신 화면과 현재 배치를 근거로 한다.
-- 입력칸이나 버튼이 여러 개면 보이는 이름과 주변 문맥으로 요청한 요소를 구분한다. 앞서 같은 번호가 있었거나 배열의 첫 요소라는 이유만으로 선택하지 않는다.
-- 사용자가 기존 입력을 바꾸라고 요청한 범위와 현재 값을 고려한다. 값 전체 교체, 커서 위치 입력과 선택 영역 변경은 서로 다른 조작이다. 사용자 입력과 클립보드에 대한 영향은 [사용자 작업 보호](user-work-protection.md)를 따른다.
+- Use [Work target](target.md) to confirm the requested window, document, or tab before selecting the input target. Use element numbers and coordinates from the current target and connection only.
+- Use an element number, node ID, semantic locator, or coordinates supported by the current official API. Use only numbers, roles, names, and locations you can verify from the latest observation. Base coordinate input on the latest view of the target and its current layout.
+- If several fields or buttons are present, use the visible label and surrounding context to identify the requested element. A previously seen number or the first position in a list is insufficient to select it.
+- Consider the current value and the scope of the requested edit. Replacing the entire value, inserting at the cursor, and editing the selection are distinct operations. Apply [User work protection](user-work-protection.md) to any effects on the user's input and clipboard.
 
-## 관찰 갱신 시점
+## When to refresh the observation
 
-- 페이지 이동, 문서나 창 전환, 대화상자 출현, 요소 재배치 또는 연결 변경 뒤에는 현재 상태에서 입력 대상을 다시 도출한다. 같은 번호나 좌표가 남아 있어도 이전 요소와 같다고 가정하지 않는다.
-- 동작 후에는 다음 판단에 필요한 최소한의 공식 상태 조회를 한다. 텍스트 상태로 대상과 결과를 확인할 수 있으면 매번 전체 화면 캡처를 추가하지 않는다. 위치나 배치 확인이 필요하면 해당 대상의 화면을 확인한다.
-- 공식 도구가 지원하고 중간 상태가 다음 입력 대상을 바꾸지 않는 연속 조작은 묶을 수 있다. 입력 결과가 다음 대상이나 화면을 바꾸면 그 결과를 확인한 뒤 다음 조작을 정한다. 모든 키 입력마다 전체 관찰을 반복하는 고정 절차를 만들지 않는다.
-- 관찰을 갱신했다고 기존 미확정 변경이 취소되거나 실패한 것은 아니다. 사용자 개입, 타임아웃과 연결 변경에 따른 실행 상태는 [실행 상태 관리](execution-state.md)를 함께 적용한다.
+- After navigation, a document or window switch, a dialog opening, a layout change, or a connection change, identify the input target from the current state. An unchanged number or coordinate may now refer to another element.
+- After an action, request only the official state information needed for the next decision. If text state confirms the target and result, omit the full-screen capture. Inspect the target's screen when its position or layout matters.
+- Group consecutive operations when the official tool supports batching and the intermediate state does not change the next input target. If an action changes the next target or screen, check the result before choosing the next action. Reserve a full observation for when it is needed instead of repeating it on every keystroke.
+- Refreshing the observation alone does not establish that an earlier change with an unclear outcome was canceled or failed. Apply [Execution state](execution-state.md) when user intervention, a timeout, or a connection change affects execution state.
 
-## 입력 실패와 효과 확인
+## Input failures and effect verification
 
-요소를 찾지 못하거나 입력 효과가 없으면 현재 대상과 화면에서 원인을 확인한다. 같은 입력을 바로 반복하거나 실패를 숨기려고 좌표 입력으로 바꾸지 않는다. 실제로 바뀐 화면과 공식 도구의 오류를 근거로 지원되는 방법을 선택한다.
+If you cannot find the element or the input has no effect, use the current target and screen to investigate. Do not immediately repeat the same input or switch to coordinates to hide the failure. Use the actual screen changes and the official tool's error to choose a supported method.
 
-입력 호출의 반환만으로 요청 효과가 달성됐다고 보고하지 않는다. 같은 대상의 최신 상태에서 요청한 변화를 확인한다. 이미 효과를 확인한 상태라면 같은 사실을 입증하려고 입력을 다시 보내지 않는다.
+Verify the requested change in the latest state of the same target before reporting success. A return from the input call alone is insufficient. Once the effect is verified, do not send the input again to prove the same result.
 
-변경이 전달된 뒤 결과가 불명확하면 새 요소를 찾았다는 이유로 변경을 재전송하지 않는다. [실행 상태 관리](execution-state.md)에 따라 마지막으로 확인한 상태를 유지하고 [doctor](../../ccuh-doctor/SKILL.md)로 연결한다.
+If the outcome is unclear after dispatching a change, finding a new element is insufficient reason to resend it. Preserve the last confirmed state according to [Execution state](execution-state.md) and consult [Doctor](../../ccuh-doctor/SKILL.md).

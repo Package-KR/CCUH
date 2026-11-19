@@ -1,33 +1,33 @@
-# 작업 대상 확인
+# Confirm the work target
 
-처음 대상을 선택하거나 UI를 관찰하기 전에 적용한다. 요청 대상, 창, 문서나 탭이 바뀌면 다시 확인한다. 공식 도구의 대상 지정과 조회 계약을 사용하며 별도 대상 식별 체계를 만들지 않는다.
+Apply this guidance before selecting the initial target or observing the UI. Recheck if the requested target, window, document, or tab changes. Use the official tool's targeting and inspection contract. Do not introduce a separate target identification scheme.
 
-## 요청 범위와 기존 대상
+## Request scope and existing targets
 
-- 사용자가 지정한 앱, 브라우저, 창, 문서, 탭과 작업 범위를 기준으로 삼는다. 공식 참조나 식별자가 주어졌으면 해당 호스트의 해석 절차를 따른다. 이름이나 URL이 비슷하다는 이유로 다른 대상으로 바꾸지 않는다.
-- 이미 열린 대상을 요청했다면 그 대상을 재사용한다. 찾기 실패를 숨기려고 다른 앱이나 브라우저를 선택하거나 새 창, 새 탭, 복제 문서를 만들지 않는다.
-- 사용자가 요청한 앱 실행, 새 문서 생성과 페이지 이동은 허용된 작업이다. 기존 대상을 찾지 못해서 만드는 복구용 대체와 구분한다. 공식 복구 절차에 새 대상 생성이 포함돼 있어도 기존 요청 범위에서 허용되는지 먼저 판단한다.
+- Use the app, browser, window, document, tab, and scope specified by the user. If the user provided an official reference or identifier, resolve it using the procedure for that host. Keep the specified target even if another name or URL is similar.
+- If the user asks to work on an open target, reuse it. If it cannot be located, do not conceal that by switching apps or browsers or by creating a new window, tab, or duplicate document.
+- Opening an app, creating a document, or navigating to a page is in scope when the user requests it. Distinguish these actions from creating a substitute because the existing target could not be found. If an official recovery procedure creates a new target, first check that the original request authorizes it.
 
-## 내용 관찰 전 대상 선택
+## Select the target before observing content
 
-1. 현재 호스트가 제공하는 공식 메타데이터와 대상 지정 API로 범위를 좁힌다. 이미 알려진 앱이나 브라우저를 기준으로 필요한 목록만 조회하고, 대상을 찾는다는 이유로 무관한 앱이나 탭의 내용을 읽지 않는다.
-2. 공식 도구가 제공한 현재 식별자, 제목, URL, 창이나 문서 정보를 요청과 대조한다. 특정 플랫폼의 PID나 시작 토큰을 모든 경로의 필수값으로 요구하지 않는다. 같은 제목이나 같은 URL만으로 여러 후보 중 하나를 임의 선택하지 않는다.
-3. 후보를 구분할 수 없으면 아직 부족한 식별 정보를 확인한다. 내용 캡처 범위를 전체 화면이나 다른 앱으로 넓혀 추측하지 않는다. UI 내용이 필요한 첫 관찰도 선택한 대상 범위에 한정한다.
+1. Narrow the scope using the host's official metadata and targeting APIs. Start from the known app or browser and query only the lists you need. Keep the content of unrelated apps and tabs outside the search.
+2. Compare the current identifiers, titles, URLs, and window or document details returned by the official tool against the request. Require platform-specific values such as PIDs or start tokens only where the current path requires them. Matching titles or URLs alone are insufficient to choose among multiple candidates.
+3. If the candidates are indistinguishable, identify what information is still needed to tell them apart. Avoid guessing by broadening content capture to the full screen or another app. Limit the first observation that requires UI content to the selected target.
 
-브라우저 탭 멘션은 공식 절차에 따라 브라우저와 탭의 현재 정보를 맞춘다. 명시된 브라우저나 프로필을 다른 것으로 대체하지 않는다. 일반 앱에서는 앱이 맞는지만 확인하고 끝내지 말고 요청한 창과 문서까지 구분한다.
+For a browser tab mention, use the official procedure to match the current browser and tab information. Keep the explicitly specified browser or profile. In native apps, verify the requested window and document in addition to the app.
 
-이미 선택한 공식 연결과 최신 관찰에 대상 정보가 있으면 이를 활용한다. 매 관찰마다 같은 전체 목록을 다시 수집할 필요는 없다.
+Reuse target information from the selected official connection and the latest observation when available. Gather a fresh full list only when needed.
 
-## 대상 변경과 결과 확인
+## Target changes and result verification
 
-- 관찰과 입력 전에는 현재 연결이 요청 범위의 대상을 가리키는지 확인한다. 입력 요소의 선택과 갱신은 [입력 대상 확인](input-target.md)을 따른다.
-- 조작 후에는 공식 도구의 최신 상태에서 대상과 요청 효과를 함께 확인한다. 사용자가 요청한 페이지 이동이나 문서 전환은 예상한 도착 대상과 대조한다. 제목이나 URL의 변화만으로 무조건 대상 오류라고 판단하지 않는다.
-- 예상하지 않은 대상 변경이 확인되면 후속 관찰과 입력을 멈추고, 다른 대상에서 얻은 내용을 요청 대상의 결과로 보고하지 않는다. 필요한 설명은 대상 불일치와 마지막으로 확인한 단계로 제한한다.
-- 대상을 다시 찾거나 연결을 복구할 때도 원래 요청 범위를 유지한다. 재탐색 성공을 이전 변경이 실패했다는 증거로 삼지 않는다. 전달된 변경의 실행 여부와 재시도 판단은 [실행 상태 관리](execution-state.md)를 따른다.
-- 전후 대상 확인은 그 사이에 대상이 계속 같았다는 원자적 보장이 아니다. 사용자 간섭과 표시 방법은 [사용자 작업 보호](user-work-protection.md)를 따른다.
+- Before observing or sending input, confirm that the current connection points to a target within the requested scope. Follow [Input target](input-target.md) to select and refresh the input element.
+- After an operation, use the latest official tool state to verify the target and the requested effect. Check user-requested navigation or document switches against the expected destination. Treat a title or URL change as a mismatch only when it conflicts with the expected target.
+- If you detect an unexpected target change, stop further observation and input. Do not report content from another target as the result. Keep the explanation to the mismatch and the last verified step.
+- Stay within the original request scope when finding the target again or recovering the connection. Rediscovery alone provides no evidence that the previous change failed. Follow [Execution state](execution-state.md) to determine whether a dispatched change ran and whether it can be retried.
+- Before-and-after checks confirm the target at those points only. Apply [User work protection](user-work-protection.md) for interference and display decisions.
 
-## 창 상태와 지원 조건
+## Window state and support
 
-숨김, 최소화나 다중 창이라는 이유만으로 일괄 거절하지 않는다. 선택한 공식 경로가 해당 상태에서 정확한 대상 관찰과 필요한 입력을 지원하는지 확인한다. 지원이 확인되지 않은 동작을 지원된다고 추정하지 않는다.
+Check whether the selected official path supports accurate observation and the required input when windows are hidden, minimized, or multiple windows are open. Base the decision on verified support for the required operation in that state.
 
-같은 대상에서 쓸 수 있는 공식 대안이 있으면 요청 범위와 사용자 작업 보호 조건 안에서 선택한다. 창 표시, 포커스 변경과 입력의 간섭 판단은 [사용자 작업 보호](user-work-protection.md)에 맡긴다. 대상을 확인할 수 없거나 지원되는 방법으로 작업을 이어갈 수 없으면 [doctor](../../ccuh-doctor/SKILL.md)로 연결한다.
+If an official alternative works on the same target, choose it within the requested scope and user-work protection requirements. Apply [User work protection](user-work-protection.md) to assess interference from window display, focus changes, and input. Consult [Doctor](../../ccuh-doctor/SKILL.md) if the target cannot be confirmed or the task cannot proceed through a supported method.

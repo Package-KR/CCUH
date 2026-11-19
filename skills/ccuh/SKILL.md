@@ -1,47 +1,47 @@
 ---
 name: ccuh
-description: Computer Use로 앱이나 브라우저를 관찰하고 조작할 때 함께 참조해 작업에 맞는 CCUH 보조 지침을 선택한다. Computer Use를 쓰지 않는 일반 질문이나 코드 작업에는 적용하지 않는다.
+description: Select CCUH guidance for the task when using Computer Use to observe or operate apps or browsers. Skip general questions and coding work that do not use Computer Use.
 ---
 
 # CCUH
 
-공식 Computer Use 스킬과 함께 사용한다. Agent는 이 문서의 선택 기준에 따라 필요한 보조 지침을 읽고, 공식 Computer Use로 사용자 작업을 수행한다. 사용자가 매번 CCUH를 따로 지정하게 하지 않는다.
+Use alongside the official Computer Use skill. Follow the selection criteria below to read the relevant guidance, then use official Computer Use to carry out the user's task. Proceed without asking the user to explicitly invoke CCUH each time.
 
-## 작업 시작
+## Before starting
 
-1. 사용자가 요청한 작업, 대상과 허용 범위를 파악한다. 이미 확정된 요청과 승인을 반복해서 묻지 않는다.
-2. 현재 호스트의 공식 Computer Use 초기화 절차와 사용 지침을 읽고, 아래 표에서 필요한 보조 지침을 선택한다. 해당 지침은 첫 UI 관찰이나 입력 전에 읽는다.
-3. 선택한 지침을 적용해 공식 도구로 작업한다. 요청한 효과를 같은 대상에서 확인하고, 공식 정리 절차를 따른 뒤 완료를 보고한다.
+1. Identify the requested task, its target, and the authorized scope. Use the request and approvals already established.
+2. Read the official Computer Use setup procedure and usage instructions for the current host. Use the table below to select and read the relevant guidance before the first UI observation or input.
+3. Apply the selected guidance and do the work with the official tools. Verify the requested effect on the same target and follow the official cleanup procedure before reporting completion.
 
-## 보조 지침 선택 기준
+## Selecting supporting guidance
 
-경로는 이 `SKILL.md`가 있는 폴더를 기준으로 한다. 여러 조건에 해당하면 필요한 지침을 모두 적용한다.
+Resolve paths relative to this `SKILL.md`. If multiple conditions apply, follow all relevant guidance.
 
-| 적용 조건 | 읽을 지침 | 역할 |
+| When to apply | What to read | What it covers |
 | --- | --- | --- |
-| 처음 UI를 관찰하거나 조작하기 전. 연결, 실행 담당이나 진행 상태가 바뀐 경우에도 적용 | [실행 상태](references/execution-state.md) | 실행 주체, 알려진 충돌, 결과 불명확, 종료와 재연결 |
-| 처음 대상을 선택하거나 UI를 관찰하기 전. 요청 대상, 창, 문서나 탭이 바뀌면 다시 확인 | [작업 대상](references/target.md) | 정확한 대상, 기존 대상 재사용, 요청 범위와 창 상태 지원 확인 |
-| 처음 UI를 관찰하거나 조작하기 전. 입력 방법이나 사용자 간섭 조건이 바뀌면 다시 판단 | [사용자 작업 보호](references/user-work-protection.md) | 키보드 입력, 마우스, 화면과 클립보드 보호 |
-| 클릭, 키보드 입력, 값 변경이나 스크롤 등 입력을 보내기 전 | [입력 대상](references/input-target.md) | 최신 관측에서 얻은 입력 대상 사용 |
-| 오류가 작업을 막거나, 전달한 변경의 결과가 불명확하거나, 사용자가 진단을 요청한 경우 | [doctor](../ccuh-doctor/SKILL.md) | 진단과 조치 담당 구분, 지원되는 복구 절차 |
+| Before the first UI observation or operation. Apply again if the connection, the agent performing the operation, or the task state changes. | [Execution state](references/execution-state.md) | Who may act, known conflicts, unclear outcomes, ending a session, and reconnecting |
+| Before selecting the initial target or observing the UI. Recheck if the requested target, window, document, or tab changes. | [Work target](references/target.md) | Identifying and reusing the exact target, checking scope and support for the window state |
+| Before the first UI observation or operation. Reassess if the input method or the conditions for interference with the user change. | [User work protection](references/user-work-protection.md) | Protecting keyboard input, mouse, screen, and clipboard |
+| Before sending input such as clicking, typing, changing a value, or scrolling. | [Input target](references/input-target.md) | Using an input target from the latest observation |
+| If an error blocks the task, the outcome of a submitted change is unclear, or the user requests diagnosis. | [Doctor](../ccuh-doctor/SKILL.md) | Who diagnoses and who takes action, and supported recovery procedures |
 
-## 선택한 지침의 적용
+## Applying the selected guidance
 
-- 읽기만 하는 작업에는 앞의 세 지침을 적용한다. 실제 입력이 생기면 입력 대상 지침도 추가한다. 정상 작업마다 doctor를 실행하지 않는다.
-- 같은 내용이 현재 맥락에 있으면 매 조작마다 문서를 다시 읽지 않는다. 읽은 규칙은 계속 적용하며, 대상과 상태가 바뀌면 해당 조건을 다시 확인한다.
-- 요약이나 재개 후 필요한 지침이 맥락에서 사라졌다면 다음 UI 작업 전에 다시 읽는다. 지침을 읽었다는 기록만으로 현재 규칙을 확인했다고 간주하지 않는다.
-- doctor가 단독 진단에서 UI 관찰이나 복구 조작으로 넘어가더라도 같은 선택 기준을 적용한다. 오류 응답 분석만으로 진단할 수 있으면 UI에 접근하지 않는다.
+- For read-only work, apply the first three references. Add the input target guidance when input is needed. Reserve Doctor for tasks that meet the diagnosis criteria.
+- If the guidance is already in the current context, keep applying it without rereading it for every operation. Recheck the relevant conditions when the target or state changes.
+- If context summarization or resuming a task leaves required guidance unavailable in the current context, reread it before the next UI action. A record of having read it earlier is insufficient to confirm the current rules.
+- Apply the same selection criteria if Doctor moves from diagnosis alone to UI observation or a recovery operation. Keep the work off the UI when the error response is sufficient for diagnosis.
 
-## 항상 지킬 보호 원칙
+## Protection rules that always apply
 
-- 사용자가 지정한 작업 대상을 유지한다. 찾기 실패를 다른 창, 탭이나 브라우저로 조용히 대체하지 않는다. 사용자가 요청한 새 대상 생성과 이동은 구분한다.
-- 기본 모드는 사용자 작업을 방해하지 않는 방법을 선택한다. 감시 모드는 실제 작업 창을 보여주는 옵션이며 작업 기능과 실행 권한을 바꾸지 않는다. 지원되지 않는 조작을 감시 모드로 우회하지 않는다.
-- 현재 호스트의 실행 주체와 세션 계약, 공식 도구의 지원 조건을 따른다. 최신 관측에 근거해 조작하고 확인된 점유와 충돌을 우회하지 않는다.
-- 전달 전 거절과 전달 후 결과 불명확을 구분한다. 실행 여부가 불명확한 변경은 재전송하지 않으며, reset이나 다른 연결 및 채팅으로 기존 보호 상태를 우회하지 않는다.
-- 실제 간섭이나 중단 신호가 확인되면 후속 조작을 멈추고 상태를 분류한다. 전후 확인만으로 연속 무간섭을 보장하거나 확인하지 않은 작업 결과를 완료로 보고하지 않는다.
+- Preserve the user's specified target. If it cannot be located, do not silently substitute another window, tab, or browser. Distinguish user-requested creation of a new target or navigation from a substitute.
+- In default mode, choose a method that avoids interfering with the user's work. Watch mode is an option that shows the actual work window with the same capabilities and permissions. Use only supported operations in either mode.
+- Follow the current host's rules for who may act, its session contract, and the official tool's support requirements. Base actions on the latest observations and respect confirmed ownership or conflicts.
+- Distinguish an operation rejected before dispatch from a dispatched operation with an unclear outcome. Do not resend a change whose execution is uncertain or use a reset, another connection, or another chat to bypass existing protections.
+- Stop further operations and classify the state when you detect actual interference or a signal to stop. Before-and-after checks alone cannot establish continuous non-interference. Report completion only for effects you have verified.
 
-## 필요한 지침을 읽을 수 없을 때
+## When required guidance cannot be read
 
-선택한 파일이 실제 묶음에 존재하고 읽을 수 있는지 확인한다. 필수 지침이 없거나 읽을 수 없으면 적용했다고 간주하지 않는다. 해당 지침이 필요한 UI 관찰과 조작을 시작하지 않고, 누락된 지침과 마지막으로 확인한 단계를 짧게 알린다.
+Check that the selected file exists in the actual bundle and is readable. If required guidance is missing or unreadable, treat it as unapplied. Do not start any UI observation or operation that requires it. Briefly report which guidance is missing and the last step you verified.
 
-없는 지침을 대신하려고 실패작이나 다른 설치본의 코드를 가져오거나 플러그인 설정과 보호 상태를 임의로 바꾸지 않는다.
+Keep the existing plugin settings and protection state. Do not replace missing guidance with code from a failed prototype or another installation.

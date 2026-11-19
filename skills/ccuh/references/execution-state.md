@@ -1,52 +1,52 @@
-# 실행 주체와 작업 상태
+# Execution ownership and task state
 
-`ccuh`와 `ccuh-doctor`가 함께 사용하는 규칙이다. 첫 UI 관찰이나 입력 전에 읽고, 연결, 실행 담당이나 작업 상태가 달라질 때 다시 적용한다. 오류 응답만 분석하는 doctor는 UI에 접근하지 않아도 된다. 새 UI 관찰이나 복구 입력으로 넘어가면 같은 선행 규칙을 적용한다.
+`ccuh` and `ccuh-doctor` share these rules. Read them before the first UI observation or input, and reapply them when the connection, execution owner, or task state changes. Doctor can analyze an error response without accessing the UI. Apply the same prerequisites before making a new UI observation or sending input during recovery.
 
-실행 여부는 공식 도구의 응답과 지원되는 상태 확인으로 판단한다. 이 문서를 적용하려고 별도 실행 주체 인증, 연결 관리자, 전역 원장이나 영구 잠금 체계를 만들지 않는다.
+Use official tool responses and supported status checks to determine whether an operation ran. Do not add separate authentication for the execution owner, a connection manager, a global ledger, or a permanent locking mechanism.
 
-## 실행 주체와 연결
+## Execution ownership and connections
 
-1. 현재 호스트의 공식 초기화 지침에서 허용한 채팅, 실행 주체와 세션 범위를 확인한다. 네이티브 UI 실행을 요청한 메인 채팅으로 제한하는 호스트라면 그 채팅에서만 수행한다. 하위 에이전트나 다른 채팅으로 옮겨 제한을 우회하지 않는다.
-2. 현재 작업에서 변경을 실행할 담당을 한 곳으로 정한다. 같은 대상에 충돌하는 변경을 병렬로 보내지 않으며, 다음 변경을 보내기 전에 앞선 변경의 진행 상태와 결과를 확인한다.
-3. 선택한 연결을 재사용한다. 연결이나 변수의 이름만 보고 대상이 같다고 추정하지 않는다. 정확한 대상과 범위는 [작업 대상 지침](target.md)으로 확인한다.
-4. 실행 담당이나 연결이 바뀌면 원래 요청 범위와 마지막으로 확인한 상태를 이어받는다. 새 담당이나 연결이라는 이유로 진행 중인 변경을 새 작업처럼 다시 보내지 않는다.
+1. Check the current host's official initialization instructions for the permitted chat, execution owner, and session scope. If the host restricts native UI operations to the main chat that requested them, perform them only in that chat. Respect the restriction when considering a subagent or a different chat.
+2. Assign one execution owner to make changes for the current task. Do not send conflicting changes to the same target in parallel. Check the progress and outcome of the preceding change before sending the next one.
+3. Reuse the selected connection. Verify the target independently of the connection or variable name. Follow the [target guidance](target.md) to confirm the exact target and scope.
+4. Carry forward the original request scope and the last confirmed state whenever the execution owner or connection changes. Keep tracking any change in progress without resending it as new work.
 
-도구가 다른 작업의 점유, 진행 중 입력이나 중복 연결을 알리면 후속 변경을 멈추고 문서화된 상태 확인과 대기 절차를 따른다. 다른 별칭, 연결, 브라우저나 채팅으로 같은 변경을 보내거나 다른 작업의 점유를 강제로 해제하지 않는다. 현재 작업의 순차 실행과 확인된 충돌에 대응하며, 관측할 수 없는 모든 채팅의 작업을 전역으로 탐지하거나 차단한다고 보장하지 않는다.
+If the tool reports that another task is using the target, that input is in progress, or that a connection is duplicated, stop sending changes and follow the documented status and waiting procedures. Do not send the same change through another alias, connection, browser, or chat, or forcibly release another task's control. These rules serialize the current task's operations and address confirmed conflicts. Avoid promising detection or blocking of activity in chats outside your observation.
 
-## 응답과 진행 상태에 따른 행동
+## How to respond to tool status
 
-오류라는 이유만으로 모두 같은 상태로 처리하지 않는다. 변경이 도구에 전달됐는지와 그 결과를 확인할 수 있는지를 구분한다.
+Classify an error by whether the change reached the tool and whether its outcome can be confirmed.
 
-| 확인한 근거 | 다음 행동 |
+| Confirmed evidence | Next action |
 | --- | --- |
-| 도구가 변경을 보내기 전에 거절했고, 입력이 전송되지 않았다고 확인됨 | 거절 원인을 해결하고 현재 대상과 입력 정보를 다시 확인한다. 기존 승인과 공식 절차 안에서 새 시도를 할 수 있다. 일반 오류나 timeout만으로 전달 전 거절이라고 추정하지 않는다. |
-| 도구가 작업 진행 중이라고 알림 | 같은 변경이나 충돌하는 후속 변경을 보내지 않는다. 지원되는 대기와 상태 확인으로 정착을 확인한다. |
-| 변경 호출이 정상 반환됨 | 같은 대상에서 요청 효과를 새로 확인한다. 정상 반환만으로 완료라고 보고하지 않는다. 결과를 확인할 수 없으면 미확정으로 남긴다. |
-| 전달한 변경의 응답이 끊기거나 결과가 불명확함 | 같은 변경을 재전송하지 않는다. 지원되는 상태 확인과 취소 절차를 사용하고 doctor에 인계한다. timeout은 취소나 미실행의 증거가 아니다. |
-| 변경을 보내지 않은 조회만 실패함 | 선택한 연결의 공식 조회 오류 대응을 따른다. 조회 실패만으로 자체 영구 잠금을 만들지 않는다. 앞선 변경이 미확정이었다면 그 상태는 그대로 유지한다. |
+| The tool rejected the change before sending it and confirmed that it sent no input | Resolve the reason for rejection and recheck the current target and input details. Try again if existing authorization and the official procedure permit it. A generic error or timeout alone is insufficient evidence of rejection before dispatch. |
+| The tool reports that work is in progress | Hold the same change and any conflicting follow-up. Use supported waiting and status checks to confirm that the operation has settled. |
+| The change call returns normally | Check the requested effect again on the same target. Report completion only after confirming the effect. If you cannot confirm it, keep the outcome marked as unclear. |
+| The response to a dispatched change is interrupted or its outcome is unclear | Do not resend the change. Use supported status and cancellation procedures and hand off to doctor. A timeout alone is insufficient evidence of cancellation or non-execution. |
+| Only a query failed and it sent no change | Follow the official error procedure for queries on the selected connection. Avoid creating a permanent lock based on a query failure alone. If the outcome of an earlier change was unclear, preserve that state. |
 
-상태 확인 조회가 실패했다고 앞선 변경을 미실행으로 바꾸지 않는다. 화면이 그대로라는 사실만으로도 변경이 전송되지 않았다고 판단하지 않는다. 이미 도구가 관찰이나 재연결까지 제한한 상태라면 그 보호를 지키고, 별도 도구로 우회해 결과를 추측하지 않는다.
+Preserve the earlier change's execution state if a status query fails. The failed query and an unchanged screen are each insufficient evidence that the change was never sent. If the tool has restricted observation or reconnection, honor that safeguard. Do not bypass it with a separate tool to guess the outcome.
 
-## 결과가 불명확할 때
+## When the outcome is unclear
 
-- 후속 변경을 멈추고 마지막으로 확인한 대상, 시도한 단계, 전달 여부의 근거, 도구가 알린 진행 상태와 아직 확인하지 못한 효과를 구분한다. [doctor](../../ccuh-doctor/SKILL.md)에 이 상태를 이어 주며 정상 작업부터 다시 시작하지 않는다.
-- reset, 재연결, 실행 담당 변경이나 기존 보호 기록 삭제로 같은 변경을 다시 보낼 수 있는 상태를 만들지 않는다. 다른 채팅으로 넘길 때도 미확정 변경이 있다는 사실을 유지한다.
-- 늦게 도착한 응답이나 취소 요청의 반환만으로 미확정 상태가 해소됐다고 보지 않는다. 공식 도구가 무엇을 확정하는지 확인하고, 지원되는 방법으로 원래 대상의 실제 효과와 남은 작업을 대조한다.
-- 상태 확인으로 이미 반영된 효과가 확인되면 그 단계를 반복하지 않는다. 미실행이 확인되고 기존 도구의 보호 상태와 공식 절차가 재시도를 허용할 때만 필요한 단계를 다시 수행한다. 실행 여부를 확인할 수 없으면 미확정으로 남기고 필요한 조치를 보고한다.
+- Stop further changes. Distinguish the last confirmed target, the step attempted, the evidence of dispatch, the status reported by the tool, and the effects you have yet to confirm. Carry that state into [doctor](../../ccuh-doctor/SKILL.md) and preserve the progress of the original task.
+- Do not use a reset, reconnection, change of execution owner, or deletion of existing safeguard records to make the same change eligible for replay. Carry any change with an unclear outcome into a handoff to another chat.
+- A late response or the return from a cancellation request is insufficient to resolve an unclear outcome on its own. Check what the official tool confirms, then use supported methods to compare the actual effect on the original target with the work that remains.
+- Skip steps whose effects the status check confirms. Repeat a necessary step only if you confirm that it never ran and the tool's safeguards and official procedures permit a retry. If you cannot determine whether it ran, keep the outcome marked as unclear and report the action needed.
 
-진단이나 복구의 담당과 승인 범위는 doctor가 판단한다. 같은 오류를 무작정 반복하거나 상태 확인을 명목으로 요청과 무관한 앱, 채팅이나 로그를 조사하지 않는다.
+Doctor determines who can diagnose or recover the task and what authorization applies. Avoid repeating a failing action without new evidence or investigating apps, chats, or logs outside the request under the guise of checking status.
 
-## 정상 종료와 재연결
+## Normal cleanup and reconnection
 
-1. 완료를 보고하기 전에 같은 대상에서 요청 효과를 확인한다. 결과 확인의 대상과 범위는 [작업 대상 지침](target.md)을 따른다.
-2. 진행 중이거나 결과가 불명확한 변경이 남아 있는지 확인한다. 남아 있다면 작업을 완료로 보고하거나 정상 종료로 가장해 보호 상태를 해제하지 않는다.
-3. 정상 작업은 해당 호스트가 문서화한 정리 절차를 수행한다. 현재 작업이 소유한 연결과 자원만 정리하며, 도구가 별도 종료 API를 제공하지 않으면 임의의 종료 호출이나 자체 예약 해제 절차를 만들지 않는다.
-4. 실제 연결 끊김이 확인되면 공식 복구 절차로 연결을 다시 얻고 원래 대상과 범위를 확인한다. 변수 참조 누락, 탭 부재나 조회 오류만으로 연결 끊김을 단정하지 않는다. 미확정 변경의 보호 상태를 우회하는 재연결은 하지 않는다.
-5. 복구나 사용자 조작 뒤에는 현재 상태를 확인하고 이미 수행된 부분을 제외한 나머지 작업을 이어간다. 연결이 복구됐다는 사실만으로 앞선 변경의 성공이나 취소를 확정하지 않는다.
+1. Before reporting completion, confirm the requested effect on the same target. Follow the [target guidance](target.md) for the target and scope of that check.
+2. Check for changes still in progress or with unclear outcomes. While any remain, preserve the safeguards and treat the task as incomplete.
+3. When work finishes normally, follow the host's documented cleanup procedure. Clean up only the connections and resources owned by the current task. If the tool offers no separate shutdown API, avoid inventing a shutdown call or a procedure for releasing your own reservation.
+4. If you confirm a disconnect, reconnect through the official recovery procedure and verify the original target and scope. A missing variable reference, absent tab, or failed query alone is insufficient evidence of a disconnect. Do not reconnect in a way that bypasses safeguards for changes with unclear outcomes.
+5. After recovery or a user action, check the current state and continue with the unfinished work. Confirm any earlier change's success or cancellation independently of connection recovery.
 
-## 다른 지침과의 경계
+## Related guidance
 
-- 앱, 창, 문서와 탭의 식별, 요청 범위와 지원되는 창 상태는 [작업 대상 지침](target.md)을 따른다.
-- 키보드, 마우스, 화면과 클립보드 보호 및 실제 간섭 대응은 [사용자 작업 보호 지침](user-work-protection.md)을 따른다.
-- 각 입력에 사용할 최신 관측과 입력 대상은 [입력 대상 지침](input-target.md)을 따른다. 자체 참조 토큰이나 만료 저장소를 추가하지 않는다.
-- 오류가 작업을 막거나 사용자가 별도 진단을 요청하면 [doctor](../../ccuh-doctor/SKILL.md)로 연결한다. 정상 작업마다 진단을 추가하지 않는다.
+- Follow the [target guidance](target.md) for app, window, document, and tab identification, request scope, and supported window states.
+- Follow the [user work protection guidance](user-work-protection.md) for keyboard, mouse, screen, and clipboard protection and for handling confirmed interference.
+- Follow the [input target guidance](input-target.md) to use a fresh observation and the correct target for each input. Avoid adding custom reference tokens or expiry storage.
+- Hand off to [doctor](../../ccuh-doctor/SKILL.md) when an error blocks work or the user requests a separate diagnosis. Keep diagnosis conditional during normal work.

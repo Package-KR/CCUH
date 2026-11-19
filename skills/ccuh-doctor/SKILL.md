@@ -1,34 +1,34 @@
 ---
 name: ccuh-doctor
-description: Computer Use의 초기화, 인증, 권한, 연결과 대상 오류가 작업을 막거나 변경 결과가 불명확할 때 원인과 다음 조치의 담당을 구분한다. 별도 진단 요청에도 적용하며 정상 UI 작업마다 실행하지 않는다.
+description: Diagnose Computer Use initialization, authentication, permission, connection, and target errors when they block work or leave the outcome of a change unclear. Identify the cause and who should take the next step. Also use when diagnosis is requested explicitly. Skip routine UI work.
 ---
 
 # CCUH Doctor
 
-공식 Computer Use의 오류와 진단 절차로 현재 문제를 좁힌다. 사용자가 doctor를 따로 호출하지 않아도 오류가 작업을 막으면 적용한다. 진단이 설정 변경, 설치나 불확실한 입력의 재전송을 자동 승인하지 않는다.
+Use errors and diagnostic procedures from the official Computer Use tools to narrow down the problem. Apply this skill when an error blocks work, even if the user did not invoke it explicitly. A request for diagnosis gives no automatic approval to change settings, install anything, or resend input whose outcome is unclear.
 
-## 진단 시작
+## Start the diagnosis
 
-1. 이미 받은 오류 응답, 현재 요청 대상, 마지막 확인 단계와 변경 전달 여부를 먼저 확인한다. 이 근거만으로 분석할 수 있으면 UI 초기화와 내용 조회를 하지 않는다.
-2. [진단과 조치 담당](references/diagnosis-and-handoff.md)을 읽고 관측한 사실, 가능한 원인과 아직 확인하지 못한 것을 구분한다. 일반 작업에서 넘어왔다면 진행 중이거나 미확정인 변경 상태를 그대로 이어받는다.
-3. 추가 확인이 필요하면 현재 호스트의 공식 진단에서 문제를 구분할 최소 항목만 사용한다. 관련 없는 로그, 전체 환경, 다른 앱이나 다른 채팅을 수집하지 않는다. 별도 설치 검사기나 오류 분류 엔진을 만들지 않는다.
-4. 필요한 조치의 담당과 이미 허용된 범위를 확인한다. AI가 처리할 수 있는 공식 복구는 AI가 맡고, 실제로 사용자만 수행해야 하는 단계는 한 가지씩 안내한다.
+1. Start with the error response already received, the requested target, the last verified step, and whether the change was sent. If that evidence is sufficient, finish the analysis without initializing the UI or retrieving its contents.
+2. Read [Diagnosis and handoff](references/diagnosis-and-handoff.md). Distinguish observed facts, possible causes, and what remains unverified. When taking over from a routine task, carry forward any change in progress or whose outcome is unclear.
+3. If more evidence is needed, use only the official diagnostics on the current host that are necessary to distinguish the possible causes. Leave unrelated logs, the full environment, other apps, and other chats untouched. Do not build a separate installation checker or error classifier.
+4. Identify who should take the required action and check what is already authorized. The AI handles any official recovery it can perform and guides the user through steps only they can perform, one at a time.
 
-## UI 관찰이나 복구로 넘어갈 때
+## Before observing the UI or attempting recovery
 
-진단 분석만 하는 동안에는 UI에 접근하지 않는다. 현재 호스트가 doctor를 읽기 전용으로 제한하면 그 제한을 유지하고, 지원되는 일반 작업 절차에 복구를 인계한다.
+Keep the UI untouched during diagnostic analysis. If the current host restricts Doctor to read-only access, honor that restriction and hand recovery over to the supported standard workflow.
 
-UI를 새로 관찰하거나 조작하려면 먼저 일반 [ccuh](../ccuh/SKILL.md)의 선택 기준과 다음 원문을 적용한다.
+Before observing or interacting with the UI, apply the selection criteria in the main [ccuh](../ccuh/SKILL.md) skill and the following guidance.
 
-- [실행 상태](../ccuh/references/execution-state.md): 실행 담당, 진행 중과 미확정 변경, 연결과 종료.
-- [작업 대상](../ccuh/references/target.md): 원래 앱, 창, 문서나 탭과 요청 범위.
-- [사용자 작업 보호](../ccuh/references/user-work-protection.md): 기본 모드의 무간섭과 감시 모드의 표시 조건.
-- [입력 대상](../ccuh/references/input-target.md): 실제 입력이 필요한 경우 최신 관찰에서 선택.
+- [Execution state](../ccuh/references/execution-state.md) covers who executes the work, changes in progress or with unclear outcomes, connection, and shutdown.
+- [Work target](../ccuh/references/target.md) covers the original app, window, document, or tab and the scope of the request.
+- [User work protection](../ccuh/references/user-work-protection.md) covers avoiding interference in default mode and when to show the work window in watch mode.
+- [Input target](../ccuh/references/input-target.md) covers choosing a target from the most recent observation when input is needed.
 
-새 연결이나 새 담당이라는 이유로 미확정 변경을 다시 보내거나 기존 보호 상태를 지우지 않는다. 공식 도구의 현재 보호 상태와 복구 계약을 따른다.
+Carry unresolved changes and existing safeguards across a new connection or handoff. Do not resend an unresolved change or clear those safeguards simply because the connection or person responsible changed. Follow the official tool's current safeguards and recovery contract.
 
-## 진단 종료와 작업 재개
+## Finish diagnosis and resume work
 
-- 원인과 다음 단계가 확인되면 정상 작업마다 진단을 반복하지 않는다. 사용자 조치나 복구 후 상태를 확인하고 이미 수행된 부분을 제외한 작업을 이어간다.
-- 해결되지 않으면 확인한 오류, 마지막 확인 단계, 변경 결과의 확정 여부와 필요한 다음 조치를 짧게 알린다. 추정 원인을 확정 사실로, 연결 복구를 작업 완료로 보고하지 않는다.
-- 정상 정리는 실행 상태 지침과 공식 수명주기를 따른다. 진행 중이거나 미확정인 작업을 정상 종료로 처리해 보호를 해제하지 않는다.
+- Once the cause and next step are clear, skip repeat diagnosis during routine work. After user action or recovery, verify the state and resume only the remaining work.
+- If the issue remains unresolved, briefly report the observed error, the last verified step, whether the change's outcome is known, and the next action needed. Label suspected causes as such and report connection recovery separately from task completion.
+- Follow the execution-state guidance and the official lifecycle for normal cleanup. Keep safeguards in place for work in progress or with an unclear outcome.
