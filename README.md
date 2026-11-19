@@ -1,34 +1,124 @@
+<div align="center">
+
 # CCUH
 
-CCUH (Codex Computer Use Helpers)는 Codex 데스크톱의 공식 Computer Use가 앱이나 브라우저를 조작할 때 작업 보호 지침을 연결합니다. 두 스킬은 올바른 작업 대상과 입력 경로를 확인하고, 오류가 나면 가능한 복구와 사용자 조치를 구분합니다.
+**Codex Computer Use Helpers**
 
-## Codex에 스킬 추가
+**English** | [한국어](README.ko.md)
 
-Codex 채팅에서 아래 요청을 한 번 보내세요.
+</div>
 
-```text
-$skill-installer dijeungi/CCUH의 main 브랜치에서 skills/ccuh와 skills/ccuh-doctor를 함께 설치해 줘.
+## About
+
+CCUH provides two skills that help Codex confirm the target and input method for Computer Use tasks and respond to errors or unclear outcomes. The official Computer Use tool in Codex desktop performs the UI actions.
+
+## Features
+
+<table>
+  <thead>
+    <tr>
+      <th>Feature</th>
+      <th>What it does</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="#installation">Automatic integration</a></td>
+      <td>A trusted hook loads CCUH guidance before supported Computer Use calls.</td>
+    </tr>
+    <tr>
+      <td><a href="skills/ccuh/references/target.md">Work target</a></td>
+      <td>
+        <details>
+          <summary>Apps, tabs, and windows</summary>
+          <ul>
+            <li><strong>Reuse open apps and windows</strong> — Confirm and reuse the requested window or document when it is already open.</li>
+            <li><strong>Find and rediscover browser tabs</strong> — Use the official lookup to find the requested tab and distinguish a missing tab from a lost connection.</li>
+            <li><strong>Verify scope and outcome</strong> — Check the requested target and scope before and after observing or acting, and confirm the requested effect.</li>
+            <li><strong>Check window state and support</strong> — Confirm that the requested action is supported in the current window state, such as a hidden or minimized window or an app with multiple windows.</li>
+          </ul>
+        </details>
+      </td>
+    </tr>
+    <tr>
+      <td><a href="skills/ccuh/references/user-work-protection.md">User work protection</a></td>
+      <td>
+        <details>
+          <summary>Background input and focus</summary>
+          <ul>
+            <li><strong>Choose a background input method</strong> — Use an input method supported by the current window that avoids interfering with the user's work.</li>
+            <li><strong>Click and scroll in inactive windows</strong> — Check whether the official tool supports the action in that window and whether it could interfere with the user's input.</li>
+            <li><strong>Respond to focus and input interference</strong> — Stop further actions and check the task state when actual interference or a user interruption is confirmed.</li>
+          </ul>
+        </details>
+      </td>
+    </tr>
+    <tr>
+      <td><a href="skills/ccuh/references/input-target.md">Input target</a></td>
+      <td>Use the latest observation before clicking or typing. Find the button or field again when the UI changes.</td>
+    </tr>
+    <tr>
+      <td><a href="skills/ccuh/references/execution-state.md">Execution state</a></td>
+      <td>
+        <details>
+          <summary>Execution and change status</summary>
+          <ul>
+            <li><strong>Check who can operate native apps</strong> — Before starting UI work, check which chat and agent the host allows to act.</li>
+            <li><strong>Manage duplicate connections and concurrent input</strong> — Reuse the selected connection, check whether the tool is busy, and handle conflicting changes sequentially.</li>
+            <li><strong>Protect changes with unclear outcomes</strong> — Hold off on resending the change and check its status through an official route.</li>
+            <li><strong>Clean up and reconnect</strong> — Verify the outcome before following the official cleanup procedure. Use the official recovery procedure when a disconnect is confirmed.</li>
+          </ul>
+        </details>
+      </td>
+    </tr>
+    <tr>
+      <td><a href="skills/ccuh-doctor/SKILL.md">CCUH Doctor</a></td>
+      <td>
+        <details>
+          <summary>Errors and recovery</summary>
+          <ul>
+            <li><strong>Check the error</strong> — Use official tool errors and state to distinguish initialization, authentication, permission, connection, and target issues.</li>
+            <li><strong>Recover</strong> — Codex uses supported procedures such as reconnecting within existing approvals. The user handles steps that require them, such as identity verification or granting permission.</li>
+            <li><strong>Duplicate submission example</strong> — If the response times out after clicking Submit, check whether the same page shows a successful submission. If the outcome remains unclear, do not submit again.</li>
+          </ul>
+        </details>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+## How it works
+
+When automatic integration is installed and trusted, a CCUH hook passes the `ccuh` entry skill to Codex before supported Computer Use calls, even if your request omits CCUH. Codex uses the entry skill's criteria to pick and read the relevant guidance, then works through official Computer Use. Codex reads `ccuh-doctor` only when it determines that diagnosis is needed.
+
+```mermaid
+flowchart TD
+  U["User request"] --> C["Codex decides to use Computer Use"]
+  C --> H["Trusted hook passes the ccuh entry skill"]
+  P["First-time setup<br/>Install the CCUH plugin, then trust its hooks"] -.-> H
+  H --> S["Codex picks and reads the relevant guidance"]
+  S --> B["Official Computer Use performs the task"]
+  B --> R{"Does Codex need to diagnose an issue?"}
+  R -->|"Yes"| D["Codex reads ccuh-doctor"]
+  R -->|"No"| F["Continue or finish the task"]
 ```
 
-설치 후 새 채팅에서 `ccuh`는 Computer Use 작업에, `ccuh-doctor`는 오류 진단에 쓸 수 있습니다. 요청이 스킬 설명에 맞으면 Codex가 스킬을 선택할 수도 있습니다.
+## Installation
 
-## 자동 연동 플러그인 설치
-
-macOS의 Codex 데스크톱에서 공식 Computer Use를 활성화하고 Python 3.9 이상을 준비하세요. 아래 명령은 Codex CLI에서 실행합니다.
+The CCUH plugin installs both `ccuh` and `ccuh-doctor` along with the automatic integration hooks. On macOS, enable official Computer Use in Codex desktop and make sure the app can run `node`. Paste this line into a terminal with the Codex CLI.
 
 ```sh
-codex plugin marketplace add dijeungi/CCUH --ref main
-codex plugin add ccuh@ccuh-preview
+codex plugin marketplace add dijeungi/CCUH --ref main && codex plugin add ccuh@ccuh-preview
 ```
 
-[릴리스 ZIP](https://github.com/dijeungi/CCUH/archive/refs/heads/main.zip)으로 설치하려면 압축을 푼 뒤 첫 명령의 GitHub 주소와 버전 옵션 대신 압축을 푼 폴더의 절대 경로를 넣으세요.
+After installation, review and trust the CCUH hooks in **Settings → Hooks**, then start a new chat. CCUH applies automatically on supported Computer Use calls. [Review and trust hooks](https://learn.chatgpt.com/docs/hooks#review-and-trust-hooks)
 
-Codex의 **Settings → Hooks**에서 CCUH 훅을 검토하고 신뢰한 뒤 새 채팅을 시작하세요. 이후 평소처럼 공식 Computer Use로 작업을 요청하세요.
+If you downloaded the [preview ZIP](https://github.com/dijeungi/CCUH/archive/refs/heads/main.zip), replace `dijeungi/CCUH --ref main` in the line above with the absolute path to the extracted folder, enclosed in double quotes.
 
-## 사용
+## Usage
 
-- 기본 모드에서는 현재 환경이 지원하는 사용자 작업 보호 경로를 선택합니다.
-- 작업 창을 보려면 요청에 “작업 중인 창도 보여줘”를 추가하세요. 창 표시와 백그라운드 입력은 대상 앱과 Codex 환경의 지원 범위에 따릅니다.
-- 훅은 지원되는 호출 경로에서 작업 전에 스킬 지침을 연결합니다. 실제 조작과 권한 요청은 Codex의 공식 Computer Use가 처리합니다.
+In default mode, CCUH selects a method that avoids interfering with your work in the current environment. To watch the work, add “Show me the window you're working in” to your request. Window visibility and background input depend on what the target app and Codex environment support.
 
-[Codex 플러그인 설치](https://developers.openai.com/plugins/build/plugins) | [훅 검토와 신뢰](https://learn.chatgpt.com/docs/hooks#review-and-trust-hooks)
+## License
+
+[MIT](LICENSE)

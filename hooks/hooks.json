@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/hooks/ccuh_hook.py\"",
+            "command": "node \"${PLUGIN_ROOT}/hooks/ccuh_hook.mjs\"",
             "timeout": 5
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/hooks/ccuh_hook.py\"",
+            "command": "node \"${PLUGIN_ROOT}/hooks/ccuh_hook.mjs\"",
             "timeout": 5
           }
         ]
@@ -27,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/hooks/ccuh_hook.py\"",
+            "command": "node \"${PLUGIN_ROOT}/hooks/ccuh_hook.mjs\"",
             "timeout": 5
           }
         ]
@@ -39,7 +39,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/hooks/ccuh_hook.py\"",
+            "command": "node \"${PLUGIN_ROOT}/hooks/ccuh_hook.mjs\"",
             "timeout": 5
           }
         ]
