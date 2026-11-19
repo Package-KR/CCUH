@@ -10,6 +10,11 @@ A Codex plugin for existing Chrome tab workflows and supported Computer Use reco
 
 </div>
 
+<!-- ccuh-current-preview -->
+> **CCUH 0.1.0 Preview**
+> Get the current Computer Use plugin with automatic hooks from the [release branch](https://github.com/dijeungi/CCUH/tree/release), or [download the ZIP](https://github.com/dijeungi/CCUH/archive/refs/heads/release.zip). The release branch includes installation instructions.
+
+
 ## About
 
 CCUH is a **Codex plugin** containing two skills and executable helper scripts. Adding the plugin installs both:
