@@ -1,0 +1,92 @@
+name: Publish CCUH release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .codex-plugin/plugin.json
+      - .github/workflows/release.yml
+      - README.md
+      - README.ko.md
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ccuh-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+
+      - name: Sync the install tag in both READMEs
+        id: version
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          manifest = Path(".codex-plugin/plugin.json")
+          version = json.loads(manifest.read_text(encoding="utf-8"))["version"]
+          number = r"(?:0|[1-9][0-9]*)"
+          suffix = r"[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*"
+          pattern = rf"{number}\.{number}\.{number}(?:-{suffix})?(?:\+{suffix})?"
+          if not isinstance(version, str) or not re.fullmatch(pattern, version):
+              raise SystemExit(f"Invalid plugin version in {manifest}")
+
+          tag = f"v{version}"
+          prefix = "codex plugin marketplace add dijeungi/CCUH --ref "
+          continuation = " && codex plugin add ccuh@ccuh-preview"
+          install = re.compile(rf"^{re.escape(prefix)}\S+{re.escape(continuation)}$", re.MULTILINE)
+          updated = {}
+          for path in (Path("README.md"), Path("README.ko.md")):
+              text = path.read_text(encoding="utf-8")
+              revised, count = install.subn(f"{prefix}{tag}{continuation}", text)
+              if count != 1:
+                  raise SystemExit(f"Expected exactly one CCUH install command in {path}")
+              if revised != text:
+                  updated[path] = revised
+          for path, revised in updated.items():
+              path.write_text(revised, encoding="utf-8")
+
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
+              print(f"tag={tag}", file=output)
+              print(f"prerelease={str('-' in version.split('+', 1)[0]).lower()}", file=output)
+          PY
+
+      - name: Publish the matching tag and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+
+          if ! git diff --quiet -- README.md README.ko.md; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add -- README.md README.ko.md
+            git commit -m "docs: CCUH 설치 버전을 ${RELEASE_TAG}로 동기화"
+          fi
+
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json tagName >/dev/null 2>&1; then
+            git push --no-follow-tags origin HEAD:refs/heads/main
+            exit 0
+          fi
+
+          git push --atomic --no-follow-tags origin HEAD:refs/heads/main "HEAD:refs/tags/$RELEASE_TAG"
+          flags=()
+          if [[ "$PRERELEASE" == true ]]; then
+            flags+=(--prerelease)
+          fi
+          gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "CCUH $RELEASE_TAG" --generate-notes "${flags[@]}"
