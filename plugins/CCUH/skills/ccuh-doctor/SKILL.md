@@ -7,6 +7,8 @@ description: Diagnose Computer Use initialization, authentication, permission, c
 
 Use errors and diagnostic procedures from the official Computer Use tools to narrow down the problem. Apply this skill when an error blocks work, even if the user did not invoke it explicitly. A request for diagnosis gives no automatic approval to change settings, install anything, or resend input whose outcome is unclear.
 
+When diagnosing or recovering a task, describe the observed error and the next check in plain language. For example, “The browser couldn't open the page. I'll check whether the tab was created.” Leave the name and use of this skill out of routine progress and results. Explain the guidance when the user asks about it.
+
 ## Start the diagnosis
 
 1. Start with the error response already received, the requested target, the last verified step, and whether the change was sent. If that evidence is sufficient, finish the analysis without initializing the UI or retrieving its contents.
