@@ -28,7 +28,9 @@ Before sending the next input, check the [input target](input-target.md). If the
 - Watch mode is off by default. Enable it only at the user's request. Show the actual app or browser window you are working in using the official display feature.
 - Show the actual work window. If the host lacks support for displaying it, state the limitation and avoid presenting a recreation, a set of screenshots, or another window as the work window.
 - Watch mode changes visibility only. The input permissions, target scope, stopping conditions, and supported tasks are the same as in default mode. Do not introduce user intervention or step-by-step approval as a requirement of watch mode.
-- If the display method would change the user's focus or workspace, check for a display method that preserves both. Respect the current host's restrictions on activation and forced restoration when showing the window.
+- Prefer a display method that preserves the user's focus and workspace. Preserve fullscreen and the existing window layout. A request to see the work does not authorize restoring a fullscreen window to normal, resizing it, or moving a tab to another window.
+
+For an external browser, use a documented display or tab selection action for the identified work tab. Confirm that the work tab is selected in the same visible window and that its window state is unchanged. Focusing a window or capturing a tab screenshot is insufficient evidence that the work tab is visible. If no supported method can display and verify that tab within these limits, report the limitation.
 
 When the user explicitly requests the Codex in-app browser, show its work tab with the official visibility controls available on the current host. Use the bound tab's `providerTabId` if the app can show that tab in the current chat's panel. A request marked `queued` indicates acceptance. Confirm that the same work tab is actually visible before reporting success. If the work tab cannot be addressed or its display remains unconfirmed, report the limitation and leave the selected target in place.
 
