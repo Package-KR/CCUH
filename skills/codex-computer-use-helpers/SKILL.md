@@ -7,6 +7,8 @@ description: Select CCUH guidance for the task when using Computer Use to observ
 
 Use alongside the official Computer Use skill. Follow the selection criteria below to read the relevant guidance, then use official Computer Use to carry out the user's task. Proceed without asking the user to explicitly invoke CCUH each time.
 
+Use this automatically supplied guidance as part of the requested task. In routine updates, describe the next user-visible action, such as “I'll open the requested window.” When an error occurs, report what failed and what you can verify next. Leave skill names, explanations about loading or applying guidance, and raw tool codes out of those updates. Explain those details when the user asks about them.
+
 ## Before starting
 
 1. Identify the requested task, its target, and the authorized scope. Use the request and approvals already established.
@@ -28,7 +30,6 @@ Resolve paths relative to this `SKILL.md`. If multiple conditions apply, follow 
 ## Applying the selected guidance
 
 - For read-only work, apply the first three references. Add the input target guidance when input is needed. Reserve Doctor for tasks that meet the diagnosis criteria.
-- Start routine updates with the requested action. Describe observed blockers and results in plain language. Omit explanations about reading or applying skills or supporting guidance. Discuss those details and raw tool error codes when the user asks for them.
 - If the guidance is already in the current context, keep applying it without rereading it for every operation. Recheck the relevant conditions when the target or state changes.
 - If context summarization or resuming a task leaves required guidance unavailable in the current context, reread it before the next UI action. A record of having read it earlier is insufficient to confirm the current rules.
 - Apply the same selection criteria if Doctor moves from diagnosis alone to UI observation or a recovery operation. Keep the work off the UI when the error response is sufficient for diagnosis.
