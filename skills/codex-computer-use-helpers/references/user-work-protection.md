@@ -6,8 +6,8 @@ Read this before the first UI observation. Reapply it when the input method or v
 
 Choose a method that lets the user keep using the keyboard and mouse on the same computer. Use a default input method that does not rely on showing the work window or taking the user's focus.
 
-1. Check what the current official tool offers for the target, including observation, setting element values, clicking, and scrolling. The existence of an API alone is insufficient evidence that it works in the background or avoids interference.
-2. Among methods supported for this target and window state, choose one that leaves the user's input and screen undisturbed. Distinguish confirmed capabilities from what has been verified in practice.
+1. When the task needs a new surface, prefer a separate work window or tab that the official tool can open and address in the background. Keep the user's existing windows, tabs, and focus in place. Use a minimized work window when the host supports opening and operating it without taking focus. For an existing target, preserve the window or tab the user requested.
+2. Check which official actions work for the chosen target and window state, including observation, clicking, scrolling, and value changes as needed. Choose actions that leave the user's input and screen undisturbed. Distinguish documented support from what has been verified in practice.
 3. If that method cannot produce the requested effect, diagnose the limitations of the current approach. Do not silently switch to activating a window, sending global keystrokes, or using another app. Report completion only for work whose support has been confirmed.
 
 Every supported task must be possible in default mode. Mark support for a platform or app as confirmed only after verifying that it meets this requirement.
@@ -34,7 +34,7 @@ In the Codex desktop IAB, prepare the work tab and use the official `visibility.
 
 ## When input conflicts with the user's work
 
-The user's activity in another app alone is insufficient reason to mark the task as failed. Distinguish the official tool's signals for user interruption or control handoff from concurrent edits to the same target and actual focus or input interference.
+Continue through a separately addressable work target while the user uses another app, window, or tab, including a different window or tab in the same app. If the official tool asks for a fresh observation, recheck the work target and any previous action before continuing. Treat an explicit interruption, control handoff, or confirmed input conflict according to the tool's recovery procedure.
 
 Stop further input if you confirm interference or interruption. Follow the [execution state](execution-state.md) guidance to check the outcome of any input already sent. Do not resend input whose outcome is unclear. While the user is still entering input, avoid overwriting the same element or taking back control from the user.
 

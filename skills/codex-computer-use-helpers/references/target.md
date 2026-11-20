@@ -5,6 +5,7 @@ Apply this guidance before selecting the initial target or observing the UI. Rec
 ## Request scope and existing targets
 
 - Use the app, browser, window, document, tab, and scope specified by the user. If the user provided an official reference or identifier, resolve it using the procedure for that host. Keep the specified target even if another name or URL is similar.
+- For work inside a browser page, first check for the official browser connection for the requested browser and profile. Use its tab-scoped actions when available. Use app-wide controls for browser interface work only when they can address the intended target safely.
 - If the user asks to work on an open target, reuse it. If it cannot be located, do not conceal that by switching apps or browsers or by creating a new window, tab, or duplicate document.
 - Opening an app, creating a document, or navigating to a page is in scope when the user requests it. Distinguish these actions from creating a substitute because the existing target could not be found. If an official recovery procedure creates a new target, first check that the original request authorizes it.
 
