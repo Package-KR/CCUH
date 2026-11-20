@@ -25,12 +25,12 @@ Before sending the next input, check the [input target](input-target.md). If the
 
 ## Watch mode
 
-- Watch mode is off by default. Enable it only at the user's request. Show the actual app or browser window you are working in using the official display feature.
-- Show the actual work window. If the host lacks support for displaying it, state the limitation and avoid presenting a recreation, a set of screenshots, or another window as the work window.
+- Watch mode is off by default. Enable it only at the user's request. Use the official display feature to make the actual work window visible before substantive navigation or input, then perform the task in that visible window.
+- If the host lacks support for displaying the actual work window, state the limitation. A recreation, a screenshot, or a window opened after the work is finished does not show the work in progress.
 - Watch mode changes visibility only. The input permissions, target scope, stopping conditions, and supported tasks are the same as in default mode. Do not introduce user intervention or step-by-step approval as a requirement of watch mode.
 - Prefer a display method that preserves the user's focus and workspace. Preserve fullscreen and the existing window layout. A request to see the work does not authorize restoring a fullscreen window to normal, resizing it, or moving a tab to another window.
 
-For an external browser, use a documented display or tab selection action for the identified work tab. Confirm that the work tab is selected in the same visible window and that its window state is unchanged. Focusing a window or capturing a tab screenshot is insufficient evidence that the work tab is visible. If no supported method can display and verify that tab within these limits, report the limitation.
+For an external browser, use a documented display or tab selection action for the identified work tab. If the user requests a new work window, prepare it in the requested display state first, then navigate in that window's tab. In Chrome, use the documented browser management capability for that window setup when available. Confirm that the work tab is selected in the visible window and verify the requested display state. Focusing a window or capturing a tab screenshot is insufficient evidence that the work tab is visible. If no supported method can display and verify that tab within these limits, report the limitation.
 
 When the user explicitly requests the Codex in-app browser, show its work tab with the official visibility controls available on the current host. Use the bound tab's `providerTabId` if the app can show that tab in the current chat's panel. A request marked `queued` indicates acceptance. Confirm that the same work tab is actually visible before reporting success. If the work tab cannot be addressed or its display remains unconfirmed, report the limitation and leave the selected target in place.
 
