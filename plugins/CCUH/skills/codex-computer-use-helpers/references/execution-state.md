@@ -30,6 +30,7 @@ Preserve the earlier change's execution state if a status query fails. The faile
 ## When the outcome is unclear
 
 - Stop further changes. Distinguish the last confirmed target, the step attempted, the evidence of dispatch, the status reported by the tool, and the effects you have yet to confirm. Carry that state into [doctor](../../ccuh-doctor/SKILL.md) and preserve the progress of the original task.
+- After a submission, treat a missing receipt or an app message that cannot confirm the outcome as unresolved even if the click itself completed. Check the same record through a read-only receipt or history view when available. An enabled Submit button or a generic retry message does not establish that the submission failed.
 - Do not use a reset, reconnection, change of execution owner, or deletion of existing safeguard records to make the same change eligible for replay. Carry any change with an unclear outcome into a handoff to another chat.
 - A late response or the return from a cancellation request is insufficient to resolve an unclear outcome on its own. Check what the official tool confirms, then use supported methods to compare the actual effect on the original target with the work that remains.
 - Skip steps whose effects the status check confirms. Repeat a necessary step only if you confirm that it never ran and the tool's safeguards and official procedures permit a retry. If you cannot determine whether it ran, keep the outcome marked as unclear and report the action needed.
