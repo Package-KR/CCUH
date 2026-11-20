@@ -30,7 +30,7 @@ Before sending the next input, check the [input target](input-target.md). If the
 - Watch mode changes visibility only. The input permissions, target scope, stopping conditions, and supported tasks are the same as in default mode. Do not introduce user intervention or step-by-step approval as a requirement of watch mode.
 - If the display method would change the user's focus or workspace, check for a display method that preserves both. Respect the current host's restrictions on activation and forced restoration when showing the window.
 
-In the Codex desktop IAB, prepare the work tab and use the official `visibility.set(true)` call. If the app offers an official feature to show the tab in its panel, use the bound tab's `providerTabId` to request display in the same chat. Use the identifier for an existing tab because passing only a URL may open a new one. A panel request marked `queued` has been accepted. While the app is processing the request, `visibility.get()` may briefly return `true`. Verify that the same work tab is selected and actually visible in the current chat's panel. If display remains unconfirmed, do not repeat the request or open another window.
+When the user explicitly requests the Codex in-app browser, show its work tab with the official visibility controls available on the current host. Use the bound tab's `providerTabId` if the app can show that tab in the current chat's panel. A request marked `queued` indicates acceptance. Confirm that the same work tab is actually visible before reporting success. If the work tab cannot be addressed or its display remains unconfirmed, report the limitation and leave the selected target in place.
 
 ## When input conflicts with the user's work
 
