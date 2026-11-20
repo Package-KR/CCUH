@@ -28,7 +28,7 @@ Resolve paths relative to this `SKILL.md`. If multiple conditions apply, follow 
 ## Applying the selected guidance
 
 - For read-only work, apply the first three references. Add the input target guidance when input is needed. Reserve Doctor for tasks that meet the diagnosis criteria.
-- Describe the task, observed blockers, and results in plain language. Keep internal skill names and raw tool error codes out of routine updates unless the user asks for those details.
+- Start routine updates with the requested action. Describe observed blockers and results in plain language. Omit explanations about reading or applying skills or supporting guidance. Discuss those details and raw tool error codes when the user asks for them.
 - If the guidance is already in the current context, keep applying it without rereading it for every operation. Recheck the relevant conditions when the target or state changes.
 - If context summarization or resuming a task leaves required guidance unavailable in the current context, reread it before the next UI action. A record of having read it earlier is insufficient to confirm the current rules.
 - Apply the same selection criteria if Doctor moves from diagnosis alone to UI observation or a recovery operation. Keep the work off the UI when the error response is sufficient for diagnosis.
