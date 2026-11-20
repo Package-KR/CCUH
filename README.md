@@ -134,7 +134,7 @@ The marketplace points to the latest published CCUH release. Codex uses it to up
 
 For web tasks, use the browser and profile you specify. Without a browser choice, CCUH prefers your existing external browser session. The Codex in-app browser is used only when you request it.
 
-In default mode, CCUH selects a method that avoids interfering with your work in the current environment. To watch the work, add “Show me the window you're working in” to your request. Window visibility and background input depend on what the target app and Codex environment support.
+In default mode, CCUH selects a method that preserves your focus. When supported, a new work window starts minimized. To watch the work, add “Show me the window you're working in” to your request. Window visibility and background input depend on what the target app and Codex environment support.
 
 On Windows, official Computer Use needs the active desktop to operate desktop apps. If that would interrupt your work, CCUH reports the limitation.
 
