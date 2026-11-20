@@ -6,9 +6,10 @@ Read this before the first UI observation. Reapply it when the input method or v
 
 Choose a method that lets the user keep using the keyboard and mouse on the same computer. Use a default input method that does not rely on showing the work window or taking the user's focus.
 
-1. When the task needs a new surface, prefer a separate work window or tab that the official tool can open and address in the background. Keep the user's existing windows, tabs, and focus in place. Use a minimized work window when the host supports opening and operating it without taking focus. For an existing target, preserve the window or tab the user requested.
-2. Check which official actions work for the chosen target and window state, including observation, clicking, scrolling, and value changes as needed. Choose actions that leave the user's input and screen undisturbed. Distinguish documented support from what has been verified in practice.
-3. If that method cannot produce the requested effect, diagnose the limitations of the current approach. Do not silently switch to activating a window, sending global keystrokes, or using another app. Report completion only for work whose support has been confirmed.
+1. Preserve the requested existing window or tab in its current state. When the task needs a new surface, use a separate work window or tab that the official tool can open and address in the background. Keep the user's existing windows, tabs, and focus in place.
+2. Start a new work window minimized by default when the official tool can create and operate it without taking focus. For Chrome with the documented browser management capability, create the work window with `state: "minimized"` and `focused: false`, then verify its state before navigating in its tab. If creation leaves the window unminimized, apply supported minimization to that new window only and recheck. If minimization is unavailable, use a supported non-activating method that meets the request.
+3. Check which official actions work for the chosen target and window state, including observation, clicking, scrolling, and value changes as needed. Verify that a minimized work window stays minimized after the task. Distinguish documented support from what has been verified in practice.
+4. If that method cannot produce the requested effect, diagnose the limitations of the current approach. Do not silently switch to activating a window, sending global keystrokes, or using another app. Report completion only for work whose support has been confirmed.
 
 Every supported task must be possible in default mode. Mark support for a platform or app as confirmed only after verifying that it meets this requirement.
 
