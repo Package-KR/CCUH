@@ -28,7 +28,7 @@ CCUH는 Codex 데스크톱에서 작업 대상과 입력 방법을 확인하도�
       <td>신뢰한 훅이 지원되는 Computer Use 호출 전에 CCUH 지침을 불러옵니다.</td>
     </tr>
     <tr>
-      <td><a href="skills/ccuh/references/target.md">작업 대상</a></td>
+      <td><a href="skills/codex-computer-use-helpers/references/target.md">작업 대상</a></td>
       <td>
         <details>
           <summary>앱, 탭과 창 상태</summary>
@@ -40,7 +40,7 @@ CCUH는 Codex 데스크톱에서 작업 대상과 입력 방법을 확인하도�
       </td>
     </tr>
     <tr>
-      <td><a href="skills/ccuh/references/user-work-protection.md">사용자 작업 보호</a></td>
+      <td><a href="skills/codex-computer-use-helpers/references/user-work-protection.md">사용자 작업 보호</a></td>
       <td>
         <details>
           <summary>백그라운드 입력과 포커스</summary>
@@ -51,11 +51,11 @@ CCUH는 Codex 데스크톱에서 작업 대상과 입력 방법을 확인하도�
       </td>
     </tr>
     <tr>
-      <td><a href="skills/ccuh/references/input-target.md">입력 대상</a></td>
+      <td><a href="skills/codex-computer-use-helpers/references/input-target.md">입력 대상</a></td>
       <td>클릭하거나 입력하기 직전에 최신 관측을 사용하고, 화면이 바뀌면 버튼이나 입력칸을 다시 찾습니다.</td>
     </tr>
     <tr>
-      <td><a href="skills/ccuh/references/execution-state.md">실행 상태</a></td>
+      <td><a href="skills/codex-computer-use-helpers/references/execution-state.md">실행 상태</a></td>
       <td>
         <details>
           <summary>실행 주체와 변경 상태</summary>
@@ -82,12 +82,12 @@ CCUH는 Codex 데스크톱에서 작업 대상과 입력 방법을 확인하도�
 
 ## 작동 원리
 
-자동 연동 훅을 설치하고 신뢰하면, CCUH를 따로 부르지 않아도 지원되는 Computer Use 호출 전에 훅이 `ccuh` 진입 스킬을 Codex에 전달합니다. Codex는 진입 스킬의 기준에 따라 작업에 필요한 지침을 골라 읽고 공식 Computer Use로 작업합니다. 진단이 필요하다고 판단할 때만 `ccuh-doctor` 지침을 읽습니다.
+자동 연동 훅을 설치하고 신뢰하면, CCUH를 따로 부르지 않아도 지원되는 Computer Use 호출 전에 훅이 `codex-computer-use-helpers` 진입 스킬을 Codex에 전달합니다. Codex는 진입 스킬의 기준에 따라 작업에 필요한 지침을 골라 읽고 공식 Computer Use로 작업합니다. 진단이 필요하다고 판단할 때만 `ccuh-doctor` 지침을 읽습니다.
 
 ```mermaid
 flowchart TD
   U["사용자 요청"] --> C["Codex가 Computer Use 사용 결정"]
-  C --> H["신뢰된 훅이 ccuh 진입 스킬 전달"]
+  C --> H["신뢰된 훅이 Codex Computer Use Helpers 스킬 전달"]
   P["최초 설정<br/>CCUH 플러그인 설치 후 훅 신뢰"] -.-> H
   H --> S["Codex가 필요한 지침을 골라 읽음"]
   S --> B["공식 Computer Use로 작업"]
@@ -98,7 +98,7 @@ flowchart TD
 
 ## 설치
 
-CCUH 플러그인을 설치하면 `ccuh`와 `ccuh-doctor` 스킬, 자동 연동 훅이 함께 설치됩니다. macOS용 Codex 데스크톱에서 공식 Computer Use를 활성화하고 앱에서 `node`를 실행할 수 있는지 확인하세요. Codex CLI가 있는 터미널에 아래 한 줄을 붙여 넣으세요.
+CCUH 플러그인을 설치하면 `codex-computer-use-helpers`와 `ccuh-doctor` 스킬, 자동 연동 훅이 함께 설치됩니다. macOS용 Codex 데스크톱에서 공식 Computer Use를 활성화하고 앱에서 `node`를 실행할 수 있는지 확인하세요. Codex CLI가 있는 터미널에 아래 한 줄을 붙여 넣으세요.
 
 ```sh
 codex plugin marketplace add Package-KR/CCUH --ref main && codex plugin add CCUH@CCUH

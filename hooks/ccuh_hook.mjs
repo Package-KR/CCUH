@@ -5,7 +5,7 @@ import { TextDecoder } from "node:util";
 
 const hookPath = realpathSync(fileURLToPath(import.meta.url));
 const pluginRoot = dirname(dirname(hookPath));
-const entryDirectory = join(pluginRoot, "skills", "ccuh");
+const entryDirectory = join(pluginRoot, "skills", "codex-computer-use-helpers");
 const entryPath = join(entryDirectory, "SKILL.md");
 const utf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 const lifecycleEvents = new Set(["SessionStart", "UserPromptSubmit", "SubagentStart"]);

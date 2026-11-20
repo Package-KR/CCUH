@@ -27,7 +27,7 @@ CCUH provides two skills that help Codex confirm the target and input method for
       <td>A trusted hook loads CCUH guidance before supported Computer Use calls.</td>
     </tr>
     <tr>
-      <td><a href="skills/ccuh/references/target.md">Work target</a></td>
+      <td><a href="skills/codex-computer-use-helpers/references/target.md">Work target</a></td>
       <td>
         <details>
           <summary>Apps, tabs, and windows</summary>
@@ -39,7 +39,7 @@ CCUH provides two skills that help Codex confirm the target and input method for
       </td>
     </tr>
     <tr>
-      <td><a href="skills/ccuh/references/user-work-protection.md">User work protection</a></td>
+      <td><a href="skills/codex-computer-use-helpers/references/user-work-protection.md">User work protection</a></td>
       <td>
         <details>
           <summary>Background input and focus</summary>
@@ -50,11 +50,11 @@ CCUH provides two skills that help Codex confirm the target and input method for
       </td>
     </tr>
     <tr>
-      <td><a href="skills/ccuh/references/input-target.md">Input target</a></td>
+      <td><a href="skills/codex-computer-use-helpers/references/input-target.md">Input target</a></td>
       <td>Use the latest observation before clicking or typing. Find the button or field again when the UI changes.</td>
     </tr>
     <tr>
-      <td><a href="skills/ccuh/references/execution-state.md">Execution state</a></td>
+      <td><a href="skills/codex-computer-use-helpers/references/execution-state.md">Execution state</a></td>
       <td>
         <details>
           <summary>Execution and change status</summary>
@@ -81,12 +81,12 @@ CCUH provides two skills that help Codex confirm the target and input method for
 
 ## How it works
 
-When automatic integration is installed and trusted, a CCUH hook passes the `ccuh` entry skill to Codex before supported Computer Use calls, even if your request omits CCUH. Codex uses the entry skill's criteria to pick and read the relevant guidance, then works through official Computer Use. Codex reads `ccuh-doctor` only when it determines that diagnosis is needed.
+When automatic integration is installed and trusted, a CCUH hook passes the `codex-computer-use-helpers` entry skill to Codex before supported Computer Use calls, even if your request omits CCUH. Codex uses the entry skill's criteria to pick and read the relevant guidance, then works through official Computer Use. Codex reads `ccuh-doctor` only when it determines that diagnosis is needed.
 
 ```mermaid
 flowchart TD
   U["User request"] --> C["Codex decides to use Computer Use"]
-  C --> H["Trusted hook passes the ccuh entry skill"]
+  C --> H["Trusted hook passes Codex Computer Use Helpers"]
   P["First-time setup<br/>Install the CCUH plugin, then trust its hooks"] -.-> H
   H --> S["Codex picks and reads the relevant guidance"]
   S --> B["Official Computer Use performs the task"]
@@ -97,7 +97,7 @@ flowchart TD
 
 ## Installation
 
-The CCUH plugin installs both `ccuh` and `ccuh-doctor` along with the automatic integration hooks. On macOS, enable official Computer Use in Codex desktop and make sure the app can run `node`. Paste this line into a terminal with the Codex CLI.
+The CCUH plugin installs both `codex-computer-use-helpers` and `ccuh-doctor` along with the automatic integration hooks. On macOS, enable official Computer Use in Codex desktop and make sure the app can run `node`. Paste this line into a terminal with the Codex CLI.
 
 ```sh
 codex plugin marketplace add Package-KR/CCUH --ref main && codex plugin add CCUH@CCUH
