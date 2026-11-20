@@ -18,7 +18,9 @@ Apply this guidance before selecting the initial target or observing the UI. Rec
 
 For a browser tab mention, use the official procedure to match the current browser and tab information. Keep the explicitly specified browser or profile. In native apps, verify the requested window and document in addition to the app.
 
-When the user identifies a window by state, focus, or recency, verify that qualifier through the official window metadata and confirm that the tab or document belongs to that window before opening, claiming, or reading it. For browser content, use the browser connection's window and tab metadata where available. A matching title or URL in a browser-wide list cannot verify which window the user meant. If the qualifier cannot be verified, report which part of the target is unconfirmed without returning another window's contents as the result.
+For a task inside a browser page, start with the official browser connection's window and tab metadata before observing the app or its visible contents. If that connection is unavailable, use an official app route only if it can restrict observation to the requested window or tab.
+
+When the user identifies a window by state, focus, or recency, verify that qualifier through the official window metadata and confirm that the tab or document belongs to that window before opening, claiming, or reading it. A matching title or URL in a browser-wide list cannot verify which window the user meant. If the qualifier cannot be verified, report which part of the target is unconfirmed without returning another window's contents as the result.
 
 Reuse target information from the selected official connection and the latest observation when available. Gather a fresh full list only when needed.
 
