@@ -98,15 +98,38 @@ flowchart TD
 
 ## 설치
 
-CCUH 플러그인을 설치하면 `codex-computer-use-helpers`와 `ccuh-doctor` 스킬, 자동 연동 훅이 함께 설치됩니다. macOS용 Codex 데스크톱에서 공식 Computer Use를 활성화하고 앱에서 `node`를 실행할 수 있는지 확인하세요. Codex CLI가 있는 터미널에 아래 한 줄을 붙여 넣으세요.
+CCUH 플러그인을 설치하면 `codex-computer-use-helpers`와 `ccuh-doctor` 스킬, 자동 연동 훅이 함께 설치됩니다. macOS용 Codex 데스크톱에서 공식 Computer Use를 활성화하고 앱에서 `node`를 실행할 수 있는지 확인하세요.
+
+### Codex 앱
+
+1. **설정 → 플러그인 → 추가 → 마켓플레이스 추가**를 여세요.
+2. **출처**에 `Package-KR/CCUH`, **Git ref**에 `main`을 입력하세요. **Sparse 경로**는 비워 두고 **마켓플레이스 추가**를 누르세요.
+3. **맞춤 설정 → 플러그인 → 개인용**에서 **CCUH** 옆의 **+**를 눌러 설치하세요.
+
+<details>
+<summary>설치 화면 보기</summary>
+
+![Codex 설정의 마켓플레이스 추가 메뉴](docs/images/codex-add-marketplace-menu.png)
+
+![CCUH 저장소와 main 브랜치를 입력한 마켓플레이스 추가 화면](docs/images/codex-marketplace-form.png)
+
+![개인용 탭의 CCUH 설치 버튼](docs/images/codex-install-ccuh.png)
+
+</details>
+
+### 터미널
+
+Codex CLI가 있는 터미널에 아래 한 줄을 붙여 넣으세요.
 
 ```sh
 codex plugin marketplace add Package-KR/CCUH --ref main && codex plugin add CCUH@CCUH
 ```
 
-마켓플레이스는 최신 공개 릴리스를 가리킵니다. Codex는 이 목록을 사용해 설치본을 갱신합니다. `ccuh@ccuh-preview`를 설치한 적이 있다면 Codex에서 이전 마켓플레이스를 제거한 뒤 위 명령으로 CCUH를 다시 추가하세요.
+### 설치 후
 
-설치 후 **설정 → Hooks**에서 CCUH 훅을 검토하고 신뢰한 뒤 기존 채팅에서 계속 작업하세요. 지원되는 Computer Use 호출에 CCUH가 자동으로 적용되지 않을 때만 새 채팅을 여세요.
+**설정 → Hooks**에서 CCUH 훅을 검토하고 신뢰한 뒤 기존 채팅에서 계속 작업하세요. 지원되는 Computer Use 호출에 CCUH가 자동으로 적용되지 않을 때만 새 채팅을 여세요.
+
+마켓플레이스는 최신 공개 릴리스를 가리킵니다. Codex는 이 목록을 사용해 설치본을 갱신합니다. `ccuh@ccuh-preview`를 설치한 적이 있다면 Codex에서 이전 마켓플레이스를 제거한 뒤 현재 CCUH 마켓플레이스를 추가하세요.
 
 ## 사용
 

@@ -97,15 +97,38 @@ flowchart TD
 
 ## Installation
 
-The CCUH plugin installs both `codex-computer-use-helpers` and `ccuh-doctor` along with the automatic integration hooks. On macOS, enable official Computer Use in Codex desktop and make sure the app can run `node`. Paste this line into a terminal with the Codex CLI.
+The CCUH plugin installs both `codex-computer-use-helpers` and `ccuh-doctor` along with the automatic integration hooks. On macOS, enable official Computer Use in Codex desktop and make sure the app can run `node`.
+
+### Codex app
+
+1. Open **Settings → Plugins → Add → Add a marketplace**.
+2. Enter `Package-KR/CCUH` in **Source** and `main` in **Git ref**. Leave **Sparse paths** blank and select **Add marketplace**.
+3. Open **Customize → Plugins → Personal** and click **+** next to **CCUH** to install it.
+
+<details>
+<summary>View installation screenshots</summary>
+
+![Add a marketplace in Codex settings](docs/images/codex-add-marketplace-menu.png)
+
+![Marketplace form with the CCUH repository and main branch](docs/images/codex-marketplace-form.png)
+
+![CCUH install button in the Personal tab](docs/images/codex-install-ccuh.png)
+
+</details>
+
+### Terminal
+
+Paste this line into a terminal with the Codex CLI.
 
 ```sh
 codex plugin marketplace add Package-KR/CCUH --ref main && codex plugin add CCUH@CCUH
 ```
 
-The marketplace points to the latest published CCUH release. Codex uses it to update installed copies. If you installed `ccuh@ccuh-preview`, remove the old marketplace in Codex before adding CCUH again with the command above.
+### After installation
 
-After installation, review and trust the CCUH hooks in **Settings → Hooks** and continue in your existing chat. Open a new chat only if CCUH doesn't load automatically for a supported Computer Use call.
+Review and trust the CCUH hooks in **Settings → Hooks** and continue in your existing chat. Open a new chat only if CCUH doesn't load automatically for a supported Computer Use call.
+
+The marketplace points to the latest published CCUH release. Codex uses it to update installed copies. If you installed `ccuh@ccuh-preview`, remove the old marketplace in Codex before adding the current CCUH marketplace.
 
 ## Usage
 
