@@ -98,7 +98,7 @@ flowchart TD
 
 ## 설치
 
-CCUH 플러그인을 설치하면 `codex-computer-use-helpers`와 `ccuh-doctor` 스킬, 자동 연동 훅이 함께 설치됩니다. macOS용 Codex 데스크톱에서 공식 Computer Use를 활성화하고 앱에서 `node`를 실행할 수 있는지 확인하세요.
+CCUH 플러그인을 설치하면 `codex-computer-use-helpers`와 `ccuh-doctor` 스킬, 자동 연동 훅이 함께 설치됩니다. Codex 데스크톱에서 공식 Computer Use를 활성화하고 앱에서 `node`를 실행할 수 있는지 확인하세요.
 
 ### Codex 앱
 
@@ -134,6 +134,8 @@ codex plugin marketplace add Package-KR/CCUH --ref main && codex plugin add CCUH
 ## 사용
 
 기본 모드에서는 현재 환경에서 사용자의 작업을 방해하지 않는 방법을 고릅니다. 작업 창을 보려면 요청에 “작업 중인 창도 보여줘”를 덧붙이세요. 창 표시와 백그라운드 입력 범위는 대상 앱과 Codex 환경의 지원 여부에 따릅니다.
+
+Windows에서 공식 Computer Use로 데스크톱 앱을 조작하려면 활성 데스크톱이 필요합니다. 이 방식이 사용자 작업을 방해하는 경우 CCUH가 제한을 안내합니다.
 
 ## 라이선스
 

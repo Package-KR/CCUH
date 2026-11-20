@@ -97,7 +97,7 @@ flowchart TD
 
 ## Installation
 
-The CCUH plugin installs both `codex-computer-use-helpers` and `ccuh-doctor` along with the automatic integration hooks. On macOS, enable official Computer Use in Codex desktop and make sure the app can run `node`.
+The CCUH plugin installs both `codex-computer-use-helpers` and `ccuh-doctor` along with the automatic integration hooks. Enable official Computer Use in Codex desktop and make sure the app can run `node`.
 
 ### Codex app
 
@@ -133,6 +133,8 @@ The marketplace points to the latest published CCUH release. Codex uses it to up
 ## Usage
 
 In default mode, CCUH selects a method that avoids interfering with your work in the current environment. To watch the work, add “Show me the window you're working in” to your request. Window visibility and background input depend on what the target app and Codex environment support.
+
+On Windows, official Computer Use needs the active desktop to operate desktop apps. If that would interrupt your work, CCUH reports the limitation.
 
 ## License
 
