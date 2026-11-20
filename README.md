@@ -72,7 +72,7 @@ CCUH provides two skills that help Codex confirm the target and input method for
           <summary>Errors and recovery</summary>
           <div><strong>Check the error</strong> — Use official tool errors and state to distinguish initialization, authentication, permission, connection, and target issues.</div>
           <div><strong>Recover</strong> — Codex uses supported procedures such as reconnecting within existing approvals. The user handles steps that require them, such as identity verification or granting permission.</div>
-          <div><strong>Duplicate submission example</strong> — If the response times out after clicking Submit, check whether the same page shows a successful submission. If the outcome remains unclear, do not submit again.</div>
+          <div><strong>Duplicate submission example</strong> — If a submission times out, Codex checks the receipt or submission history and holds retries while the outcome is unclear. Browser or app retries happen outside this guidance.</div>
         </details>
       </td>
     </tr>
