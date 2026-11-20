@@ -1,6 +1,6 @@
 # Execution ownership and task state
 
-`ccuh` and `ccuh-doctor` share these rules. Read them before the first UI observation or input, and reapply them when the connection, execution owner, or task state changes. Doctor can analyze an error response without accessing the UI. Apply the same prerequisites before making a new UI observation or sending input during recovery.
+`codex-computer-use-helpers` and `ccuh-doctor` share these rules. Read them before the first UI observation or input, and reapply them when the connection, execution owner, or task state changes. Doctor can analyze an error response without accessing the UI. Apply the same prerequisites before making a new UI observation or sending input during recovery.
 
 Use official tool responses and supported status checks to determine whether an operation ran. Do not add separate authentication for the execution owner, a connection manager, a global ledger, or a permanent locking mechanism.
 

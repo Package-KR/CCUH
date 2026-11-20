@@ -18,12 +18,12 @@ Use errors and diagnostic procedures from the official Computer Use tools to nar
 
 Keep the UI untouched during diagnostic analysis. If the current host restricts Doctor to read-only access, honor that restriction and hand recovery over to the supported standard workflow.
 
-Before observing or interacting with the UI, apply the selection criteria in the main [ccuh](../ccuh/SKILL.md) skill and the following guidance.
+Before observing or interacting with the UI, apply the selection criteria in the [Codex Computer Use Helpers](../codex-computer-use-helpers/SKILL.md) skill and the following guidance.
 
-- [Execution state](../ccuh/references/execution-state.md) covers who executes the work, changes in progress or with unclear outcomes, connection, and shutdown.
-- [Work target](../ccuh/references/target.md) covers the original app, window, document, or tab and the scope of the request.
-- [User work protection](../ccuh/references/user-work-protection.md) covers avoiding interference in default mode and when to show the work window in watch mode.
-- [Input target](../ccuh/references/input-target.md) covers choosing a target from the most recent observation when input is needed.
+- [Execution state](../codex-computer-use-helpers/references/execution-state.md) covers who executes the work, changes in progress or with unclear outcomes, connection, and shutdown.
+- [Work target](../codex-computer-use-helpers/references/target.md) covers the original app, window, document, or tab and the scope of the request.
+- [User work protection](../codex-computer-use-helpers/references/user-work-protection.md) covers avoiding interference in default mode and when to show the work window in watch mode.
+- [Input target](../codex-computer-use-helpers/references/input-target.md) covers choosing a target from the most recent observation when input is needed.
 
 Carry unresolved changes and existing safeguards across a new connection or handoff. Do not resend an unresolved change or clear those safeguards simply because the connection or person responsible changed. Follow the official tool's current safeguards and recovery contract.
 

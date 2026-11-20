@@ -1,9 +1,9 @@
 ---
-name: ccuh
+name: codex-computer-use-helpers
 description: Select CCUH guidance for the task when using Computer Use to observe or operate apps or browsers. Skip general questions and coding work that do not use Computer Use.
 ---
 
-# CCUH
+# Codex Computer Use Helpers
 
 Use alongside the official Computer Use skill. Follow the selection criteria below to read the relevant guidance, then use official Computer Use to carry out the user's task. Proceed without asking the user to explicitly invoke CCUH each time.
 
