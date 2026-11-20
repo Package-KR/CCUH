@@ -1,0 +1,21 @@
+name: General issue / 일반 이슈
+description: >-
+  Ask about installation, usage, or documentation, or suggest a feature.
+  설치, 사용법, 문서에 관해 문의하거나 기능을 제안합니다.
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question, feedback, or suggestion / 질문, 의견 또는 기능 제안
+      description: >-
+        For feature suggestions, describe what you want CCUH to do and why.
+        기능을 제안할 때는 원하는 동작과 필요한 이유를 알려 주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context / 관련 상황
+      description: >-
+        If relevant, include the installation step, setting, or documentation section.
+        관련된 설치 단계, 설정, 문서 항목이 있다면 알려 주세요.

@@ -1,0 +1,42 @@
+name: Bug report / 버그 신고
+description: Report unexpected behavior in CCUH. CCUH에서 발생한 오류를 신고합니다.
+title: "[Bug] "
+body:
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: What happened? / 어떤 문제가 발생했나요?
+      description: Describe the result or error message you saw. 실제 결과나 오류 메시지를 적어 주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to reproduce / 재현 절차
+      description: >-
+        Include what you asked Codex to do and which app or browser it was using.
+        Codex에 요청한 작업과 대상 앱 또는 브라우저를 알려 주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected behavior / 기대한 동작
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment / 실행 환경
+      description: Share the versions you know. 확인할 수 있는 버전을 적어 주세요.
+      placeholder: |
+        CCUH version / CCUH 버전
+        Codex app version / Codex 앱 버전
+        Operating system / 운영체제
+  - type: textarea
+    id: supporting-details
+    attributes:
+      label: Screenshots or error logs / 스크린샷 또는 오류 로그
+      description: >-
+        Remove private messages, account details, and tokens before posting.
+        공개하기 전에 채팅 내용, 계정 정보, 토큰을 가려 주세요.
